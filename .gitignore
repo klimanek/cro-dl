@@ -1,0 +1,14 @@
+
+*.pyc
+*.ipynb
+*.egg-info
+
+__pycache__/
+.env/
+.venv/
+.ipynb_checkpoints/
+htmlcov/
+dist/
+tests/test_downloads
+
+.coverage
