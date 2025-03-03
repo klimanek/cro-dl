@@ -69,7 +69,7 @@ async def download_a_series(
         print(e)
 
 
-def test_download(
+def download_example(
     message: str, test: Callable, url: str, audio_format: Optional[AudioFormat] = None
 ) -> None:
     print(
@@ -88,13 +88,13 @@ def run_tests() -> None:
     """Run all tests."""
 
     # --------------------------------- MP3 ---------------------------------
-    test_download(
+    download_example(
         "Povídka ve formátu MP3",
         download_single_novel,
         url="https://www.mujrozhlas.cz/hororove-povidky/lukas-vavrecka-kousacek-ve-starem-mlyne-za-vsi-ziji-bytosti-ktere-nemel-nikdo",
         audio_format=AudioFormat.MP3,
     )
-    # test_download(
+    # download_example(
     #     "Seriál, epizody ve formátu MP3",
     #     download_a_series,
     #     url="https://www.mujrozhlas.cz/lyzak/lyzak-poslechnete-si-hororovy-podcast-s-mrazivym-jirim-labusem-prostorovym-zvukem",
@@ -105,7 +105,7 @@ def run_tests() -> None:
     # Shows broadcasted in streams (HSL, DASH) are usually time-limited. In case they are not available at the time of testing,
     # try some newer show.
 
-    test_download(
+    download_example(
         "Seriál ve formátu streamu HLS",
         download_a_series,
         url="https://www.mujrozhlas.cz/povidka/cerny-kocour-jama-kyvadlo-dve-povidky-mistra-hororu-edgara-allana-poea",
@@ -113,7 +113,7 @@ def run_tests() -> None:
     )
 
     # --------------------------------- DASH ---------------------------------
-    test_download(
+    download_example(
         "Povídka ve formátu streamu DASH",
         download_single_novel,
         url="https://www.mujrozhlas.cz/setkani-s-literaturou/montague-rhodes-james-album-kanovnika-alberika-straslivy-pribeh-o-setkani-s",
