@@ -21,10 +21,14 @@ repos:
         types: [python]
         pass_filenames: true
 
-  - repo: https://github.com/pytest-dev/pytest
-    rev: v8.3.5
+  - repo: local
     hooks:
       - id: pytest
+        name: pytest
+        entry: uv run pytest tests
+        pass_filenames: false
+        language: system
+        types: [python]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
