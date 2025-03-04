@@ -175,7 +175,7 @@ def parse_date_from_json(json_time: str) -> tuple[str, str] | None:
     return (dt.strftime("%d.%m.%Y"), dt.strftime("%H:%M")) if dt else None
 
 
-def create_a_file_if_not_exists(path: Path, msg: Optional[str] = "") -> None:
+def create_a_file_if_does_not_exist(path: Path, msg: Optional[str] = "") -> None:
     """Creates an empty file if it does not exist"""
     if not os.path.exists(path):
         crologger.info("Creatiung %s", path)

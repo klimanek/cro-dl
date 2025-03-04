@@ -57,7 +57,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         print(f"Celkový počet dílů: {audiowork.episodes.count}")
 
         if audiowork.are_all_parts_downloaded():
-            print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")
+            print("[bold yellow]Pořad byl již celý stažen.[/bold yellow]")
             sys.exit(0)
 
     elif is_series(recording_url, cro_session):
