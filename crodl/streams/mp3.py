@@ -31,7 +31,7 @@ class MP3(AudioParts):
 
             with Progress() as progress:
                 task = progress.add_task(
-                    shorten_title(self.audio_title), total=total_length
+                    shorten_title(self.audio_title, 20), total=total_length
                 )
 
                 audio_full_path = (

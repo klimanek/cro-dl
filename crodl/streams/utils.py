@@ -218,10 +218,10 @@ def unfinished_series() -> list[str]:
     return series
 
 
-def shorten_title(title: str) -> str:
+def shorten_title(title: str, length_limit: int) -> str:
     """Shortens the title if it is too long for console."""
-    if len(title) > 20:
-        return title[:17] + "..."
+    if len(title) > length_limit:
+        return title[: length_limit - 3] + "..."
     return title
 
 
