@@ -106,7 +106,7 @@ class AudioWork:
 
     @property
     def audio_formats_urls(self) -> dict[str | None, str | None]:
-        """URLs to various audio formats"""
+        """URLs of various audio formats"""
         if self.audio_links and isinstance(self.audio_links, list):
             return {link.get("variant"): link.get("url") for link in self.audio_links}
         return {}
