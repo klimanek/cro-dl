@@ -33,7 +33,7 @@ def get_m4a_url(audio_link: str) -> str:
 
 
 def partial_sums(nlist: list[int]) -> list[int]:
-    """Returns a list of partial sums of input list elements.
+    """Returns a partial sums list of input list elements.
 
     Example:
         numbers = [6, 5, 6, 5, 6, 3],
@@ -85,7 +85,7 @@ def audio_segment_sort(filename) -> int | float:
 
 
 def simplify_audio_name(manifest_id: str, audio_name: str) -> str:
-    """Renames complicated names by CRo
+    """Renames complicated names by CRo.
 
     Example:
         segment_ctaudio_ridp0aa0br193031_cs80640000_mpd.m4s

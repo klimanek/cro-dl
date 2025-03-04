@@ -13,7 +13,7 @@ from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
 
 
 def is_domain_supported(url: str) -> bool:
-    """Checks wheter the URL with hidden audio contains a supported domain."""
+    """Checks whether the website with 'hidden' audio lies in a supported domain."""
     domain = urlparse(url).netloc
 
     if not domain:
