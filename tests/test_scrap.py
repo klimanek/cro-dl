@@ -171,8 +171,8 @@ class TestGetAttributes(unittest.TestCase):
         mock_response.json.return_value = {"data": {}}
         mock_get.return_value = mock_response
 
-        with self.assertRaises(KeyError):
-            get_attributes("12345", Session())
+        result = get_attributes("12345", Session())
+        self.assertEqual(result, {})
 
 
 class TestGetAudioLinkOfPreferredFormat(unittest.TestCase):

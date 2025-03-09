@@ -10,7 +10,7 @@ from crodl.streams.utils import (
     HMS,
     file_size,
     get_preferred_audio_format,
-    not_available_anymore,
+    not_available_yet,
     process_audiowork_title,
     create_dir_if_does_not_exist,
     remove_html_tags,
@@ -85,9 +85,8 @@ class AudioWork:
         crologger.error(self.title)
         crologger.error(err)
 
-        not_anymore = not_available_anymore(self)
-        print(not_anymore)
-        crologger.info(not_anymore)
+        not_yet = not_available_yet(self)
+        print(not_yet)
 
         return None
 

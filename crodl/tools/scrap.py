@@ -13,7 +13,6 @@ from crodl.exceptions import (
     DataEntryDoesNotExist,
     AudioUUIDDoesNotExist,
     ShowUUIDDoesNotExist,
-    DataNotFound,
 )
 
 cro_session = Session()
@@ -109,9 +108,10 @@ def get_attributes(uuid: str, session: Session) -> dict:
         crologger.error(err_msg)
         raise AttributeError(err_msg)
     if not response.json().get("data"):
-        err_msg = "Data is empty, cannot find 'attributes'"
+        err_msg = "Data is empty, cannot find 'attributes' (uuid: %s)" % uuid
         crologger.error(err_msg)
-        raise DataNotFound(err_msg)
+
+        return {}
 
     return response.json().get("data").get("attributes")
 

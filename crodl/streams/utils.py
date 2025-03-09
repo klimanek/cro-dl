@@ -189,15 +189,18 @@ def create_a_file_if_does_not_exist(path: Path, msg: Optional[str] = "") -> None
             raise err
 
 
-def not_available_anymore(audiowork: "AudioWork") -> str:
-    msg = "Nemohu najít datum a čas dostupnosti díla."
+def not_available_yet(audiowork: "AudioWork") -> str:
+    msg = "Datum a čas dostupnosti díla nebyl nalezen."
+    err_msg = "Cannot find the release date and time. Data missing."
 
     if not audiowork.since:
+        crologger.error(err_msg)
         return msg
 
     parsed_since = parse_date_from_json(audiowork.since)
 
     if not parsed_since:
+        crologger.error(err_msg)
         return msg
 
     since = datetime.datetime.fromisoformat(audiowork.since)
@@ -206,6 +209,11 @@ def not_available_anymore(audiowork: "AudioWork") -> str:
     if now < since:
         msg = f"Epizoda bude uvedena {parsed_since[0]} v {parsed_since[1]}."
         # create_a_file_if_not_exists(audiowork.audiowork_root + "/.series")
+    else:
+        crologger.info(
+            f"Aired: {parsed_since[0]} at {parsed_since[1]}. Copryright license might have expired."
+        )
+        msg = f"Epizoda byla uvedena {parsed_since[0]} v {parsed_since[1]}. Možná vypršela práva."
 
     return msg
 
