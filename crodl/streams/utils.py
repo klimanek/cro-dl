@@ -33,7 +33,7 @@ def get_m4a_url(audio_link: str) -> str:
 
 
 def partial_sums(nlist: list[int]) -> list[int]:
-    """Returns a list of partial sums of input list elements.
+    """Returns a partial sums list of input list elements.
 
     Example:
         numbers = [6, 5, 6, 5, 6, 3],
@@ -85,7 +85,7 @@ def audio_segment_sort(filename) -> int | float:
 
 
 def simplify_audio_name(manifest_id: str, audio_name: str) -> str:
-    """Renames complicated names by CRo
+    """Renames complicated names by CRo.
 
     Example:
         segment_ctaudio_ridp0aa0br193031_cs80640000_mpd.m4s
@@ -175,7 +175,7 @@ def parse_date_from_json(json_time: str) -> tuple[str, str] | None:
     return (dt.strftime("%d.%m.%Y"), dt.strftime("%H:%M")) if dt else None
 
 
-def create_a_file_if_not_exists(path: Path, msg: Optional[str] = "") -> None:
+def create_a_file_if_does_not_exist(path: Path, msg: Optional[str] = "") -> None:
     """Creates an empty file if it does not exist"""
     if not os.path.exists(path):
         crologger.info("Creatiung %s", path)
@@ -189,15 +189,18 @@ def create_a_file_if_not_exists(path: Path, msg: Optional[str] = "") -> None:
             raise err
 
 
-def not_available_anymore(audiowork: "AudioWork") -> str:
-    msg = "Nemohu najít datum a čas dostupnosti díla."
+def not_available_yet(audiowork: "AudioWork") -> str:
+    msg = "Datum a čas dostupnosti díla nebyl nalezen."
+    err_msg = "Cannot find the release date and time. Data missing."
 
     if not audiowork.since:
+        crologger.error(err_msg)
         return msg
 
     parsed_since = parse_date_from_json(audiowork.since)
 
     if not parsed_since:
+        crologger.error(err_msg)
         return msg
 
     since = datetime.datetime.fromisoformat(audiowork.since)
@@ -206,6 +209,11 @@ def not_available_anymore(audiowork: "AudioWork") -> str:
     if now < since:
         msg = f"Epizoda bude uvedena {parsed_since[0]} v {parsed_since[1]}."
         # create_a_file_if_not_exists(audiowork.audiowork_root + "/.series")
+    else:
+        crologger.info(
+            f"Aired: {parsed_since[0]} at {parsed_since[1]}. Copryright license might have expired."
+        )
+        msg = f"Epizoda byla uvedena {parsed_since[0]} v {parsed_since[1]}. Možná vypršela práva."
 
     return msg
 
@@ -218,10 +226,10 @@ def unfinished_series() -> list[str]:
     return series
 
 
-def shorten_title(title: str) -> str:
+def shorten_title(title: str, length_limit: int) -> str:
     """Shortens the title if it is too long for console."""
-    if len(title) > 20:
-        return title[:17] + "..."
+    if len(title) > length_limit:
+        return title[: length_limit - 3] + "..."
     return title
 
 

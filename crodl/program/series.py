@@ -21,7 +21,7 @@ from crodl.tools.scrap import (
 from crodl.tools.logger import crologger
 from crodl.program.audiowork import AudioWork
 from crodl.streams.utils import (
-    create_a_file_if_not_exists,
+    create_a_file_if_does_not_exist,
     process_audiowork_title,
     create_dir_if_does_not_exist,
 )
@@ -167,7 +167,7 @@ class Series(Content):
             raise ValueError("Download dir is not set!")
 
         create_dir_if_does_not_exist(self.download_dir)
-        create_a_file_if_not_exists(self.download_dir / ".series")
+        create_a_file_if_does_not_exist(self.download_dir / ".series")
 
         for episode in self.list_all_series_episodes():
             download_to = self.download_dir

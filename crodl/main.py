@@ -13,7 +13,7 @@ from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
 
 
 def is_domain_supported(url: str) -> bool:
-    """Checks wheter the URL with hidden audio contains a supported domain."""
+    """Checks whether the website with 'hidden' audio lies in a supported domain."""
     domain = urlparse(url).netloc
 
     if not domain:
@@ -57,7 +57,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         print(f"Celkový počet dílů: {audiowork.episodes.count}")
 
         if audiowork.are_all_parts_downloaded():
-            print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")
+            print("[bold yellow]Pořad byl již celý stažen.[/bold yellow]")
             sys.exit(0)
 
     elif is_series(recording_url, cro_session):
