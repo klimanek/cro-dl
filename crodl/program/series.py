@@ -164,7 +164,8 @@ class Series(Content):
 
         return all_parts
 
-    def are_all_parts_downloaded(self) -> bool:
+    @property
+    def downloaded_parts(self) -> int:
         crologger.info("Checking whether the series has been downloaded already...")
         if not self.download_dir:
             raise ValueError("Download dir is not set!")
@@ -179,10 +180,10 @@ class Series(Content):
         crologger.info("Parts downloaded: %s", downloaded_parts)
         crologger.info("Total parts: %s", self.parts)
 
-        return downloaded_parts == self.parts
+        return downloaded_parts
 
     def already_exists(self) -> bool:
-        return self.are_all_parts_downloaded()
+        return self.downloaded_parts == self.parts
 
     async def download(
         self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT

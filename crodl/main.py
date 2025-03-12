@@ -56,7 +56,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
         print(f"Celkový počet dílů: {audiowork.episodes.count}")
 
-        if audiowork.are_all_parts_downloaded():
+        if audiowork.already_exists():
             print("[bold yellow]Pořad byl již celý stažen.[/bold yellow]")
             sys.exit(0)
 
@@ -67,7 +67,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         print(f"[blue]{audiowork.description}[/blue]\n")
         print(f"Celkový počet dílů: {audiowork.parts}")
 
-        if audiowork.are_all_parts_downloaded():
+        if audiowork.already_exists():
             print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")
             sys.exit(0)
     else:
