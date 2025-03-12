@@ -24,6 +24,7 @@ from crodl.streams.utils import (
     create_a_file_if_does_not_exist,
     process_audiowork_title,
     create_dir_if_does_not_exist,
+    remove_html_tags,
 )
 
 
@@ -66,6 +67,13 @@ class Series(Content):
 
     def __repr__(self) -> str:
         return f"<Series: {self.title}>"
+
+    @property
+    def description(self) -> str | None:
+        if self._attrs.get("description"):
+            html_description = self._attrs.get("description")
+            return remove_html_tags(html_description)
+        return None
 
     @property
     def is_playable(self) -> bool:

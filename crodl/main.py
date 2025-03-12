@@ -64,6 +64,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         series = True
         audiowork = Series(url=recording_url)
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
+        print(f"[blue]{audiowork.description}[/blue]\n")
         print(f"Celkový počet dílů: {audiowork.parts}")
 
         if audiowork.are_all_parts_downloaded():
