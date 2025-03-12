@@ -31,9 +31,6 @@ from crodl.streams.utils import (
 @dataclass
 class Series(Content):
     id: str = field(init=False)
-    json: dict = field(init=False)
-    _attrs: dict = field(init=False)
-    parts: int = field(init=False)
     download_dir: Optional[Path] = field(default=None)
 
     def __post_init__(self):
@@ -43,7 +40,13 @@ class Series(Content):
         self.id = get_series_id(self.url, cro_session)  # type: ignore
         self.json = cro_session.get(f"{API_SERVER}/serials/{self.id}", timeout=5).json()
 
+        if not self.json:
+            crologger.error("Got an empty response. Series might not be available.")
+            print("Seriál není dostupný. Zkuste akci opakovat později.")
+            sys.exit(0)
+
         self._attrs = self.json["data"]["attributes"]
+
         self.title = self._attrs["title"]
         self.parts = int(self._attrs["totalParts"])
 
@@ -54,7 +57,7 @@ class Series(Content):
         if not self.is_playable:
             msg = f"Series {self.title} is not available."
             crologger.error(msg)
-            print("Seriál není dostupný")
+            print("Seriál není dostupný.")
             sys.exit(0)
 
         if not self.download_dir:
@@ -70,14 +73,24 @@ class Series(Content):
 
     @property
     def description(self) -> str | None:
+        """
+        A property method that returns the description of the series.
+        """
+
+        if not self._attrs:
+            return None
+
         if self._attrs.get("description"):
-            html_description = self._attrs.get("description")
-            return remove_html_tags(html_description)
+            # Remove HTML tags and return the description
+            return remove_html_tags(self._attrs.get("description"))
         return None
 
     @property
     def is_playable(self) -> bool:
-        return self._attrs.get("playable") is True
+        if self._attrs:
+            return self._attrs.get("playable") is True
+
+        return False
 
     @property
     def _episodes_url(self) -> str:
