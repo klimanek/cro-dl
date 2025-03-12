@@ -30,7 +30,7 @@ from crodl.streams.utils import (
 @dataclass
 class Series(Content):
     id: str = field(init=False)
-    all_data: dict = field(init=False)
+    json: dict = field(init=False)
     _attrs: dict = field(init=False)
     parts: int = field(init=False)
     download_dir: Optional[Path] = field(default=None)
@@ -40,11 +40,9 @@ class Series(Content):
         Method initializes various attributes of the object if they are not already set.
         """
         self.id = get_series_id(self.url, cro_session)  # type: ignore
-        self.all_data = cro_session.get(
-            f"{API_SERVER}/serials/{self.id}", timeout=5
-        ).json()
+        self.json = cro_session.get(f"{API_SERVER}/serials/{self.id}", timeout=5).json()
 
-        self._attrs = self.all_data["data"]["attributes"]
+        self._attrs = self.json["data"]["attributes"]
         self.title = self._attrs["title"]
         self.parts = int(self._attrs["totalParts"])
 
@@ -63,6 +61,12 @@ class Series(Content):
                 DOWNLOAD_PATH / "Seriály" / process_audiowork_title(self.title)
             )
 
+    def __str__(self) -> str:
+        return f"<Series: {self.title}>"
+
+    def __repr__(self) -> str:
+        return f"<Series: {self.title}>"
+
     @property
     def is_playable(self) -> bool:
         return self._attrs.get("playable") is True
@@ -74,7 +78,7 @@ class Series(Content):
         Return type: str
         """
         return (
-            self.all_data.get("data")
+            self.json.get("data")
             .get("relationships")  # type: ignore
             .get("episodes")
             .get("links")
