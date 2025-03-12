@@ -38,6 +38,7 @@ cro-dl = "crodl.run:run"
 
 [dependency-groups]
 dev = [
+    "marimo>=0.11.17",
     "pre-commit>=4.1.0",
     "pyright>=1.1.394",
     "pytest<9.0.0,>=8.3.3",
