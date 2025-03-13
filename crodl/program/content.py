@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Content(ABC):
     url: str
+    uuid: str = field(init=False)
     title: str = field(init=False)
 
     @abstractmethod
