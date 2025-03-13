@@ -34,7 +34,7 @@ class Attributes:
 @dataclass
 class Data:
     type: str
-    id: str
+    uuid: str
     attributes: Attributes
 
 
@@ -132,11 +132,12 @@ class Show(Content):
 
         data = Data(
             type=json_data["data"]["type"],
-            id=json_data["data"]["id"],
+            uuid=json_data["data"]["id"],
             attributes=attributes,
         )
 
         self.title = json_data["data"]["attributes"]["title"]
+        self.uuid = json_data["data"]["id"]
         self.api_url = show_api_url
         self.data = data
         self.episodes = Episodes(show_id)
