@@ -30,15 +30,16 @@ from crodl.streams.utils import (
 
 @dataclass
 class Series(Content):
-    id: str = field(init=False)
     download_dir: Optional[Path] = field(default=None)
 
     def __post_init__(self):
         """
         Method initializes various attributes of the object if they are not already set.
         """
-        self.id = get_series_id(self.url, cro_session)  # type: ignore
-        self.json = cro_session.get(f"{API_SERVER}/serials/{self.id}", timeout=5).json()
+        self.uuid = get_series_id(self.url, cro_session)  # type: ignore
+        self.json = cro_session.get(
+            f"{API_SERVER}/serials/{self.uuid}", timeout=5
+        ).json()
 
         if not self.json:
             crologger.error("Got an empty response. Series might not be available.")
@@ -51,7 +52,7 @@ class Series(Content):
         self.parts = int(self._attrs["totalParts"])
 
         crologger.info("Opening series %s", self.title)
-        crologger.info("Series ID : %s", self.id)
+        crologger.info("Series ID : %s", self.uuid)
         crologger.info("Episodes: %s", self.parts)
 
         if not self.is_playable:
@@ -166,7 +167,7 @@ class Series(Content):
 
     @property
     def downloaded_parts(self) -> int:
-        crologger.info("Checking whether the series has been downloaded already...")
+        """Returns the number of already downloaded parts."""
         if not self.download_dir:
             raise ValueError("Download dir is not set!")
         if not os.path.isdir(self.download_dir):
@@ -183,6 +184,7 @@ class Series(Content):
         return downloaded_parts
 
     def already_exists(self) -> bool:
+        crologger.info("Checking whether the series has been downloaded already...")
         return self.downloaded_parts == self.parts
 
     async def download(
