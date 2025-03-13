@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(init=False)
 class Content(ABC):
     url: str
     uuid: str = field(init=False)
