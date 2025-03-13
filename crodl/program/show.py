@@ -111,9 +111,6 @@ class Show(Content):
         https://api.mujrozhlas.cz/shows/1a9044a7-18a2-32fe-870a-32ec9bf33c74/episodes
     """
 
-    api_url: str = field(init=False)
-    data: Data = field(init=False)
-    episodes: Episodes = field(init=False)
     download_dir: Path = field(init=False)
 
     def __post_init__(self):
