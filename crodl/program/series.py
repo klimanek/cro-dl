@@ -35,7 +35,7 @@ class Series(Content):
 
     def __post_init__(self):
         """
-        Method initializes various attributes of the object if they are not already set.
+        A method that is called after the class is initialized.
         """
         self.uuid = get_series_id(self.url, cro_session)  # type: ignore
         self.json = cro_session.get(
