@@ -145,7 +145,8 @@ class Show(Content):
         self.episodes = Episodes(show_id)
         self.download_dir = DOWNLOAD_PATH / self.title
 
-    def are_all_parts_downloaded(self) -> bool:
+    @property
+    def downloaded_parts(self) -> int:
         crologger.info("Checking whether the show has been already downloaded...")
         if not os.path.isdir(self.download_dir):
             return False
@@ -159,10 +160,10 @@ class Show(Content):
         crologger.info("Parts downloaded: %s", downloaded_parts)
         crologger.info("Total parts: %s", self.episodes.count)
 
-        return downloaded_parts == self.episodes.count
+        return downloaded_parts
 
     def already_exists(self) -> bool:
-        return self.are_all_parts_downloaded()
+        return self.downloaded_parts == self.episodes.count
 
     async def download(
         self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT

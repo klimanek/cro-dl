@@ -24,15 +24,13 @@ from crodl.streams.utils import (
     create_a_file_if_does_not_exist,
     process_audiowork_title,
     create_dir_if_does_not_exist,
+    remove_html_tags,
 )
 
 
 @dataclass
 class Series(Content):
     id: str = field(init=False)
-    all_data: dict = field(init=False)
-    _attrs: dict = field(init=False)
-    parts: int = field(init=False)
     download_dir: Optional[Path] = field(default=None)
 
     def __post_init__(self):
@@ -40,11 +38,15 @@ class Series(Content):
         Method initializes various attributes of the object if they are not already set.
         """
         self.id = get_series_id(self.url, cro_session)  # type: ignore
-        self.all_data = cro_session.get(
-            f"{API_SERVER}/serials/{self.id}", timeout=5
-        ).json()
+        self.json = cro_session.get(f"{API_SERVER}/serials/{self.id}", timeout=5).json()
 
-        self._attrs = self.all_data["data"]["attributes"]
+        if not self.json:
+            crologger.error("Got an empty response. Series might not be available.")
+            print("Seriál není dostupný. Zkuste akci opakovat později.")
+            sys.exit(0)
+
+        self._attrs = self.json["data"]["attributes"]
+
         self.title = self._attrs["title"]
         self.parts = int(self._attrs["totalParts"])
 
@@ -55,7 +57,7 @@ class Series(Content):
         if not self.is_playable:
             msg = f"Series {self.title} is not available."
             crologger.error(msg)
-            print("Seriál není dostupný")
+            print("Seriál není dostupný.")
             sys.exit(0)
 
         if not self.download_dir:
@@ -63,9 +65,32 @@ class Series(Content):
                 DOWNLOAD_PATH / "Seriály" / process_audiowork_title(self.title)
             )
 
+    def __str__(self) -> str:
+        return f"<Series: {self.title}>"
+
+    def __repr__(self) -> str:
+        return f"<Series: {self.title}>"
+
+    @property
+    def description(self) -> str | None:
+        """
+        A property method that returns the description of the series.
+        """
+
+        if not self._attrs:
+            return None
+
+        if self._attrs.get("description"):
+            # Remove HTML tags and return the description
+            return remove_html_tags(self._attrs.get("description"))
+        return None
+
     @property
     def is_playable(self) -> bool:
-        return self._attrs.get("playable") is True
+        if self._attrs:
+            return self._attrs.get("playable") is True
+
+        return False
 
     @property
     def _episodes_url(self) -> str:
@@ -74,7 +99,7 @@ class Series(Content):
         Return type: str
         """
         return (
-            self.all_data.get("data")
+            self.json.get("data")
             .get("relationships")  # type: ignore
             .get("episodes")
             .get("links")
@@ -139,7 +164,8 @@ class Series(Content):
 
         return all_parts
 
-    def are_all_parts_downloaded(self) -> bool:
+    @property
+    def downloaded_parts(self) -> int:
         crologger.info("Checking whether the series has been downloaded already...")
         if not self.download_dir:
             raise ValueError("Download dir is not set!")
@@ -154,10 +180,10 @@ class Series(Content):
         crologger.info("Parts downloaded: %s", downloaded_parts)
         crologger.info("Total parts: %s", self.parts)
 
-        return downloaded_parts == self.parts
+        return downloaded_parts
 
     def already_exists(self) -> bool:
-        return self.are_all_parts_downloaded()
+        return self.downloaded_parts == self.parts
 
     async def download(
         self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
