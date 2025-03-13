@@ -5,6 +5,7 @@ HOME_DIR = Path.home()
 DOWNLOAD_DIR = "Z Rozhlasu"
 SEGMENTS_SUBDIR = ".chunks"
 DOWNLOAD_PATH = HOME_DIR / DOWNLOAD_DIR
+SERIES_DOWNLOAD_DIR = "Seriály"
 LOG_PATH = DOWNLOAD_PATH / "logs"
 SUPPORTED_DOMAINS = ("www.mujrozhlas.cz", "mujrozhlas.cz")
 SUPPORTED_AUDIO_FORMATS = ("aac", "m4a")

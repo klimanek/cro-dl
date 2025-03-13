@@ -11,6 +11,7 @@ from crodl.settings import (
     DOWNLOAD_PATH,
     API_SERVER,
     PREFERRED_AUDIO_FORMAT,
+    SERIES_DOWNLOAD_DIR,
     AudioFormat,
 )
 from crodl.tools.scrap import (
@@ -63,7 +64,9 @@ class Series(Content):
 
         if not self.download_dir:
             self.download_dir = (
-                DOWNLOAD_PATH / "Seriály" / process_audiowork_title(self.title)
+                DOWNLOAD_PATH
+                / SERIES_DOWNLOAD_DIR
+                / process_audiowork_title(self.title)
             )
 
     def __str__(self) -> str:
