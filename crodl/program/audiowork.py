@@ -37,17 +37,17 @@ class AudioWork:
         title = kwargs.pop("title", None)
         audiowork_dir = kwargs.pop("audiowork_dir", None)
         audiowork_root = kwargs.pop("audiowork_root", None)
-        _since = kwargs.pop("since", "")
+        since = kwargs.pop("since", "")
 
         if url and uuid:
-            _err_msg = "Audio cannot be defined by both url and uuid!"
-            crologger.error(_err_msg)
-            raise ValueError(_err_msg)
+            err_msg = "Audio cannot be defined by both url and uuid!"
+            crologger.error(err_msg)
+            raise ValueError(err_msg)
 
         if not url and not uuid:
-            _err_msg = "Audio must be defined by either url or uuid!"
-            crologger.error(_err_msg)
-            raise ValueError(_err_msg)
+            err_msg = "Audio must be defined by either url or uuid!"
+            crologger.error(err_msg)
+            raise ValueError(err_msg)
 
         self.url = url
         self.uuid = uuid if uuid else get_audio_uuid(self.url, cro_session)
@@ -71,7 +71,7 @@ class AudioWork:
         self.series: bool = kwargs.pop("series", False)
         self.show: bool = kwargs.pop("show", False)
 
-        self.since = _since if _since else self._attrs["since"]
+        self.since = since if since else self._attrs["since"]
 
     @property
     def audio_links(self) -> list[dict] | None:
@@ -113,11 +113,11 @@ class AudioWork:
     def info(self):
         """Some basic info on the file being downloaded."""
         attrs = self._attrs
-        _description = attrs.get("description")
-        _audio_links = attrs["audioLinks"]
+        description = attrs.get("description")
+        audio_links = attrs["audioLinks"]
 
         print(f"\n[bold yellow]{self.title}[/bold yellow]")
-        for alink in _audio_links:
+        for alink in audio_links:
             bitrate = alink["bitrate"]
             duration = alink["duration"]
             size = alink.get("sizeInBytes", "Stream")
@@ -127,7 +127,7 @@ class AudioWork:
                 f"+++ {HMS(duration)} +++ {file_size(size)} +++ {bitrate} kbps +++ {variant}"
             )
 
-        print(f"\n[blue]{remove_html_tags(_description)}[/blue]\n")
+        print(f"\n[blue]{remove_html_tags(description)}[/blue]\n")
 
     def already_exists(self) -> bool:  # pragma: no cover
         """Checks whether the audiowork already exists in the download directory."""
