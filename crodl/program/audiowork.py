@@ -123,9 +123,7 @@ class AudioWork:
             size = alink.get("sizeInBytes", "Stream")
             variant = alink["variant"]
 
-            print(
-                f"+++ {HMS(duration)} +++ {file_size(size)} +++ {bitrate} kbps +++ {variant}"
-            )
+            print(f"- {HMS(duration)} - {file_size(size)} - {bitrate} kbps - {variant}")
 
         print(f"\n[blue]{remove_html_tags(description)}[/blue]\n")
 
