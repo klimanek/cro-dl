@@ -110,10 +110,19 @@ class AudioWork:
             return {link.get("variant"): link.get("url") for link in self.audio_links}
         return {}
 
+    @property
+    def description(self) -> str | None:
+        if not self._attrs:
+            return None
+
+        if self._attrs.get("description"):
+            # Remove HTML tags and return the description
+            return remove_html_tags(self._attrs.get("description"))
+        return None
+
     def info(self):
         """Some basic info on the file being downloaded."""
         attrs = self._attrs
-        description = attrs.get("description")
         audio_links = attrs["audioLinks"]
 
         print(f"\n[bold yellow]{self.title}[/bold yellow]")
@@ -125,7 +134,7 @@ class AudioWork:
 
             print(f"- {HMS(duration)} - {file_size(size)} - {bitrate} kbps - {variant}")
 
-        print(f"\n[blue]{remove_html_tags(description)}[/blue]\n")
+        print(f"\n[blue]{self.description}[/blue]\n")
 
     def already_exists(self) -> bool:  # pragma: no cover
         """Checks whether the audiowork already exists in the download directory."""
