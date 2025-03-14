@@ -32,39 +32,39 @@ class AudioWork:
     """
 
     def __init__(self, **kwargs) -> None:
-        _url = kwargs.pop("url", None)
-        _uuid = kwargs.pop("uuid", None)
-        _title = kwargs.pop("title", None)
-        _audiowork_dir = kwargs.pop("audiowork_dir", None)
-        _audiowork_root = kwargs.pop("audiowork_root", None)
+        url = kwargs.pop("url", None)
+        uuid = kwargs.pop("uuid", None)
+        title = kwargs.pop("title", None)
+        audiowork_dir = kwargs.pop("audiowork_dir", None)
+        audiowork_root = kwargs.pop("audiowork_root", None)
         _since = kwargs.pop("since", "")
 
-        if _url and _uuid:
+        if url and uuid:
             _err_msg = "Audio cannot be defined by both url and uuid!"
             crologger.error(_err_msg)
             raise ValueError(_err_msg)
 
-        if not _url and not _uuid:
+        if not url and not uuid:
             _err_msg = "Audio must be defined by either url or uuid!"
             crologger.error(_err_msg)
             raise ValueError(_err_msg)
 
-        self.url = _url
-        self.uuid = _uuid if _uuid else get_audio_uuid(self.url, cro_session)
+        self.url = url
+        self.uuid = uuid if uuid else get_audio_uuid(self.url, cro_session)
         self._attrs = get_attributes(self.uuid, cro_session)
 
-        if not _title:
+        if not title:
             self.title = self._attrs.get("title", "Unknown")
         else:
-            self.title = _title
+            self.title = title
 
-        if _audiowork_dir:
-            self.audiowork_dir = _audiowork_dir
+        if audiowork_dir:
+            self.audiowork_dir = audiowork_dir
         else:
             self.audiowork_dir = DOWNLOAD_PATH / process_audiowork_title(self.title)
 
-        if _audiowork_root:
-            self.audiowork_root = _audiowork_root
+        if audiowork_root:
+            self.audiowork_root = audiowork_root
         else:
             self.audiowork_root = self.audiowork_dir
 
