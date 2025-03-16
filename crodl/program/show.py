@@ -138,6 +138,7 @@ class Show(Content):
 
         self.title = json_data["data"]["attributes"]["title"]
         self.uuid = json_data["data"]["id"]
+        self.json = json_data
         self.api_url = show_api_url
         self.data = data
         self.episodes = Episodes(show_id)
