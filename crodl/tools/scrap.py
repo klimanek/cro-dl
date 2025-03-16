@@ -99,21 +99,35 @@ def get_show_uuid(site_url: str, session: Session) -> str:
     return uuid
 
 
-def get_attributes(uuid: str, session: Session) -> dict:
+def get_json(uuid: str, session: Session) -> dict:
     """Returns the attributes of the episode with the given UUID."""
     response = session.get(API_SERVER + "/episodes/" + uuid, timeout=5)
 
     if not response.json():
-        err_msg = "API server sent an empty answer. Attributes are not known."
+        err_msg = "API server sent an empty answer."
         crologger.error(err_msg)
         raise AttributeError(err_msg)
     if not response.json().get("data"):
-        err_msg = "Data is empty, cannot find 'attributes' (uuid: %s)" % uuid
+        err_msg = "Data are empty' (uuid: %s)." % uuid
         crologger.error(err_msg)
 
         return {}
 
-    return response.json().get("data").get("attributes")
+    return response.json()
+
+
+def get_attributes(uuid: str, session: Session) -> dict:
+    """Returns the json resp. on the episode with the given UUID."""
+    json = get_json(uuid, session)
+
+    try:
+        attrs = json["data"]["attributes"]
+    except KeyError:
+        err_msg = "Data are empty' (uuid: %s)." % uuid
+        crologger.error(err_msg)
+        attrs = {}
+
+    return attrs if attrs else {}
 
 
 def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
