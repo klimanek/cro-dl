@@ -16,7 +16,7 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
-from crodl.tools.scrap import cro_session, get_attributes, get_audio_uuid
+from crodl.tools.scrap import cro_session, get_attributes, get_audio_uuid, get_json
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 
 
@@ -51,6 +51,7 @@ class AudioWork:
 
         self.url = url
         self.uuid = uuid if uuid else get_audio_uuid(self.url, cro_session)
+        self.json = get_json(self.uuid, cro_session)
         self._attrs = get_attributes(self.uuid, cro_session)
 
         if not title:
