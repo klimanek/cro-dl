@@ -15,6 +15,8 @@ from crodl.streams.dash import (
     segments_urls,
 )
 
+from crodl.settings import TIMEOUT
+
 
 class TestGetM4sSegmentUrl(unittest.TestCase):
     def test_init_segment_url(self):
@@ -148,7 +150,7 @@ class TestManifest(unittest.TestCase):
         manifest._get_manifest()  # pylint: disable=protected-access
 
         mock_get.assert_called_once_with(
-            "https://example.com/test.mp4/manifest.mpd", timeout=5
+            "https://example.com/test.mp4/manifest.mpd", timeout=TIMEOUT
         )
         with open(f"{manifest.segments_path}/manifest.mpd", "rb") as f:
             content = f.read()

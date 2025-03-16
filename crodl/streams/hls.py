@@ -10,6 +10,8 @@ from crodl.streams.utils import get_m4a_url, process_audiowork_title
 from crodl.streams.audioparts import AudioParts
 from crodl.streams.download import download_parts
 
+from crodl.settings import TIMEOUT
+
 
 @dataclass
 class HLS(AudioParts):
@@ -30,7 +32,7 @@ class HLS(AudioParts):
 
         mp4_url = get_m4a_url(self.url)
         chunklist_url = mp4_url + "/chunklist.m3u8"
-        chunklist = cro_session.get(chunklist_url, timeout=5)
+        chunklist = cro_session.get(chunklist_url, timeout=TIMEOUT)
         chunklist.raise_for_status()
 
         crologger.info("mp4 URL: %s", mp4_url)

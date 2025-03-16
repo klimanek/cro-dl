@@ -23,3 +23,4 @@ class AudioFormat(Enum):
 PREFERRED_AUDIO_FORMAT = AudioFormat.MP3
 
 API_SERVER = "https://api.mujrozhlas.cz/"
+TIMEOUT = 10
