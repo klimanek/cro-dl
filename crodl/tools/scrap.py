@@ -4,7 +4,7 @@ import re
 from bs4 import BeautifulSoup, Tag
 from requests import Session
 
-from crodl.settings import API_SERVER, PREFERRED_AUDIO_FORMAT
+from crodl.settings import API_SERVER, PREFERRED_AUDIO_FORMAT, TIMEOUT
 from crodl.tools.logger import crologger
 from crodl.streams.utils import get_preferred_audio_format
 from crodl.exceptions import (
@@ -22,7 +22,7 @@ def get_audio_uuid(site_url: str, session: Session) -> str:
     """Return the audio UUID from the site URL."""
 
     crologger.info("Opening URL: %s", site_url)
-    response = session.get(site_url, timeout=5)
+    response = session.get(site_url, timeout=TIMEOUT)
 
     if response.status_code == 404:
         crologger.error("The page %s does not exist.", site_url)
@@ -66,7 +66,7 @@ def get_show_uuid(site_url: str, session: Session) -> str:
     """Return the show's UUID from the site URL."""
 
     crologger.info("Opening URL: %s", site_url)
-    response = session.get(site_url, timeout=5)
+    response = session.get(site_url, timeout=TIMEOUT)
 
     if response.status_code == 404:
         crologger.error("%s does not exist.", site_url)
@@ -101,7 +101,7 @@ def get_show_uuid(site_url: str, session: Session) -> str:
 
 def get_json(uuid: str, session: Session) -> dict:
     """Returns the attributes of the episode with the given UUID."""
-    response = session.get(API_SERVER + "/episodes/" + uuid, timeout=5)
+    response = session.get(API_SERVER + "/episodes/" + uuid, timeout=TIMEOUT)
 
     if not response.json():
         err_msg = "API server sent an empty answer."

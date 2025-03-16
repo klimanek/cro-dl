@@ -14,6 +14,8 @@ from crodl.streams.utils import (
     simplify_audio_name,
 )
 
+from crodl.settings import TIMEOUT
+
 
 def get_m4s_segment_url(
     audio_link: str,
@@ -142,7 +144,7 @@ class DASH(AudioParts):
 
         mp4_url = get_m4a_url(self.url)
         manifest_url = mp4_url + "/manifest.mpd"
-        _manifest = cro_session.get(manifest_url, timeout=5)
+        _manifest = cro_session.get(manifest_url, timeout=TIMEOUT)
 
         with open(self.manifest_path, "wb") as f:
             f.write(_manifest.content)

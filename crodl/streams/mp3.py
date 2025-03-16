@@ -8,6 +8,8 @@ from crodl.streams.audioparts import AudioParts
 from crodl.streams.utils import process_audiowork_title, shorten_title
 from crodl.tools.logger import crologger
 
+from crodl.settings import TIMEOUT
+
 
 @dataclass
 class MP3(AudioParts):
@@ -18,7 +20,7 @@ class MP3(AudioParts):
         file_url = self.url
         crologger.info("Downloading mp3: %s", file_url)
 
-        with requests.get(file_url, timeout=4, stream=True) as resp:
+        with requests.get(file_url, timeout=TIMEOUT, stream=True) as resp:
             content_length = resp.headers.get("Content-Length")
 
             if not self.audiowork_dir:

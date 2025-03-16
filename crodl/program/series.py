@@ -12,6 +12,7 @@ from crodl.settings import (
     API_SERVER,
     PREFERRED_AUDIO_FORMAT,
     SERIES_DOWNLOAD_DIR,
+    TIMEOUT,
     AudioFormat,
 )
 from crodl.tools.scrap import (
@@ -39,7 +40,7 @@ class Series(Content):
         """
         self.uuid = get_series_id(self.url, cro_session)  # type: ignore
         self.json = cro_session.get(
-            f"{API_SERVER}/serials/{self.uuid}", timeout=5
+            f"{API_SERVER}/serials/{self.uuid}", timeout=TIMEOUT
         ).json()
 
         if not self.json:
@@ -112,12 +113,12 @@ class Series(Content):
 
     def _fetch_episodes(self) -> list[dict]:
         """
-        A private method to fetch episodes using `cro_session` with a timeout of 5 seconds.
+        A private method to fetch episodes using `cro_session` with a timeout.
 
         Returns:
             A list of dictionaries representing the fetched episodes.
         """
-        return cro_session.get(self._episodes_url, timeout=5).json().get("data")
+        return cro_session.get(self._episodes_url, timeout=TIMEOUT).json().get("data")
 
     @property
     def episodes_data(self) -> list[dict]:
