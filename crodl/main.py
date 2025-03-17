@@ -11,6 +11,8 @@ from crodl.tools.scrap import cro_session, is_series, is_show
 from crodl.tools.logger import crologger
 from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
 
+from . import __version__
+
 
 def is_domain_supported(url: str) -> bool:
     """Checks whether the website with 'hidden' audio lies in a supported domain."""
@@ -25,6 +27,13 @@ def is_domain_supported(url: str) -> bool:
     return domain in SUPPORTED_DOMAINS
 
 
+def get_version(ctx, param, value) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(__version__)
+    ctx.exit()
+
+
 FORMAT_OPTIONS = {
     "mp3": AudioFormat.MP3,
     "hls": AudioFormat.HLS,
@@ -34,7 +43,6 @@ FORMAT_OPTIONS = {
 
 @click.command()
 @click.argument("recording_url")
-# @click.option("-d", "--download", is_flag=True, help="Spustí stahování")
 @click.option(
     "--stream-format",
     "-sf",
@@ -42,7 +50,10 @@ FORMAT_OPTIONS = {
     default="mp3",
     help="Formát audio streamu. (mp3, hls, dash)",
 )
-async def main(recording_url: str, stream_format: str, download: bool = True) -> None:
+@click.option(
+    "--version", is_flag=True, callback=get_version, expose_value=False, is_eager=True
+)
+async def main(recording_url: str, stream_format: str) -> None:
     if not is_domain_supported(recording_url):
         raise NotImplementedError(
             f"Unsuported domain: {urlparse(recording_url).netloc}"
@@ -65,7 +76,7 @@ async def main(recording_url: str, stream_format: str, download: bool = True) ->
         audiowork = Series(url=recording_url)
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
         print(f"[blue]{audiowork.description}[/blue]\n")
-        print(f"Celkový počet dílů: {audiowork.parts}")
+        print(f"Stažené díly: {audiowork.downloaded_parts} / {audiowork.parts}")
 
         if audiowork.already_exists():
             print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")

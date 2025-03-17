@@ -22,7 +22,7 @@ from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 
 class AudioWork:
     """
-    Processes the audiowork at given URL or by its UIID.
+    Processes the audiowork at given URL or by its UUID.
 
     Args:
         url (str) -- URL of a website with audiowork "hidden" in e.g.:
