@@ -3,6 +3,7 @@ import os
 from typing import Optional
 from rich import print
 
+from crodl.data.streamlinks import StreamLinks
 from crodl.streams import DASH
 from crodl.streams import HLS
 from crodl.streams import MP3
@@ -110,6 +111,15 @@ class AudioWork:
         if self.audio_links and isinstance(self.audio_links, list):
             return {link.get("variant"): link.get("url") for link in self.audio_links}
         return {}
+
+    @property
+    def links(self):
+        audio_links = StreamLinks()
+        for key, val in self.audio_formats_urls.items():
+            if key:
+                setattr(audio_links, key, val)
+
+        return audio_links
 
     @property
     def description(self) -> str | None:
