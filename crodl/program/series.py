@@ -175,7 +175,7 @@ class Series(Content):
         if not self.download_dir:
             raise ValueError("Download dir is not set!")
         if not os.path.isdir(self.download_dir):
-            return False
+            return 0
 
         downloaded_parts = 0
         for part in range(1, self.parts + 1):
