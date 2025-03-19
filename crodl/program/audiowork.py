@@ -55,20 +55,13 @@ class AudioWork:
         self.json = get_json(self.uuid, cro_session)
         self._attrs = get_attributes(self.uuid, cro_session)
 
-        if not title:
-            self.title = self._attrs.get("title", "Unknown")
-        else:
-            self.title = title
-
-        if audiowork_dir:
-            self.audiowork_dir = audiowork_dir
-        else:
-            self.audiowork_dir = DOWNLOAD_PATH / process_audiowork_title(self.title)
-
-        if audiowork_root:
-            self.audiowork_root = audiowork_root
-        else:
-            self.audiowork_root = self.audiowork_dir
+        self.title = title if title else self._attrs.get("title", "Unknown")
+        self.audiowork_dir = (
+            audiowork_dir
+            if audiowork_dir
+            else DOWNLOAD_PATH / process_audiowork_title(self.title)
+        )
+        self.audiowork_root = audiowork_root if audiowork_dir else self.audiowork_dir
 
         self.series: bool = kwargs.pop("series", False)
         self.show: bool = kwargs.pop("show", False)
