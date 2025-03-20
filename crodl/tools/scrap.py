@@ -108,7 +108,7 @@ def get_json(uuid: str, session: Session) -> dict:
         crologger.error(err_msg)
         raise AttributeError(err_msg)
     if not response.json().get("data"):
-        err_msg = "Data are empty' (uuid: %s)." % uuid
+        err_msg = "Data are empty (uuid: %s)." % uuid
         crologger.error(err_msg)
 
         return {}
