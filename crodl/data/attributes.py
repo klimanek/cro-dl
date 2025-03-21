@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from crodl.settings import API_SERVER
 from crodl.tools.scrap import cro_session, get_audio_link_of_preferred_format
@@ -26,9 +26,8 @@ class Data:
 
 @dataclass
 class Episodes:
+    show_title: str
     show_id: str
-    count: int = field(init=False)
-    data: list[dict] = field(init=False)
 
     def __post_init__(self):
         episodes_url = f"{API_SERVER}/shows/{self.show_id}/episodes"
@@ -78,3 +77,9 @@ class Episodes:
 
     #     dframe = dframe.to_string(index=False)
     #     return dframe
+
+    def __str__(self):
+        return f"<Episodes of {self.show_title}>"
+
+    def __repr__(self):
+        return f"<Episodes of {self.show_title}>"
