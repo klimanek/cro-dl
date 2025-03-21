@@ -66,7 +66,7 @@ class Show(Content):
         self.json = json_data
         self.api_url = show_api_url
         self.data = data
-        self.episodes = Episodes(show_id)
+        self.episodes = Episodes(show_title=self.title, show_id=show_id)
         self.download_dir = DOWNLOAD_PATH / self.title
 
     @property
