@@ -15,7 +15,7 @@ class Attributes:
 
 @dataclass
 class Data:
-    type: str
+    show_type: str
     uuid: str
     attributes: Attributes
 

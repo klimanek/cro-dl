@@ -56,7 +56,7 @@ class Show(Content):
         )
 
         data = Data(
-            type=json_data["data"]["type"],
+            show_type=json_data["data"]["type"],
             uuid=json_data["data"]["id"],
             attributes=attributes,
         )
