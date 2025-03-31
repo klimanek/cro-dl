@@ -76,7 +76,7 @@ async def main(recording_url: str, stream_format: str) -> None:
         audiowork = Series(url=recording_url)
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
         print(f"[blue]{audiowork.description}[/blue]\n")
-        print(f"Stažené díly: {audiowork.downloaded_parts} / {audiowork.parts}")
+        print(f"Stažené díly: {str(audiowork.downloaded_parts)} / {audiowork.parts}")
 
         if audiowork.already_exists():
             print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")

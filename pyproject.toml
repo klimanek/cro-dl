@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 name = "cro-dl"
-version = "1.1.13"
+version = "1.1.14"
 description = "Enjoy the ČRo offline"
 readme = "README.md"
 
@@ -43,6 +43,7 @@ dev = [
     "pytest<9.0.0,>=8.3.3",
     "ruff>=0.9.3",
     "setuptools>=75.8.2",
+    "tzdata>=2025.2",
     "wheel>=0.45.1",
 ]
 
