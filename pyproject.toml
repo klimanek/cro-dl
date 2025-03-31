@@ -43,6 +43,7 @@ dev = [
     "pytest<9.0.0,>=8.3.3",
     "ruff>=0.9.3",
     "setuptools>=75.8.2",
+    "tzdata>=2025.2",
     "wheel>=0.45.1",
 ]
 
