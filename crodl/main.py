@@ -1,4 +1,5 @@
 import sys
+import importlib.metadata
 from urllib.parse import urlparse
 
 import asyncclick as click
@@ -10,8 +11,6 @@ from crodl.program.show import Show
 from crodl.tools.scrap import cro_session, is_series, is_show
 from crodl.tools.logger import crologger
 from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
-
-from . import __version__
 
 
 def is_domain_supported(url: str) -> bool:
@@ -27,18 +26,13 @@ def is_domain_supported(url: str) -> bool:
     return domain in SUPPORTED_DOMAINS
 
 
-def get_version(ctx, param, value) -> None:
-    if not value or ctx.resilient_parsing:
-        return
-    click.echo(__version__)
-    ctx.exit()
-
-
 FORMAT_OPTIONS = {
     "mp3": AudioFormat.MP3,
     "hls": AudioFormat.HLS,
     "dash": AudioFormat.DASH,
 }
+
+__version__ = importlib.metadata.version("cro-dl")
 
 
 @click.command()
@@ -50,9 +44,7 @@ FORMAT_OPTIONS = {
     default="mp3",
     help="Formát audio streamu. (mp3, hls, dash)",
 )
-@click.option(
-    "--version", is_flag=True, callback=get_version, expose_value=False, is_eager=True
-)
+@click.version_option(importlib.metadata.version("cro-dl"))
 async def main(recording_url: str, stream_format: str) -> None:
     if not is_domain_supported(recording_url):
         raise NotImplementedError(
