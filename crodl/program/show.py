@@ -1,20 +1,18 @@
-from dataclasses import dataclass, field
 import os
-
-from typing import Optional
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
-from crodl.settings import (
-    API_SERVER,
-    DOWNLOAD_PATH,
-    AudioFormat,
-    PREFERRED_AUDIO_FORMAT,
-    AUDIO_FORMATS,
-)
+from crodl.data.attributes import Attributes, Data, Episodes
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
-from crodl.data.attributes import Data, Attributes, Episodes
-
+from crodl.settings import (
+    API_SERVER,
+    AUDIO_FORMATS,
+    DOWNLOAD_PATH,
+    PREFERRED_AUDIO_FORMAT,
+    AudioFormat,
+)
 from crodl.streams.utils import create_dir_if_does_not_exist, title_with_part
 from crodl.tools.logger import crologger
 from crodl.tools.scrap import (

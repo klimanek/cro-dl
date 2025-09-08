@@ -1,24 +1,22 @@
 import os
-
 from typing import Optional
+
 from rich import print
 
 from crodl.data.streamlinks import StreamLinks
-from crodl.streams import DASH
-from crodl.streams import HLS
-from crodl.streams import MP3
+from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
+from crodl.streams import DASH, HLS, MP3
 from crodl.streams.utils import (
     HMS,
+    create_dir_if_does_not_exist,
     file_size,
     get_preferred_audio_format,
     not_available_yet,
     process_audiowork_title,
-    create_dir_if_does_not_exist,
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
 from crodl.tools.scrap import cro_session, get_attributes, get_audio_uuid, get_json
-from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 
 
 class AudioWork:

@@ -1,32 +1,30 @@
-import sys
 import os
-
-from pathlib import Path
+import sys
 from dataclasses import dataclass, field
-
+from pathlib import Path
 from typing import Optional
 
+from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
 from crodl.settings import (
-    DOWNLOAD_PATH,
     API_SERVER,
+    DOWNLOAD_PATH,
     PREFERRED_AUDIO_FORMAT,
     SERIES_DOWNLOAD_DIR,
     TIMEOUT,
     AudioFormat,
 )
+from crodl.streams.utils import (
+    create_a_file_if_does_not_exist,
+    create_dir_if_does_not_exist,
+    process_audiowork_title,
+    remove_html_tags,
+)
+from crodl.tools.logger import crologger
 from crodl.tools.scrap import (
     cro_session,
     get_audio_link_of_preferred_format,
     get_series_id,
-)
-from crodl.tools.logger import crologger
-from crodl.program.audiowork import AudioWork
-from crodl.streams.utils import (
-    create_a_file_if_does_not_exist,
-    process_audiowork_title,
-    create_dir_if_does_not_exist,
-    remove_html_tags,
 )
 
 
