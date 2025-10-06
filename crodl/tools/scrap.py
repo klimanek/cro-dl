@@ -1,24 +1,24 @@
 import json
 import re
 
+import cloudscraper
 from bs4 import BeautifulSoup, Tag
-from requests import Session
 
-from crodl.settings import API_SERVER, PREFERRED_AUDIO_FORMAT
-from crodl.tools.logger import crologger
-from crodl.streams.utils import get_preferred_audio_format
 from crodl.exceptions import (
+    AudioUUIDDoesNotExist,
+    DataEntryDoesNotExist,
     PageDoesNotExist,
     PlayerWrapperDoesNotExist,
-    DataEntryDoesNotExist,
-    AudioUUIDDoesNotExist,
     ShowUUIDDoesNotExist,
 )
+from crodl.settings import API_SERVER, PREFERRED_AUDIO_FORMAT
+from crodl.streams.utils import get_preferred_audio_format
+from crodl.tools.logger import crologger
 
-cro_session = Session()
+cro_session = cloudscraper.create_scraper()
 
 
-def get_audio_uuid(site_url: str, session: Session) -> str:
+def get_audio_uuid(site_url: str, session) -> str:
     """Return the audio UUID from the site URL."""
 
     crologger.info("Opening URL: %s", site_url)
@@ -62,7 +62,7 @@ def get_audio_uuid(site_url: str, session: Session) -> str:
     return uuid
 
 
-def get_show_uuid(site_url: str, session: Session) -> str:
+def get_show_uuid(site_url: str, session) -> str:
     """Return the show's UUID from the site URL."""
 
     crologger.info("Opening URL: %s", site_url)
@@ -99,7 +99,7 @@ def get_show_uuid(site_url: str, session: Session) -> str:
     return uuid
 
 
-def get_attributes(uuid: str, session: Session) -> dict:
+def get_attributes(uuid: str, session) -> dict:
     """Returns the attributes of the episode with the given UUID."""
     response = session.get(API_SERVER + "/episodes/" + uuid, timeout=5)
 
@@ -117,7 +117,9 @@ def get_attributes(uuid: str, session: Session) -> dict:
 
 
 def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
-    """Searches for an audio link of preferred audio format. If not found, returns None."""
+    """Searches for an audio link of preferred audio format.
+    If not found, returns None.
+    """
     audio_links = attrs.get("audioLinks")
 
     if not audio_links:
@@ -134,7 +136,7 @@ def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
     return audio_formats.get(audio_format.value) if audio_format else None
 
 
-def get_js_value_from_url(site_url: str, jsvar: str, session: Session) -> str | None:
+def get_js_value_from_url(site_url: str, jsvar: str, session) -> str | None:
     """Returns the value of a JavaScript variable from the given URL."""
     response = session.get(site_url)
     err_msg = f"Variable {jsvar} was not found."
@@ -158,18 +160,18 @@ def get_js_value_from_url(site_url: str, jsvar: str, session: Session) -> str | 
     return None
 
 
-def is_series(url: str, session: Session) -> bool:
+def is_series(url: str, session) -> bool:
     """Returns True, if the page contains a series."""
     return get_js_value_from_url(url, "siteEntityBundle", session) == "serial"
 
 
-def get_series_id(site_url: str, session: Session) -> str | None:
+def get_series_id(site_url: str, session) -> str | None:
     """Returns series ID, based on its URL"""
 
     return get_js_value_from_url(site_url, "contentId", session)
 
 
-def is_show(url: str, session: Session) -> bool:
+def is_show(url: str, session) -> bool:
     """Returns True,  if the page contains a show."""
     return get_js_value_from_url(url, "siteEntityBundle", session) == "show"
 
