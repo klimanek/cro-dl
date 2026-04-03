@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Optional
+
+from crodl.tools.api_client import CroAPIClient
 
 
-@dataclass(init=False)
+@dataclass
 class Content(ABC):
-    url: str
-    uuid: str = field(init=False)
-    title: str = field(init=False)
+    url: Optional[str] = None
+    uuid: Optional[str] = None
+    title: Optional[str] = None
+    client: CroAPIClient = field(default_factory=CroAPIClient, repr=False)
 
     @abstractmethod
     def already_exists(self) -> bool:
