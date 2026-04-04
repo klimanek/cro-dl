@@ -18,6 +18,7 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
+from crodl.tools.scrap import get_audio_link_of_preferred_format
 
 
 @dataclass
