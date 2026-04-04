@@ -27,10 +27,11 @@ Projekt byl v přechodné fázi mezi procedurálním a objektovým přístupem. 
 *   **100% testy:** Všech 107 testů svítí zeleně.
 
 ## ⚡ Budoucí "bolesti" (Co nás čeká příště)
-1.  **Plná asynchronizace:** Stahování MP3 a některé části parsování jsou stále synchronní. Pro budoucí GUI to bude chtít kompletní `async/await` cestu.
-2.  **Lazy Loading:** Metadata by se měla načítat, až když jsou skutečně potřeba (např. popis pořadu).
-3.  **Persistence:** Bude potřeba vybrat a implementovat databázi (SQLModel / Django) pro ukládání historie stahování.
-4.  **Změny na straně Rozhlasu:** Cloudflare nebo struktura webu se může kdykoliv změnit, což bude vyžadovat údržbu škrabky v `CroAPIClient`.
+1.  **Sjednocení stahovačů (Downloader Abstraction):** Převést `AudioParts` na skutečnou abstraktní bázovou třídu (ABC) s definovaným rozhraním (metoda `download()`). Sjednotit inicializaci a zpracování chyb napříč `DASH`, `HLS` a `MP3`.
+2.  **Plná asynchronizace:** Stahování MP3 a některé části parsování jsou stále synchronní. Pro budoucí GUI to bude chtít kompletní `async/await` cestu.
+3.  **Lazy Loading:** Metadata by se měla načítat, až když jsou skutečně potřeba (např. popis pořadu).
+4.  **Persistence:** Bude potřeba vybrat a implementovat databázi (SQLModel / Django) pro ukládání historie stahování.
+5.  **Změny na straně Rozhlasu:** Cloudflare nebo struktura webu se může kdykoliv změnit, což bude vyžadovat údržbu škrabky v `CroAPIClient`.
 
 ---
 *Hotovo pro dnešek. Dobrá práce!* 🎸
