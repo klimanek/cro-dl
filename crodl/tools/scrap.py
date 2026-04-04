@@ -1,13 +1,5 @@
-from typing import Optional
 from requests import Session
 
-from crodl.exceptions import (
-    PageDoesNotExist,
-    PlayerWrapperDoesNotExist,
-    DataEntryDoesNotExist,
-    AudioUUIDDoesNotExist,
-    ShowUUIDDoesNotExist,
-)
 from crodl.settings import PREFERRED_AUDIO_FORMAT
 from crodl.tools.api_client import CroAPIClient
 from crodl.streams.utils import get_preferred_audio_format

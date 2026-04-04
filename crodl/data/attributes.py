@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 from crodl.tools.scrap import get_audio_link_of_preferred_format
 

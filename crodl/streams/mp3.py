@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 
-import requests
 from rich.progress import Progress
 
 from crodl.streams.audioparts import AudioParts
@@ -18,6 +17,7 @@ class MP3(AudioParts):
     def download(self) -> None:
         """Download audiowork mp3 file"""
         from requests import Session
+
         session = self.session or Session()
 
         file_url = self.url

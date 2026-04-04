@@ -1,6 +1,5 @@
 import unittest
 from unittest import mock
-from pathlib import Path
 
 from crodl.settings import DOWNLOAD_PATH
 from crodl.program.audiowork import AudioWork
