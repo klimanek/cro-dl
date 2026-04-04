@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
 
-from crodl.settings import API_SERVER
-from crodl.tools.scrap import cro_session, get_audio_link_of_preferred_format
+from crodl.tools.scrap import get_audio_link_of_preferred_format
 
 
 @dataclass
@@ -20,24 +20,23 @@ class Data:
     attributes: Attributes
 
 
-# TODO: Episode class
-# TODO: Support more attrs.
-
-
 @dataclass
 class Episodes:
     show_title: str
     show_id: str
+    json_data: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     def __post_init__(self):
-        episodes_url = f"{API_SERVER}/shows/{self.show_id}/episodes"
+        if not self.json_data:
+            # We should probably not fetch here, but to maintain compatibility
+            # we might need to. However, we want to remove this.
+            # For now, let's just use what's passed.
+            self.data = []
+            self.count = 0
+            return
 
-        response = cro_session.get(episodes_url)
-        response.raise_for_status()
-        json_data = response.json()
-
-        self.data = json_data["data"]
-        self.count = json_data["meta"]["count"]
+        self.data = self.json_data.get("data", [])
+        self.count = self.json_data.get("meta", {}).get("count", 0)
 
     @property
     def info(self) -> list[str]:

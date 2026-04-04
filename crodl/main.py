@@ -7,11 +7,13 @@ from rich import print
 from crodl.program.audiowork import AudioWork
 from crodl.program.series import Series
 from crodl.program.show import Show
-from crodl.tools.scrap import cro_session, is_series, is_show
+from crodl.tools.api_client import CroAPIClient
 from crodl.tools.logger import crologger
 from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
 
 from . import __version__
+
+api_client = CroAPIClient()
 
 
 def is_domain_supported(url: str) -> bool:
@@ -61,9 +63,9 @@ async def main(recording_url: str, stream_format: str) -> None:
 
     show, series = False, False
 
-    if is_show(recording_url, cro_session):
+    if api_client.is_show(recording_url):
         show = True
-        audiowork = Show(url=recording_url)
+        audiowork = Show(url=recording_url, client=api_client)
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
         print(f"Celkový počet dílů: {audiowork.episodes.count}")
 
@@ -71,9 +73,9 @@ async def main(recording_url: str, stream_format: str) -> None:
             print("[bold yellow]Pořad byl již celý stažen.[/bold yellow]")
             sys.exit(0)
 
-    elif is_series(recording_url, cro_session):
+    elif api_client.is_series(recording_url):
         series = True
-        audiowork = Series(url=recording_url)
+        audiowork = Series(url=recording_url, client=api_client)
         print(f"[bold yellow]{audiowork.title}[/bold yellow]")
         print(f"[blue]{audiowork.description}[/blue]\n")
         print(f"Stažené díly: {audiowork.downloaded_parts} / {audiowork.parts}")
@@ -82,7 +84,7 @@ async def main(recording_url: str, stream_format: str) -> None:
             print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")
             sys.exit(0)
     else:
-        audiowork = AudioWork(url=recording_url)
+        audiowork = AudioWork(url=recording_url, client=api_client)
         audiowork.info()
 
     if show or series:
