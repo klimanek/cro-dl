@@ -15,10 +15,6 @@ from crodl.settings import (
 )
 from crodl.streams.utils import create_dir_if_does_not_exist, title_with_part
 from crodl.tools.logger import crologger
-from crodl.tools.scrap import (
-    cro_session,
-    get_show_uuid,
-)
 
 
 @dataclass
@@ -26,24 +22,19 @@ class Show(Content):
     """
     Class for processing Shows by ČRo.
     Example: https://www.mujrozhlas.cz/dan-barta-nevinnosti-sveta
-
-    In HTML, we look for show uuid -- found: 1a9044a7-18a2-32fe-870a-32ec9bf33c74
-    Then we use an API call to get info on this show:
-        https://api.mujrozhlas.cz/shows/1a9044a7-18a2-32fe-870a-32ec9bf33c74
-    Corresponding show episodes are then taken from this API call:
-        https://api.mujrozhlas.cz/shows/1a9044a7-18a2-32fe-870a-32ec9bf33c74/episodes
     """
 
     download_dir: Path = field(init=False)
 
     def __post_init__(self):
-        show_id = get_show_uuid(self.url, cro_session)
-        show_api_url = f"{API_SERVER}/shows/{show_id}"
+        if not self.uuid:
+            self.uuid = self.client.get_show_uuid(self.url)  # type: ignore
 
-        # Fetch the JSON data from Show URL
-        response = cro_session.get(show_api_url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        json_data = response.json()
+        if not self.uuid:
+            raise ValueError(f"Could not find show UUID for URL: {self.url}")
+
+        # Fetch the JSON data from Show API
+        json_data = self.client.get_show_data(self.uuid)
 
         attributes = Attributes(
             title=json_data["data"]["attributes"]["title"],
@@ -60,18 +51,21 @@ class Show(Content):
         )
 
         self.title = json_data["data"]["attributes"]["title"]
-        self.uuid = json_data["data"]["id"]
         self.json = json_data
-        self.api_url = show_api_url
         self.data = data
-        self.episodes = Episodes(show_title=self.title, show_id=show_id)
+        episodes_data = self.client.get_related_data(
+            f"{API_SERVER}/shows/{self.uuid}/episodes"
+        )
+        self.episodes = Episodes(
+            show_title=self.title, show_id=self.uuid, json_data=episodes_data
+        )
         self.download_dir = DOWNLOAD_PATH / self.title
 
     @property
     def downloaded_parts(self) -> int:
         crologger.info("Checking whether the show has been already downloaded...")
         if not os.path.isdir(self.download_dir):
-            return False
+            return 0
 
         downloaded_parts = sum(
             1
@@ -101,6 +95,7 @@ class Show(Content):
                 title=title_with_part(episode.get("title"), episode.get("part")),  # type: ignore
                 since=episode.get("since"),  # type: ignore
                 show=True,
+                client=self.client,
             )
 
             await audio_work.download(audio_format)

@@ -1,5 +1,4 @@
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -7,11 +6,9 @@ from typing import Optional
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
 from crodl.settings import (
-    API_SERVER,
     DOWNLOAD_PATH,
     PREFERRED_AUDIO_FORMAT,
     SERIES_DOWNLOAD_DIR,
-    TIMEOUT,
     AudioFormat,
 )
 from crodl.streams.utils import (
@@ -21,11 +18,6 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
-from crodl.tools.scrap import (
-    cro_session,
-    get_audio_link_of_preferred_format,
-    get_series_id,
-)
 
 
 @dataclass
@@ -36,15 +28,18 @@ class Series(Content):
         """
         A method that is called after the class is initialized.
         """
-        self.uuid = get_series_id(self.url, cro_session)  # type: ignore
-        self.json = cro_session.get(
-            f"{API_SERVER}/serials/{self.uuid}", timeout=TIMEOUT
-        ).json()
+        if not self.uuid:
+            self.uuid = self.client.get_series_id(self.url)  # type: ignore
+
+        if not self.uuid:
+            crologger.error("Could not find series UUID for URL: %s", self.url)
+            raise ValueError(f"Could not find series UUID for URL: {self.url}")
+
+        self.json = self.client.get_series_data(self.uuid)
 
         if not self.json:
             crologger.error("Got an empty response. Series might not be available.")
-            print("Seriál není dostupný. Zkuste akci opakovat později.")
-            sys.exit(0)
+            raise ValueError("Seriál není dostupný. Zkuste akci opakovat později.")
 
         self._attrs = self.json["data"]["attributes"]
 
@@ -58,8 +53,7 @@ class Series(Content):
         if not self.is_playable:
             msg = f"Series {self.title} is not available."
             crologger.error(msg)
-            print("Seriál není dostupný.")
-            sys.exit(0)
+            raise ValueError("Seriál není dostupný.")
 
         if not self.download_dir:
             self.download_dir = (
@@ -111,12 +105,12 @@ class Series(Content):
 
     def _fetch_episodes(self) -> list[dict]:
         """
-        A private method to fetch episodes using `cro_session` with a timeout.
+        A private method to fetch episodes using `client` with a timeout.
 
         Returns:
             A list of dictionaries representing the fetched episodes.
         """
-        return cro_session.get(self._episodes_url, timeout=TIMEOUT).json().get("data")
+        return self.client.get_related_data(self._episodes_url).get("data")
 
     @property
     def episodes_data(self) -> list[dict]:
@@ -208,5 +202,6 @@ class Series(Content):
                 title=episode.get("title"),  # type: ignore
                 series=True,
                 since=episode.get("since"),  # type: ignore
+                client=self.client,
             )
             await audio_work.download(audio_format)

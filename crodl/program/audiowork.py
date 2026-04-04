@@ -1,9 +1,12 @@
 import os
-from typing import Optional
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional, Dict, Any
 
 from rich import print
 
 from crodl.data.streamlinks import StreamLinks
+from crodl.program.content import Content
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3
 from crodl.streams.utils import (
@@ -16,10 +19,10 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
-from crodl.tools.scrap import cro_session, get_attributes, get_audio_uuid, get_json
 
 
-class AudioWork:
+@dataclass
+class AudioWork(Content):
     """
     Processes the audiowork at given URL or by its UUID.
 
@@ -30,41 +33,50 @@ class AudioWork:
         uuid (str) -- Unique ID of the audiowork.
     """
 
-    def __init__(self, **kwargs) -> None:
-        url = kwargs.pop("url", None)
-        uuid = kwargs.pop("uuid", None)
-        title = kwargs.pop("title", None)
-        audiowork_dir = kwargs.pop("audiowork_dir", None)
-        audiowork_root = kwargs.pop("audiowork_root", None)
-        since = kwargs.pop("since", "")
+    audiowork_dir: Optional[Path] = None
+    audiowork_root: Optional[Path] = None
+    since: str = ""
+    series: bool = False
+    show: bool = False
+    _attrs: Dict[str, Any] = field(default_factory=dict, repr=False)
+    json_data: Dict[str, Any] = field(default_factory=dict, repr=False)
 
-        if url and uuid:
+    def __post_init__(self) -> None:
+        if self.url and self.uuid:
             err_msg = "Audio cannot be defined by both url and uuid!"
             crologger.error(err_msg)
             raise ValueError(err_msg)
 
-        if not url and not uuid:
+        if not self.url and not self.uuid:
             err_msg = "Audio must be defined by either url or uuid!"
             crologger.error(err_msg)
             raise ValueError(err_msg)
 
-        self.url = url
-        self.uuid = uuid if uuid else get_audio_uuid(self.url, cro_session)
-        self.json = get_json(self.uuid, cro_session)
-        self._attrs = get_attributes(self.uuid, cro_session)
+        if not self.uuid:
+            self.uuid = self.client.get_audio_uuid(self.url)  # type: ignore
 
-        self.title = title if title else self._attrs.get("title", "Unknown")
-        self.audiowork_dir = (
-            audiowork_dir
-            if audiowork_dir
-            else DOWNLOAD_PATH / process_audiowork_title(self.title)
-        )
-        self.audiowork_root = audiowork_root if audiowork_dir else self.audiowork_dir
+        if not self.json_data:
+            self.json_data = self.client.get_episode_data(self.uuid)
 
-        self.series: bool = kwargs.pop("series", False)
-        self.show: bool = kwargs.pop("show", False)
+        if not self._attrs:
+            try:
+                self._attrs = self.json_data["data"]["attributes"]
+            except (KeyError, TypeError):
+                self._attrs = {}
 
-        self.since = since if since else self._attrs["since"]
+        if not self.title:
+            self.title = self._attrs.get("title", "Unknown")
+
+        if not self.audiowork_dir:
+            self.audiowork_dir = (
+                DOWNLOAD_PATH / process_audiowork_title(self.title)  # type: ignore
+            )
+
+        if not self.audiowork_root:
+            self.audiowork_root = self.audiowork_dir
+
+        if not self.since:
+            self.since = self._attrs.get("since", "")
 
     @property
     def audio_links(self) -> list[dict] | None:
@@ -162,7 +174,10 @@ class AudioWork:
             raise ValueError("DASH Manifest URL not found.")
 
         manifest = DASH(
-            url=mpd_url, audio_title=self.title, audiowork_dir=self.audiowork_dir
+            url=mpd_url,
+            audio_title=self.title,
+            audiowork_dir=self.audiowork_dir,
+            session=self.client.session,
         )
 
         await manifest.download()
@@ -176,7 +191,10 @@ class AudioWork:
             raise ValueError("HLS chunklist.txt URL not found.")
 
         chunklist = HLS(
-            url=hls_url, audio_title=self.title, audiowork_dir=self.audiowork_dir
+            url=hls_url,
+            audio_title=self.title,
+            audiowork_dir=self.audiowork_dir,
+            session=self.client.session,
         )
         await chunklist.download()
 
@@ -192,6 +210,7 @@ class AudioWork:
             audiowork_dir=self.audiowork_dir,
             audio_title=self.title,
             segments=False,
+            session=self.client.session,
         )
         mp3.download()
 
