@@ -1,12 +1,6 @@
-import json
-import re
-
-from bs4 import BeautifulSoup, Tag
+from typing import Optional
 from requests import Session
 
-from crodl.settings import API_SERVER, PREFERRED_AUDIO_FORMAT, TIMEOUT
-from crodl.tools.logger import crologger
-from crodl.streams.utils import get_preferred_audio_format
 from crodl.exceptions import (
     PageDoesNotExist,
     PlayerWrapperDoesNotExist,
@@ -14,119 +8,39 @@ from crodl.exceptions import (
     AudioUUIDDoesNotExist,
     ShowUUIDDoesNotExist,
 )
+from crodl.settings import PREFERRED_AUDIO_FORMAT
+from crodl.tools.api_client import CroAPIClient
+from crodl.streams.utils import get_preferred_audio_format
 
 cro_session = Session()
+_api_client = CroAPIClient(session=cro_session)
 
 
 def get_audio_uuid(site_url: str, session: Session) -> str:
     """Return the audio UUID from the site URL."""
-
-    crologger.info("Opening URL: %s", site_url)
-    response = session.get(site_url, timeout=TIMEOUT)
-
-    if response.status_code == 404:
-        crologger.error("The page %s does not exist.", site_url)
-        raise PageDoesNotExist("The page %s does not exist.")
-
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # UUID and other attributes are in the player-wrapper
-    player_wrapper = soup.select(".player-wrapper")
-
-    if not player_wrapper:
-        raise PlayerWrapperDoesNotExist(
-            "Player not found. Maybe it is a show and not a series?"
-        )
-
-    # Data are stored in a list, we extract it as bs4.Tag
-    player_data: Tag = player_wrapper[0]
-    data_entry: str = str(player_data.get("data-entry", ""))
-    crologger.info("Getting data-entry values.")
-
-    if not data_entry:
-        err_msg = "Attribute data-entry not found."
-        crologger.error(err_msg)
-        raise DataEntryDoesNotExist(err_msg)
-
-    json_data_entry = json.loads(data_entry)
-    crologger.info("Parsing JSON.")
-
-    uuid = json_data_entry.get("uuid", None)
-    crologger.info("Getting UUID... %s", uuid)
-
-    if not uuid:
-        err_msg = "The program does not exist or other fatal error occured."
-        crologger.error(err_msg)
-        raise AudioUUIDDoesNotExist(err_msg)
-
-    return uuid
+    client = _api_client if session == cro_session else CroAPIClient(session=session)
+    return client.get_audio_uuid(site_url)
 
 
 def get_show_uuid(site_url: str, session: Session) -> str:
     """Return the show's UUID from the site URL."""
-
-    crologger.info("Opening URL: %s", site_url)
-    response = session.get(site_url, timeout=TIMEOUT)
-
-    if response.status_code == 404:
-        crologger.error("%s does not exist.", site_url)
-        raise PageDoesNotExist("The page does not exist.")
-
-    # Show UUID and other attributes are in the div with class b-detail
-    soup = BeautifulSoup(response.text, "html.parser")
-    div = soup.find("div", {"class": "b-detail"})
-
-    crologger.info("Getting data-entry values.")
-
-    data_entry: str = str(div.get("data-entry", ""))  # type: ignore
-
-    if not data_entry:
-        err_msg = "Attribute data-entry not found."
-        crologger.error(err_msg)
-        raise DataEntryDoesNotExist(err_msg)
-
-    json_data_entry = json.loads(data_entry)
-    crologger.info("Parsing JSON.")
-
-    uuid = json_data_entry.get("show-uuid", None)
-    crologger.info("Getting UUID... %s", uuid)
-
-    if not uuid:
-        err_msg = "Show does not exist or other fatal error occured."
-        crologger.error(err_msg)
-        raise ShowUUIDDoesNotExist(err_msg)
-
-    return uuid
+    client = _api_client if session == cro_session else CroAPIClient(session=session)
+    return client.get_show_uuid(site_url)
 
 
 def get_json(uuid: str, session: Session) -> dict:
     """Returns the attributes of the episode with the given UUID."""
-    response = session.get(API_SERVER + "/episodes/" + uuid, timeout=TIMEOUT)
-
-    if not response.json():
-        err_msg = "API server sent an empty answer."
-        crologger.error(err_msg)
-        raise AttributeError(err_msg)
-    if not response.json().get("data"):
-        err_msg = "Data are empty (uuid: %s)." % uuid
-        crologger.error(err_msg)
-
-        return {}
-
-    return response.json()
+    client = _api_client if session == cro_session else CroAPIClient(session=session)
+    return client.get_episode_data(uuid)
 
 
 def get_attributes(uuid: str, session: Session) -> dict:
     """Returns the json resp. on the episode with the given UUID."""
-    json = get_json(uuid, session)
-
+    json_data = get_json(uuid, session)
     try:
-        attrs = json["data"]["attributes"]
-    except KeyError:
-        err_msg = "Data are empty' (uuid: %s)." % uuid
-        crologger.error(err_msg)
+        attrs = json_data["data"]["attributes"]
+    except (KeyError, TypeError):
         attrs = {}
-
     return attrs if attrs else {}
 
 
@@ -150,26 +64,8 @@ def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
 
 def get_js_value_from_url(site_url: str, jsvar: str, session: Session) -> str | None:
     """Returns the value of a JavaScript variable from the given URL."""
-    response = session.get(site_url)
-    err_msg = f"Variable {jsvar} was not found."
-
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, "html.parser")
-        script_tags = soup.find_all("script")
-
-        for script in script_tags:
-            if jsvar in script.text:
-                pattern = re.compile(rf'"{jsvar}":"([^"]+)"')
-                match = pattern.search(script.text)
-
-                if match:
-                    return match.group(1)
-
-        crologger.error(err_msg)
-        return None
-
-    crologger.error("Server error.")
-    return None
+    client = _api_client if session == cro_session else CroAPIClient(session=session)
+    return client.get_js_value_from_url(site_url, jsvar)
 
 
 def is_series(url: str, session: Session) -> bool:
@@ -179,7 +75,6 @@ def is_series(url: str, session: Session) -> bool:
 
 def get_series_id(site_url: str, session: Session) -> str | None:
     """Returns series ID, based on its URL"""
-
     return get_js_value_from_url(site_url, "contentId", session)
 
 
