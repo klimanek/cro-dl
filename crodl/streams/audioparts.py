@@ -3,6 +3,8 @@ from pathlib import Path
 from dataclasses import dataclass, field
 import shutil
 
+from typing import Optional
+from requests import Session
 from yaspin import yaspin
 
 from crodl.settings import DOWNLOAD_PATH, SEGMENTS_SUBDIR, SUPPORTED_AUDIO_FORMATS
@@ -17,6 +19,7 @@ class AudioParts:
     audiowork_dir: Path | None = field(default=None)
     segments_path: Path | None = field(default=None)
     segments: bool = True
+    session: Optional[Session] = field(default=None, repr=False)
 
     def __post_init__(self):
         """After class init, this method will create audiowork_dir if it doesn't exist."""

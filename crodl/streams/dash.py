@@ -140,11 +140,13 @@ class DASH(AudioParts):
 
     def _get_manifest(self) -> None:
         """Fetches the manifest and saves it to a file locally."""
-        from crodl.tools.scrap import cro_session
+        from requests import Session
+
+        session = self.session or Session()
 
         mp4_url = get_m4a_url(self.url)
         manifest_url = mp4_url + "/manifest.mpd"
-        _manifest = cro_session.get(manifest_url, timeout=TIMEOUT)
+        _manifest = session.get(manifest_url, timeout=TIMEOUT)
 
         with open(self.manifest_path, "wb") as f:
             f.write(_manifest.content)

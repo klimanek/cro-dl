@@ -17,10 +17,13 @@ class MP3(AudioParts):
 
     def download(self) -> None:
         """Download audiowork mp3 file"""
+        from requests import Session
+        session = self.session or Session()
+
         file_url = self.url
         crologger.info("Downloading mp3: %s", file_url)
 
-        with requests.get(file_url, timeout=TIMEOUT, stream=True) as resp:
+        with session.get(file_url, timeout=TIMEOUT, stream=True) as resp:
             content_length = resp.headers.get("Content-Length")
 
             if not self.audiowork_dir:

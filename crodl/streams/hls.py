@@ -28,11 +28,13 @@ class HLS(AudioParts):
         return self.segments_path / "chunklist.m3u8"
 
     def _get_chunklist_m3u8(self) -> None:
-        from crodl.tools.scrap import cro_session
+        from requests import Session
+
+        session = self.session or Session()
 
         mp4_url = get_m4a_url(self.url)
         chunklist_url = mp4_url + "/chunklist.m3u8"
-        chunklist = cro_session.get(chunklist_url, timeout=TIMEOUT)
+        chunklist = session.get(chunklist_url, timeout=TIMEOUT)
         chunklist.raise_for_status()
 
         crologger.info("mp4 URL: %s", mp4_url)
