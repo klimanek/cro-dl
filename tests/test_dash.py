@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import unittest
-from unittest.mock import patch, PropertyMock, Mock
+from unittest.mock import patch, PropertyMock, Mock, MagicMock
 
 from bs4 import BeautifulSoup
 from crodl.streams.dash import (
@@ -140,16 +140,20 @@ class TestSegmentsUrls(unittest.TestCase):
 
 class TestManifest(unittest.TestCase):
     @patch("crodl.streams.utils.get_m4a_url")
-    @patch("crodl.tools.scrap.cro_session.get")
-    def test_get_manifest(self, mock_get, mock_get_m4a_url):
+    def test_get_manifest(self, mock_get_m4a_url):
         # Test case: fetching manifest and saving it locally
         mock_get_m4a_url.return_value = "https://example.com/test.mp4"
-        mock_get.return_value.content = b'{"manifest": "test"}'
+        mock_session = MagicMock()
+        mock_session.get.return_value.content = b'{"manifest": "test"}'
 
-        manifest = DASH("https://example.com/test.mp4/manifest.mpd", "Some Title")
+        manifest = DASH(
+            url="https://example.com/test.mp4/manifest.mpd",
+            audio_title="Some Title",
+            session=mock_session,
+        )
         manifest._get_manifest()  # pylint: disable=protected-access
 
-        mock_get.assert_called_once_with(
+        mock_session.get.assert_called_once_with(
             "https://example.com/test.mp4/manifest.mpd", timeout=TIMEOUT
         )
         with open(f"{manifest.segments_path}/manifest.mpd", "rb") as f:
