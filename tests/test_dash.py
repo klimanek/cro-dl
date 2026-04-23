@@ -151,6 +151,7 @@ class TestManifest(unittest.TestCase):
             audio_title="Some Title",
             session=mock_session,
         )
+        manifest._prepare_directories()
         manifest._get_manifest()  # pylint: disable=protected-access
 
         mock_session.get.assert_called_once_with(
@@ -184,6 +185,7 @@ class TestManifestContent(unittest.TestCase):
 class TestManifestIdProperty(unittest.TestCase):
     def setUp(self):
         self.manifest = DASH("http://example.com/mp4/manifest.mpd", "Some Title")
+        self.manifest._prepare_directories()
 
     def test_id_property_returns_correct_value(self, mock_segments_info):
         mock_segments_info.return_value = (None, "12345")

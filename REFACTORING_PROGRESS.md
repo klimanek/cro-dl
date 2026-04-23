@@ -1,37 +1,37 @@
-# Log refaktoringu cro-dl (3. dubna 2026)
+# Log refaktoringu cro-dl (23. dubna 2026)
 
-## 🎯 Cíl a výchozí stav
-Projekt byl v přechodné fázi mezi procedurálním a objektovým přístupem. Hlavním cílem bylo:
-*   Sjednotit hierarchii entit (`AudioWork`, `Series`, `Show`) pod bázovou třídu `Content`.
-*   Odstranit síťová volání z konstruktorů (`__init__`).
-*   Vytvořit dedikovaného API klienta a odstranit závislost na globálním `cro_session`.
+## 🎯 Cíl: Abstrakce stahovačů a asynchronizace (Bod 1 & 2)
+Hlavním úkolem bylo sjednotit logiku stahování různých formátů a převést ji do plně asynchronního režimu.
 
-## 🚧 Problémy a jejich řešení
+## 🚧 Provedené změny
 
-### 1. Cloudflare a "403 Forbidden"
-*   **Problém:** Při pokusu o spuštění CLI s reálnou URL nás Cloudflare odstřihl s chybou 403.
-*   **Řešení:** Integrovali jsme tvou "obezličku" – knihovnu `cloudscraper`, která nahradila standardní `requests.Session`. Teď `CroAPIClient` automaticky řeší Cloudflare challenge.
+### 1. Nová hierarchie stahovačů (`crodl/streams/`)
+*   **`AudioParts` -> ABC:** Převedena na abstraktní bázovou třídu.
+    *   Vynucuje implementaci `async def download()`.
+    *   Sjednocuje přípravu adresářů v `_prepare_directories()`.
+    *   Centralizuje spojování segmentů přes `ffmpeg` v `_merge_chunks()`.
+*   **`MP3` Downloader:** Kompletně přepsán na `async` pomocí `aiohttp`. Přidán `rich.progress` a opraveny timeouty pro velké soubory (70MB+).
+*   **`HLS` & `DASH` Downloadery:** Sjednoceny s bázovou třídou, využívají nový `progress_callback` pro zobrazení postupu stahování segmentů.
 
-### 2. Rozbité testy po pročištění kódu
-*   **Problém:** Odstraněním starých funkcí (jako `get_attributes` přímo z `audiowork.py`) jsme rozbili přes 15 testů, které tyto funkce patchovaly.
-*   **Řešení:** Refaktorovali jsme i testy. Místo patchování funkcí v modulech nyní testy podstrkují `Mock` verzi `CroAPIClient` přímo entitám. Architektura je teď mnohem lépe testovatelná (Dependency Injection).
+### 2. Asynchronní orchestrace (`crodl/program/`)
+*   `AudioWork.download()` a jeho podmetody jsou nyní `async`.
+*   `Series` a `Show` nyní korektně `await`ují stahování jednotlivých epizod.
 
-### 3. Konzistence dat
-*   **Problém:** Každá entita si tahala data trochu jinak a v jiném formátu.
-*   **Řešení:** Všechny entity byly převedeny na `dataclasses` a data z API se nyní sjednoceně zpracovávají v `CroAPIClient`.
+### 3. Oprava a modernizace testů
+*   Všechny testy v `tests/` byly aktualizovány (celkem 107 testů).
+*   Zavedena pomocná třída `DummyAudioParts` pro testování báze.
+*   Testy nyní používají `IsolatedAsyncioTestCase` a `AsyncMock` pro simulaci síťové komunikace.
 
-## 🏆 Co je výsledkem?
-*   **Sjednocená architektura:** Vše jede přes `CroAPIClient` a bázovou třídu `Content`.
-*   **Čistý kód:** Žádné `print()` ani síťová volání hluboko v logice. Vše je explicitní.
-*   **Funkční CLI:** Reálné URL z mujrozhlas.cz se nyní stahují bez problémů.
-*   **100% testy:** Všech 107 testů svítí zeleně.
+## 🏆 Výsledek a ověření
+*   **Verifikace:** Úspěšně otestováno stažení velké rozhlasové hry (MP3, 70 MB) i celého 5dílného seriálu.
+*   **Stabilita:** Všech 107 testů prochází (`uv run pytest`).
+*   **UX:** Hezké a konzistentní progress bary v terminálu pro všechny typy stahování.
 
-## ⚡ Budoucí "bolesti" (Co nás čeká příště)
-1.  **Sjednocení stahovačů (Downloader Abstraction):** Převést `AudioParts` na skutečnou abstraktní bázovou třídu (ABC) s definovaným rozhraním (metoda `download()`). Sjednotit inicializaci a zpracování chyb napříč `DASH`, `HLS` a `MP3`.
-2.  **Plná asynchronizace:** Stahování MP3 a některé části parsování jsou stále synchronní. Pro budoucí GUI to bude chtít kompletní `async/await` cestu.
-3.  **Lazy Loading:** Metadata by se měla načítat, až když jsou skutečně potřeba (např. popis pořadu).
-4.  **Persistence:** Bude potřeba vybrat a implementovat databázi (SQLModel / Django) pro ukládání historie stahování.
-5.  **Změny na straně Rozhlasu:** Cloudflare nebo struktura webu se může kdykoliv změnit, což bude vyžadovat údržbu škrabky v `CroAPIClient`.
+## ⚡ Co nás čeká příště
+1.  **Paralelní stahování seriálů:** Využití `asyncio.gather` pro stahování více epizod naráz (Bod 2 - dokončení).
+2.  **Service Layer (Fasáda `CroDL`):** Vytvoření čistého API pro budoucí GUI a vyčištění `main.py` (Bod 3).
+3.  **Persistence:** Implementace `SQLModel` pro ukládání historie a metadat (Bod 4).
 
 ---
-*Hotovo pro dnešek. Dobrá práce!* 🎸
+*Hotovo. Skvělý posun k moderní asynchronní architektuře!* 🚀
+

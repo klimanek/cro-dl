@@ -1,12 +1,10 @@
 import os
-
 from dataclasses import dataclass
 from pathlib import Path
+from rich.progress import Progress
 
-from yaspin import yaspin
 from crodl.tools.logger import crologger
-
-from crodl.streams.utils import get_m4a_url, process_audiowork_title
+from crodl.streams.utils import get_m4a_url, process_audiowork_title, shorten_title
 from crodl.streams.audioparts import AudioParts
 from crodl.streams.download import download_parts
 
@@ -16,9 +14,7 @@ from crodl.settings import TIMEOUT
 @dataclass
 class HLS(AudioParts):
     """
-    Processes a HLS stream using its chunklist, downloaded from its url. Creates
-    a local chunklist.txt containing a complete list of all aac chunks which
-    will be merged into one aac audio file.
+    Processes a HLS stream using its chunklist.
     """
 
     @property
@@ -49,33 +45,22 @@ class HLS(AudioParts):
 
         return chunks
 
-    def _delete_chunklist_txt(self) -> None:
-        if not self.segments_path:
-            raise ValueError("self.segments_path is None!")
-        crologger.info("Deleting chunklist.txt.")
-        os.remove(self.segments_path / "chunklist.txt")
-
     def _create_list_txt(self) -> None:
         if not self.segments_path:
             raise ValueError("self.segments_path is None!")
 
         self._get_chunklist_m3u8()
         chunks = self._get_chunk_names()
-        crologger.info("Getting file names...")
+        crologger.info("Generating list.txt for ffmpeg...")
 
         if not chunks:
             raise ValueError("Chunklist is empty!")
 
-        crologger.info("Renaming...")
-
-        if not isinstance(self.segments_path, Path):
-            self.segments_path = Path(self.segments_path)
-        list_path = Path(self.segments_path / "list.txt")
-
+        list_path = self.segments_path / "list.txt"
         with list_path.open("w", encoding="utf-8") as list_txt:
             for line in chunks:
                 list_txt.write(line + "\n")
-        crologger.info("The list.txt file with new titles was created successfully.")
+        crologger.info("The list.txt file was created successfully.")
 
     def chunks_urls(self) -> list[str]:
         mp4_url = get_m4a_url(self.url)
@@ -83,41 +68,26 @@ class HLS(AudioParts):
 
         return [mp4_url + "/" + chunk for chunk in chunks]
 
-    def _merge_chunks(self, audio_format: str) -> None:
-        if not self.audiowork_dir:
-            raise ValueError("self.audiowork_dir is None!")
-        if not self.segments_path:
-            raise ValueError("self.segments_path is None!")
-        if not isinstance(self.audiowork_dir, Path):
-            self.audiowork_dir = Path(self.audiowork_dir)
-
-        title_and_extension = (
-            f"{process_audiowork_title(self.audio_title)}.{audio_format}"
-        )
-        output_file = self.audiowork_dir / title_and_extension
-        segment_files = [
-            self.segments_path / f"media_{i}.{audio_format}"
-            for i in range(len(self.chunks_urls()))
-        ]
-
-        crologger.info("Merging segments...")
-        with open(output_file, "wb") as output:
-            for segment in segment_files:
-                # crologger.info("Merging segments %s: ", segment)
-                with open(segment, "rb") as f:
-                    output.write(f.read())
-
     async def download(self) -> None:
+        self._prepare_directories()
+
         if not self.segments_path:
             raise ValueError("self.segments_path is not set!")
 
-        with yaspin(text=f"Zpracovávám {self.audio_title}", color="yellow") as _:
-            self._create_list_txt()
+        self._create_list_txt()
 
-        with yaspin(text=f"Stahuji {self.audio_title}", color="yellow") as _:
-            await download_parts(self.chunks_urls(), self.segments_path)
+        urls = self.chunks_urls()
+        with Progress() as progress:
+            task = progress.add_task(
+                shorten_title(self.audio_title, 20), total=len(urls)
+            )
 
-        with yaspin(text=f"Ukládám {self.audio_title}", color="yellow") as spinner:
-            self._merge_chunks("aac")
-            self._purge_chunks_dir()
-            spinner.ok("✔️")
+            def update_progress():
+                progress.update(task, advance=1)
+
+            await download_parts(urls, self.segments_path, progress_callback=update_progress)
+
+        # Merge using ffmpeg via base class method
+        self._merge_chunks("aac")
+        self._purge_chunks_dir()
+        crologger.info("HLS download completed.")

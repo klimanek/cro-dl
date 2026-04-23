@@ -198,7 +198,7 @@ class AudioWork(Content):
         )
         await chunklist.download()
 
-    def _download_mp3(self):  # pragma: no cover
+    async def _download_mp3(self):  # pragma: no cover
         """Download mp3 file."""
         mp3_url = self.audio_formats_urls.get("mp3")
 
@@ -212,7 +212,7 @@ class AudioWork(Content):
             segments=False,
             session=self.client.session,
         )
-        mp3.download()
+        await mp3.download()
 
     async def download(
         self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
@@ -243,7 +243,7 @@ class AudioWork(Content):
                 case AudioFormat.HLS:
                     await self._download_hls()
                 case AudioFormat.MP3:
-                    self._download_mp3()
+                    await self._download_mp3()
                 case None:
                     err_msg = f"The episdode {self.title} is not available."
                     crologger.error(err_msg)
