@@ -2,7 +2,7 @@ import os
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 from rich.progress import Progress
 
@@ -32,8 +32,8 @@ class Series(Content):
         """
         A method that is called after the class is initialized.
         """
-        if not self.uuid:
-            self.uuid = self.client.get_series_id(self.url)  # type: ignore
+        if not self.uuid and self.url:
+            self.uuid = self.client.get_series_id(self.url)
 
         if not self.uuid:
             crologger.error("Could not find series UUID for URL: %s", self.url)
@@ -45,10 +45,10 @@ class Series(Content):
             crologger.error("Got an empty response. Series might not be available.")
             raise ValueError("Seriál není dostupný. Zkuste akci opakovat později.")
 
-        self._attrs = self.json["data"]["attributes"]
+        self._attrs = self.json.get("data", {}).get("attributes", {})
 
-        self.title = self._attrs["title"]
-        self.parts = int(self._attrs["totalParts"])
+        self.title = str(self._attrs.get("title", "Unknown"))
+        self.parts = int(self._attrs.get("totalParts", 0))
 
         crologger.info("Opening series %s", self.title)
         crologger.info("Series ID : %s", self.uuid)
@@ -81,9 +81,10 @@ class Series(Content):
         if not self._attrs:
             return None
 
-        if self._attrs.get("description"):
+        desc = self._attrs.get("description")
+        if desc:
             # Remove HTML tags and return the description
-            return remove_html_tags(self._attrs.get("description"))
+            return remove_html_tags(str(desc))
         return None
 
     @property
@@ -100,11 +101,11 @@ class Series(Content):
         Return type: str
         """
         return (
-            self.json.get("data")
-            .get("relationships")  # type: ignore
-            .get("episodes")
-            .get("links")
-            .get("related")
+            self.json.get("data", {})
+            .get("relationships", {})
+            .get("episodes", {})
+            .get("links", {})
+            .get("related", "")
         )
 
     def _fetch_episodes(self) -> list[dict]:
@@ -114,7 +115,8 @@ class Series(Content):
         Returns:
             A list of dictionaries representing the fetched episodes.
         """
-        return self.client.get_related_data(self._episodes_url).get("data")
+        data = self.client.get_related_data(self._episodes_url).get("data")
+        return data if isinstance(data, list) else []
 
     @property
     def episodes_data(self) -> list[dict]:
@@ -125,19 +127,19 @@ class Series(Content):
 
     @property
     def audio_formats(self) -> list[str | None]:
-        episode = self.episodes_data[0]
-
-        if not episode:
+        data = self.episodes_data
+        if not data:
             return []
-
-        audiolinks = episode["attributes"]["audioLinks"]
+        
+        episode = data[0]
+        audiolinks = episode.get("attributes", {}).get("audioLinks", [])
 
         formats = []
         for audiolink in audiolinks:
-            formats.append(audiolink["variant"])
+            formats.append(audiolink.get("variant"))
         return formats
 
-    def list_all_series_episodes(self) -> list[str]:
+    def list_all_series_episodes(self) -> list[dict]:
         """
         Lists all series episodes and their details.
 
@@ -149,17 +151,17 @@ class Series(Content):
         all_parts = []
 
         for data in json_data:
-            attrs = data.get("attributes")
-            episode_num = attrs.get("part")  # type: ignore
-            audio_link = get_audio_link_of_preferred_format(attrs)  # type: ignore
+            attrs = data.get("attributes", {})
+            episode_num = attrs.get("part")
+            audio_link = get_audio_link_of_preferred_format(attrs)
 
             all_parts.append(
                 {
                     "uuid": data.get("id"),
-                    "title": f"{episode_num}" + "-" + attrs.get("title"),  # type: ignore
+                    "title": f"{episode_num}" + "-" + attrs.get("title", ""),
                     "episode_num": episode_num,
                     "url": audio_link,
-                    "since": attrs.get("since"),  # type: ignore
+                    "since": attrs.get("since"),
                 }
             )
 
@@ -173,15 +175,16 @@ class Series(Content):
         if not os.path.isdir(self.download_dir):
             return 0
 
-        downloaded_parts = 0
+        downloaded_count = 0
+        files = os.listdir(self.download_dir)
         for part in range(1, self.parts + 1):
-            if any(f.startswith(f"{part}-") for f in os.listdir(self.download_dir)):
-                downloaded_parts += 1
+            if any(f.startswith(f"{part}-") for f in files):
+                downloaded_count += 1
 
-        crologger.info("Parts downloaded: %s", downloaded_parts)
+        crologger.info("Parts downloaded: %s", downloaded_count)
         crologger.info("Total parts: %s", self.parts)
 
-        return downloaded_parts
+        return downloaded_count
 
     def already_exists(self) -> bool:
         crologger.info("Checking whether the series has been downloaded already...")
@@ -194,18 +197,21 @@ class Series(Content):
         async with semaphore:
             download_to = self.download_dir
             audio_work = AudioWork(
-                uuid=episode.get("uuid"),  # type: ignore
+                uuid=episode.get("uuid"),
                 audiowork_root=self.download_dir,
                 audiowork_dir=download_to,
-                title=episode.get("title"),  # type: ignore
+                title=episode.get("title", "Unknown"),
                 series=True,
-                since=episode.get("since"),  # type: ignore
+                since=episode.get("since", ""),
                 client=self.client,
             )
             await audio_work.download(audio_format, progress=progress)
 
     async def download(
-        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+        self, 
+        audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
+        progress: Optional[Progress] = None,
+        task_id: Optional[Any] = None
     ) -> None:
         """Downloads all series episodes in parallel (limited by semaphore)."""
         if not self.download_dir:
@@ -217,9 +223,16 @@ class Series(Content):
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
         episodes = self.list_all_series_episodes()
         
-        with Progress() as progress:
+        if progress:
             tasks = [
                 self._download_episode(episode, audio_format, semaphore, progress)
                 for episode in episodes
             ]
             await asyncio.gather(*tasks)
+        else:
+            with Progress() as internal_progress:
+                tasks = [
+                    self._download_episode(episode, audio_format, semaphore, internal_progress)
+                    for episode in episodes
+                ]
+                await asyncio.gather(*tasks)

@@ -48,30 +48,31 @@ class AudioWork(Content):
             raise ValueError(err_msg)
 
         if not self.uuid:
-            self.uuid = self.client.get_audio_uuid(self.url)  # type: ignore
+            # client.get_audio_uuid is guaranteed to return str or raise
+            self.uuid = self.client.get_audio_uuid(self.url) if self.url else None
 
-        if not self.json_data:
+        if not self.json_data and self.uuid:
             self.json_data = self.client.get_episode_data(self.uuid)
 
         if not self._attrs:
             try:
-                self._attrs = self.json_data["data"]["attributes"]
-            except (KeyError, TypeError):
+                self._attrs = self.json_data.get("data", {}).get("attributes", {})
+            except (AttributeError, TypeError):
                 self._attrs = {}
 
-        if not self.title:
-            self.title = self._attrs.get("title", "Unknown")
+        if self.title == "Unknown" or not self.title:
+            self.title = str(self._attrs.get("title", "Unknown"))
 
         if not self.audiowork_dir:
             self.audiowork_dir = (
-                DOWNLOAD_PATH / process_audiowork_title(self.title)  # type: ignore
+                DOWNLOAD_PATH / process_audiowork_title(self.title)
             )
 
         if not self.audiowork_root:
             self.audiowork_root = self.audiowork_dir
 
         if not self.since:
-            self.since = self._attrs.get("since", "")
+            self.since = str(self._attrs.get("since", ""))
 
     @property
     def audio_links(self) -> list[dict] | None:
@@ -124,22 +125,23 @@ class AudioWork(Content):
         if not self._attrs:
             return None
 
-        if self._attrs.get("description"):
+        desc = self._attrs.get("description")
+        if desc:
             # Remove HTML tags and return the description
-            return remove_html_tags(self._attrs.get("description"))
+            return remove_html_tags(str(desc))
         return None
 
     def info(self):
         """Some basic info on the file being downloaded."""
         attrs = self._attrs
-        audio_links = attrs["audioLinks"]
+        audio_links = attrs.get("audioLinks", [])
 
         print(f"\n[bold yellow]{self.title}[/bold yellow]")
         for alink in audio_links:
-            bitrate = alink["bitrate"]
-            duration = alink["duration"]
+            bitrate = alink.get("bitrate")
+            duration = alink.get("duration")
             size = alink.get("sizeInBytes", "Stream")
-            variant = alink["variant"]
+            variant = alink.get("variant")
 
             print(f"- {HMS(duration)} - {file_size(size)} - {bitrate} kbps - {variant}")
 
@@ -147,20 +149,23 @@ class AudioWork(Content):
 
     def already_exists(self) -> bool:  # pragma: no cover
         """Checks whether the audiowork already exists in the download directory."""
-        # Get a list of all files in the audiowork directory
+        if not self.audiowork_dir:
+            return False
+            
         try:
             files_in_directory = os.listdir(self.audiowork_dir)
         except FileNotFoundError:
             files_in_directory = []
 
         if files_in_directory:
+            processed_title = process_audiowork_title(self.title)
             for file in files_in_directory:
                 # Check if the file name matches the provided title (without extension)
-                if process_audiowork_title(self.title) in os.path.splitext(file)[0]:
+                if processed_title in os.path.splitext(file)[0]:
                     return True
         return False
 
-    async def _download_dash(self, progress: Optional[Progress] = None, task_id=None) -> None:  # pragma: no cover
+    async def _download_dash(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:  # pragma: no cover
         """Download audio file from DASH stream."""
         mpd_url = self.audio_formats_urls.get("dash")
 
@@ -176,7 +181,7 @@ class AudioWork(Content):
 
         await manifest.download(progress=progress, task_id=task_id)
 
-    async def _download_hls(self, progress: Optional[Progress] = None, task_id=None) -> None:  # pragma: no cover
+    async def _download_hls(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:  # pragma: no cover
         """Download audio file from HLS stream."""
         hls_url = self.audio_formats_urls.get("hls")
 
@@ -191,7 +196,7 @@ class AudioWork(Content):
         )
         await chunklist.download(progress=progress, task_id=task_id)
 
-    async def _download_mp3(self, progress: Optional[Progress] = None, task_id=None):  # pragma: no cover
+    async def _download_mp3(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None):  # pragma: no cover
         """Download mp3 file."""
         mp3_url = self.audio_formats_urls.get("mp3")
 
@@ -211,7 +216,7 @@ class AudioWork(Content):
         self, 
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
-        task_id=None
+        task_id: Optional[Any] = None
     ) -> None:  # pragma: no cover
         """Method to download the audio file.
         Accepts optional progress and task_id for parallel reporting.
@@ -219,19 +224,20 @@ class AudioWork(Content):
         if not self.audio_formats:
             return
 
-        if audio_format and audio_format.value not in self.audio_formats:
+        selected_format = audio_format
+        if selected_format and selected_format.value not in self.audio_formats:
             # Search for the first preferred available format from class AudioFormat
-            crologger.info("The format %s is not available.", audio_format.value)
-            audio_format = get_preferred_audio_format(self.audio_formats)
-            if audio_format:
-                crologger.info("Going to use %s instead.", audio_format.value)
+            crologger.info("The format %s is not available.", selected_format.value)
+            selected_format = get_preferred_audio_format(self.audio_formats)
+            if selected_format:
+                crologger.info("Going to use %s instead.", selected_format.value)
 
         if not self.already_exists():
             if not self.series and not self.show:
-                # Create a download dir for the audiowork when not part of series.
-                create_dir_if_does_not_exist(self.audiowork_dir)
+                if self.audiowork_dir:
+                    create_dir_if_does_not_exist(self.audiowork_dir)
 
-            match audio_format:
+            match selected_format:
                 case AudioFormat.DASH:
                     await self._download_dash(progress=progress, task_id=task_id)
                 case AudioFormat.HLS:

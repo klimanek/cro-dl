@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional, Any
 from bs4 import BeautifulSoup
 from rich.progress import Progress
 
@@ -167,7 +168,7 @@ class DASH(AudioParts):
                     self.segments_path / new_name,
                 )
 
-    async def download(self, progress: Progress = None, task_id=None):
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None):
         """
         Asynchronously downloads chunk files using the segment URLs
         and saves them to the specified segments path.

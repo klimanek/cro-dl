@@ -2,7 +2,7 @@ import os
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 from rich.progress import Progress
 
@@ -30,8 +30,8 @@ class Show(Content):
     download_dir: Path = field(init=False)
 
     def __post_init__(self):
-        if not self.uuid:
-            self.uuid = self.client.get_show_uuid(self.url)  # type: ignore
+        if not self.uuid and self.url:
+            self.uuid = self.client.get_show_uuid(self.url)
 
         if not self.uuid:
             raise ValueError(f"Could not find show UUID for URL: {self.url}")
@@ -40,20 +40,20 @@ class Show(Content):
         json_data = self.client.get_show_data(self.uuid)
 
         attributes = Attributes(
-            title=json_data["data"]["attributes"]["title"],
-            active=json_data["data"]["attributes"]["active"],
-            aired=json_data["data"]["attributes"]["aired"],
-            description=json_data["data"]["attributes"]["description"],
-            short_description=json_data["data"]["attributes"]["shortDescription"],
+            title=str(json_data["data"]["attributes"]["title"]),
+            active=bool(json_data["data"]["attributes"]["active"]),
+            aired=bool(json_data["data"]["attributes"]["aired"]),
+            description=str(json_data["data"]["attributes"]["description"]),
+            short_description=str(json_data["data"]["attributes"]["shortDescription"]),
         )
 
         data = Data(
-            show_type=json_data["data"]["type"],
-            uuid=json_data["data"]["id"],
+            show_type=str(json_data["data"]["type"]),
+            uuid=str(json_data["data"]["id"]),
             attributes=attributes,
         )
 
-        self.title = json_data["data"]["attributes"]["title"]
+        self.title = str(json_data["data"]["attributes"]["title"])
         self.json = json_data
         self.data = data
         episodes_data = self.client.get_related_data(
@@ -91,25 +91,35 @@ class Show(Content):
         async with semaphore:
             download_to = self.download_dir
             audio_work = AudioWork(
-                uuid=episode.get("uuid"),  # type: ignore
+                uuid=episode.get("uuid"),
                 audiowork_dir=download_to,
-                title=title_with_part(episode.get("title"), episode.get("part")),  # type: ignore
-                since=episode.get("since"),  # type: ignore
+                title=title_with_part(str(episode.get("title", "Unknown")), int(episode.get("part", 0))),
+                since=str(episode.get("since", "")),
                 show=True,
                 client=self.client,
             )
             await audio_work.download(audio_format, progress=progress)
 
     async def download(
-        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+        self, 
+        audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
+        progress: Optional[Progress] = None,
+        task_id: Optional[Any] = None
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
         create_dir_if_does_not_exist(self.download_dir)
 
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
-        with Progress() as progress:
+        if progress:
             tasks = [
                 self._download_episode(episode, audio_format, semaphore, progress)
                 for episode in self.episodes.info
             ]
             await asyncio.gather(*tasks)
+        else:
+            with Progress() as internal_progress:
+                tasks = [
+                    self._download_episode(episode, audio_format, semaphore, internal_progress)
+                    for episode in self.episodes.info
+                ]
+                await asyncio.gather(*tasks)

@@ -1,31 +1,32 @@
-# Log refaktoringu cro-dl (24. dubna 2026)
+# Log refaktoringu cro-dl (24. dubna 2026 - odpoledne)
 
-## 🎯 Cíl: Paralelní stahování a sjednocené UI (Bod 2 - dokončení)
-Zajistit, aby seriály a pořady stahovaly více epizod naráz pro maximální efektivitu, při zachování přehledného UI v terminálu.
+## 🎯 Cíl: Service Layer / Fasáda (Bod 3)
+Vytvořit jednotné rozhraní pro ovládání knihovny, oddělit logiku od CLI a připravit půdu pro budoucí GUI.
 
 ## 🚧 Provedené změny
 
-### 1. Paralelní orchestrace v `Series` a `Show`
-*   Zaveden `asyncio.gather` se semaforem (limit 3) pro stahování epizod.
-*   Výrazné zrychlení stahování u vícedílných děl.
+### 1. Implementace `CroDL` Fasády
+*   Vytvořen nový modul `crodl/facade.py` s třídou `CroDL`.
+*   Fasáda nyní centrálně řeší:
+    *   Validaci domén (`is_domain_supported`).
+    *   Rozpoznávání typu obsahu (`get_content`).
+    *   Orchestraci stahování s podporou externího progress baru.
 
-### 2. Sjednocené UI pro progres barů
-*   Refaktorováno rozhraní `AudioParts.download`, které nyní přijímá volitelný objekt `Progress`.
-*   Stahovače (`MP3`, `HLS`, `DASH`) nyní umí reportovat svůj stav do sdíleného `rich.progress` kontextu.
-*   Vyřešen `LiveError` – nyní může v rámci jednoho seriálu běžet libovolný počet progress barů pod sebou.
+### 2. Refaktoring `main.py`
+*   CLI je nyní "tenkým klientem". Veškerá složitá logika (if-else pro Show/Series) byla přesunuta do fasády.
+*   Zlepšena čitelnost a údržba kódu.
 
-### 3. Izolace temporary dat
-*   `segments_path` je nyní unikátní pro každou epizodu (formát `.chunks-<audio_title>`).
-*   Tím se předešlo "race conditions" při paralelním volání `ffmpeg` a přepisování `list.txt`.
+### 3. Sjednocení exportů
+*   Třída `CroDL` je nyní dostupná přímo z balíčku: `from crodl import CroDL`.
 
 ## 🏆 Výsledek a ověření
-*   **Verifikace:** Úspěšně otestováno paralelní stažení 5dílného seriálu o Josefu Čapkovi. 3 díly se stahovaly naráz, UI korektně zobrazovalo postupy všech běžících úloh.
-*   **Stabilita:** Všech 107 testů je zelených.
+*   **Verifikace:** Funkčnost CLI ověřena na reálných příkladech.
+*   **Stabilita:** Opraveny testy (`test_crodl.py`), které závisely na staré struktuře. Všech 107 testů je zelených.
 
 ## ⚡ Co nás čeká příště
-1.  **Service Layer (Fasáda `CroDL`):** Vytvoření čistého API pro budoucí GUI a vyčištění `main.py` (Bod 3).
-2.  **Persistence:** Implementace `SQLModel` pro ukládání historie a metadat (Bod 4).
+1.  **Persistence:** Implementace `SQLModel` pro ukládání historie a metadat (Bod 4).
 
 ---
-*Hotovo. Seriály teď lítají jako blesk!* ⚡⚡⚡
+*Hotovo. Architektura je teď krásně čistá a připravená na další rozšiřování!* 🏛️
+
 

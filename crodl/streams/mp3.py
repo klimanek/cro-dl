@@ -1,3 +1,4 @@
+from typing import Optional, Any
 import aiohttp
 from dataclasses import dataclass
 from rich.progress import Progress
@@ -5,14 +6,13 @@ from rich.progress import Progress
 from crodl.streams.audioparts import AudioParts
 from crodl.streams.utils import process_audiowork_title, shorten_title
 from crodl.tools.logger import crologger
-from crodl.settings import TIMEOUT
 
 
 @dataclass
 class MP3(AudioParts):
     """Process mp3 stream from CRo asynchronously."""
 
-    async def download(self, progress: Progress = None, task_id=None) -> None:
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
         """Download audiowork mp3 file asynchronously."""
         self._prepare_directories()
 

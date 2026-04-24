@@ -4,8 +4,9 @@ from pathlib import Path
 from dataclasses import dataclass, field
 import shutil
 
-from typing import Optional
+from typing import Optional, Any
 from requests import Session
+from rich.progress import Progress
 
 from crodl.settings import DOWNLOAD_PATH, SEGMENTS_SUBDIR, SUPPORTED_AUDIO_FORMATS
 from crodl.tools.logger import crologger
@@ -52,7 +53,7 @@ class AudioParts(ABC):
             create_dir_if_does_not_exist(self.segments_path)
 
     @abstractmethod
-    async def download(self, progress=None, task_id=None) -> None:
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
         """
         Abstract method to be implemented by subclasses.
         Accepts optional rich.progress.Progress and TaskID for parallel reporting.

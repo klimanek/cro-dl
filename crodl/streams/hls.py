@@ -1,10 +1,10 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional, Any
 from rich.progress import Progress
 
 from crodl.tools.logger import crologger
-from crodl.streams.utils import get_m4a_url, process_audiowork_title, shorten_title
+from crodl.streams.utils import get_m4a_url, shorten_title
 from crodl.streams.audioparts import AudioParts
 from crodl.streams.download import download_parts
 
@@ -68,7 +68,7 @@ class HLS(AudioParts):
 
         return [mp4_url + "/" + chunk for chunk in chunks]
 
-    async def download(self, progress: Progress = None, task_id=None) -> None:
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
         self._prepare_directories()
 
         if not self.segments_path:

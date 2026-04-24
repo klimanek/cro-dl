@@ -39,7 +39,7 @@ class Episodes:
         self.count = self.json_data.get("meta", {}).get("count", 0)
 
     @property
-    def info(self) -> list[str]:
+    def info(self) -> list[dict]:
         info = []
         for _data in self.data:
             attrs = _data["attributes"]
