@@ -1,5 +1,4 @@
 import sys
-
 import asyncclick as click
 from rich import print
 
@@ -7,6 +6,7 @@ from crodl import CroDL
 from crodl.program.series import Series
 from crodl.program.show import Show
 from crodl.settings import AudioFormat
+from crodl.persistence.database import init_db
 
 from . import __version__
 
@@ -39,6 +39,9 @@ FORMAT_OPTIONS = {
 )
 async def main(recording_url: str, stream_format: str) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
+    # Initialize database tables before doing anything else
+    await init_db()
+    
     dl = CroDL()
 
     try:
@@ -58,12 +61,15 @@ async def main(recording_url: str, stream_format: str) -> None:
     else:
         content.info()
 
-    # Kontrola existence
+    # Kontrola existence na disku (budoucí verze může kontrolovat i DB)
     if content.already_exists():
         if isinstance(content, (Show, Series)):
             print("[bold yellow]Všechny díly byly již staženy.[/bold yellow]")
         else:
             print("[bold magenta]Soubor již existuje.[/bold magenta] :wave:")
+        
+        # We still run download to ensure metadata is in the database
+        await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])
         sys.exit(0)
 
     # Potvrzení stahování pro kolekce (Show/Series)
@@ -73,5 +79,5 @@ async def main(recording_url: str, stream_format: str) -> None:
             print("[bold magenta]OK, končím. :wave:[/bold magenta]")
             sys.exit(0)
 
-    # Samotné stahování přes fasádu
+    # Samotné stahování přes fasádu (metadata se uloží uvnitř)
     await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])
