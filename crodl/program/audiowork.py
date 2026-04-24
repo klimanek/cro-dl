@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from rich import print
+from rich.progress import Progress
 
 from crodl.data.streamlinks import StreamLinks
 from crodl.program.content import Content
@@ -25,12 +26,6 @@ from crodl.tools.logger import crologger
 class AudioWork(Content):
     """
     Processes the audiowork at given URL or by its UUID.
-
-    Args:
-        url (str) -- URL of a website with audiowork "hidden" in e.g.:
-            https://www.mujrozhlas.cz/hra-na-sobotu/ondrej-neff-velka-solarni-v-nervy-drasajicim-zavode-kosmickych-lodi-jde-doslova-o
-
-        uuid (str) -- Unique ID of the audiowork.
     """
 
     audiowork_dir: Optional[Path] = None
@@ -165,9 +160,8 @@ class AudioWork(Content):
                     return True
         return False
 
-    async def _download_dash(self) -> None:  # pragma: no cover
-        """Download audio file from DASH stream
-        (m4s segments -> m4a using its manifest.mpd file.)"""
+    async def _download_dash(self, progress: Optional[Progress] = None, task_id=None) -> None:  # pragma: no cover
+        """Download audio file from DASH stream."""
         mpd_url = self.audio_formats_urls.get("dash")
 
         if not mpd_url:
@@ -180,11 +174,10 @@ class AudioWork(Content):
             session=self.client.session,
         )
 
-        await manifest.download()
+        await manifest.download(progress=progress, task_id=task_id)
 
-    async def _download_hls(self) -> None:  # pragma: no cover
-        """Download audio file from HLS stream
-        (aac chunks -> aac file, using its chunklist)."""
+    async def _download_hls(self, progress: Optional[Progress] = None, task_id=None) -> None:  # pragma: no cover
+        """Download audio file from HLS stream."""
         hls_url = self.audio_formats_urls.get("hls")
 
         if not hls_url:
@@ -196,9 +189,9 @@ class AudioWork(Content):
             audiowork_dir=self.audiowork_dir,
             session=self.client.session,
         )
-        await chunklist.download()
+        await chunklist.download(progress=progress, task_id=task_id)
 
-    async def _download_mp3(self):  # pragma: no cover
+    async def _download_mp3(self, progress: Optional[Progress] = None, task_id=None):  # pragma: no cover
         """Download mp3 file."""
         mp3_url = self.audio_formats_urls.get("mp3")
 
@@ -212,15 +205,16 @@ class AudioWork(Content):
             segments=False,
             session=self.client.session,
         )
-        await mp3.download()
+        await mp3.download(progress=progress, task_id=task_id)
 
     async def download(
-        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+        self, 
+        audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
+        progress: Optional[Progress] = None,
+        task_id=None
     ) -> None:  # pragma: no cover
-        """Method to download the audio file. The download method is picked according
-        to the available and preferred audio format.
-
-        If the file already exists, the method will skip it. (Useful for series.)
+        """Method to download the audio file.
+        Accepts optional progress and task_id for parallel reporting.
         """
         if not self.audio_formats:
             return
@@ -239,11 +233,11 @@ class AudioWork(Content):
 
             match audio_format:
                 case AudioFormat.DASH:
-                    await self._download_dash()
+                    await self._download_dash(progress=progress, task_id=task_id)
                 case AudioFormat.HLS:
-                    await self._download_hls()
+                    await self._download_hls(progress=progress, task_id=task_id)
                 case AudioFormat.MP3:
-                    await self._download_mp3()
+                    await self._download_mp3(progress=progress, task_id=task_id)
                 case None:
                     err_msg = f"The episdode {self.title} is not available."
                     crologger.error(err_msg)
@@ -251,5 +245,8 @@ class AudioWork(Content):
             crologger.info("Done.")
 
         else:
-            print(f"{self.title} již existuje.")
+            if progress and task_id:
+                progress.update(task_id, description=f"[cyan]{self.title} (existuje)[/cyan]", completed=1, total=1)
+            else:
+                print(f"{self.title} již existuje.")
             crologger.info("%s already exists.", self.title)

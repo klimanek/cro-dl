@@ -1,7 +1,10 @@
 import os
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+from rich.progress import Progress
 
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
@@ -184,17 +187,11 @@ class Series(Content):
         crologger.info("Checking whether the series has been downloaded already...")
         return self.downloaded_parts == self.parts
 
-    async def download(
-        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+    async def _download_episode(
+        self, episode: dict, audio_format: Optional[AudioFormat], semaphore: asyncio.Semaphore, progress: Progress
     ) -> None:
-        """Downloads all series episodes."""
-        if not self.download_dir:
-            raise ValueError("Download dir is not set!")
-
-        create_dir_if_does_not_exist(self.download_dir)
-        create_a_file_if_does_not_exist(self.download_dir / ".series")
-
-        for episode in self.list_all_series_episodes():
+        """Helper to download a single episode with semaphore control."""
+        async with semaphore:
             download_to = self.download_dir
             audio_work = AudioWork(
                 uuid=episode.get("uuid"),  # type: ignore
@@ -205,4 +202,24 @@ class Series(Content):
                 since=episode.get("since"),  # type: ignore
                 client=self.client,
             )
-            await audio_work.download(audio_format)
+            await audio_work.download(audio_format, progress=progress)
+
+    async def download(
+        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+    ) -> None:
+        """Downloads all series episodes in parallel (limited by semaphore)."""
+        if not self.download_dir:
+            raise ValueError("Download dir is not set!")
+
+        create_dir_if_does_not_exist(self.download_dir)
+        create_a_file_if_does_not_exist(self.download_dir / ".series")
+
+        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
+        episodes = self.list_all_series_episodes()
+        
+        with Progress() as progress:
+            tasks = [
+                self._download_episode(episode, audio_format, semaphore, progress)
+                for episode in episodes
+            ]
+            await asyncio.gather(*tasks)

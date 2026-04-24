@@ -45,13 +45,18 @@ class AudioParts(ABC):
 
         if self.segments:
             if not self.segments_path:
-                self.segments_path = self.audiowork_dir / SEGMENTS_SUBDIR
+                # Make segments directory unique to avoid collisions during parallel downloads
+                unique_suffix = process_audiowork_title(self.audio_title)
+                self.segments_path = self.audiowork_dir / f"{SEGMENTS_SUBDIR}-{unique_suffix}"
 
             create_dir_if_does_not_exist(self.segments_path)
 
     @abstractmethod
-    async def download(self) -> None:
-        """Abstract method to be implemented by subclasses."""
+    async def download(self, progress=None, task_id=None) -> None:
+        """
+        Abstract method to be implemented by subclasses.
+        Accepts optional rich.progress.Progress and TaskID for parallel reporting.
+        """
         pass
 
     def _merge_chunks(self, audio_format: str) -> None:

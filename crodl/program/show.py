@@ -1,7 +1,10 @@
 import os
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+from rich.progress import Progress
 
 from crodl.data.attributes import Attributes, Data, Episodes
 from crodl.program.audiowork import AudioWork
@@ -81,13 +84,11 @@ class Show(Content):
     def already_exists(self) -> bool:
         return self.downloaded_parts == self.episodes.count
 
-    async def download(
-        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+    async def _download_episode(
+        self, episode: dict, audio_format: Optional[AudioFormat], semaphore: asyncio.Semaphore, progress: Progress
     ) -> None:
-        """Downloads all episodes of the series to their own subfolders."""
-        create_dir_if_does_not_exist(self.download_dir)
-
-        for episode in self.episodes.info:
+        """Helper to download a single episode with semaphore control."""
+        async with semaphore:
             download_to = self.download_dir
             audio_work = AudioWork(
                 uuid=episode.get("uuid"),  # type: ignore
@@ -97,5 +98,18 @@ class Show(Content):
                 show=True,
                 client=self.client,
             )
+            await audio_work.download(audio_format, progress=progress)
 
-            await audio_work.download(audio_format)
+    async def download(
+        self, audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT
+    ) -> None:
+        """Downloads all episodes of the show in parallel (limited by semaphore)."""
+        create_dir_if_does_not_exist(self.download_dir)
+
+        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
+        with Progress() as progress:
+            tasks = [
+                self._download_episode(episode, audio_format, semaphore, progress)
+                for episode in self.episodes.info
+            ]
+            await asyncio.gather(*tasks)

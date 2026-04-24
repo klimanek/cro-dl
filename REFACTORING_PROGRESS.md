@@ -1,37 +1,31 @@
-# Log refaktoringu cro-dl (23. dubna 2026)
+# Log refaktoringu cro-dl (24. dubna 2026)
 
-## 🎯 Cíl: Abstrakce stahovačů a asynchronizace (Bod 1 & 2)
-Hlavním úkolem bylo sjednotit logiku stahování různých formátů a převést ji do plně asynchronního režimu.
+## 🎯 Cíl: Paralelní stahování a sjednocené UI (Bod 2 - dokončení)
+Zajistit, aby seriály a pořady stahovaly více epizod naráz pro maximální efektivitu, při zachování přehledného UI v terminálu.
 
 ## 🚧 Provedené změny
 
-### 1. Nová hierarchie stahovačů (`crodl/streams/`)
-*   **`AudioParts` -> ABC:** Převedena na abstraktní bázovou třídu.
-    *   Vynucuje implementaci `async def download()`.
-    *   Sjednocuje přípravu adresářů v `_prepare_directories()`.
-    *   Centralizuje spojování segmentů přes `ffmpeg` v `_merge_chunks()`.
-*   **`MP3` Downloader:** Kompletně přepsán na `async` pomocí `aiohttp`. Přidán `rich.progress` a opraveny timeouty pro velké soubory (70MB+).
-*   **`HLS` & `DASH` Downloadery:** Sjednoceny s bázovou třídou, využívají nový `progress_callback` pro zobrazení postupu stahování segmentů.
+### 1. Paralelní orchestrace v `Series` a `Show`
+*   Zaveden `asyncio.gather` se semaforem (limit 3) pro stahování epizod.
+*   Výrazné zrychlení stahování u vícedílných děl.
 
-### 2. Asynchronní orchestrace (`crodl/program/`)
-*   `AudioWork.download()` a jeho podmetody jsou nyní `async`.
-*   `Series` a `Show` nyní korektně `await`ují stahování jednotlivých epizod.
+### 2. Sjednocené UI pro progres barů
+*   Refaktorováno rozhraní `AudioParts.download`, které nyní přijímá volitelný objekt `Progress`.
+*   Stahovače (`MP3`, `HLS`, `DASH`) nyní umí reportovat svůj stav do sdíleného `rich.progress` kontextu.
+*   Vyřešen `LiveError` – nyní může v rámci jednoho seriálu běžet libovolný počet progress barů pod sebou.
 
-### 3. Oprava a modernizace testů
-*   Všechny testy v `tests/` byly aktualizovány (celkem 107 testů).
-*   Zavedena pomocná třída `DummyAudioParts` pro testování báze.
-*   Testy nyní používají `IsolatedAsyncioTestCase` a `AsyncMock` pro simulaci síťové komunikace.
+### 3. Izolace temporary dat
+*   `segments_path` je nyní unikátní pro každou epizodu (formát `.chunks-<audio_title>`).
+*   Tím se předešlo "race conditions" při paralelním volání `ffmpeg` a přepisování `list.txt`.
 
 ## 🏆 Výsledek a ověření
-*   **Verifikace:** Úspěšně otestováno stažení velké rozhlasové hry (MP3, 70 MB) i celého 5dílného seriálu.
-*   **Stabilita:** Všech 107 testů prochází (`uv run pytest`).
-*   **UX:** Hezké a konzistentní progress bary v terminálu pro všechny typy stahování.
+*   **Verifikace:** Úspěšně otestováno paralelní stažení 5dílného seriálu o Josefu Čapkovi. 3 díly se stahovaly naráz, UI korektně zobrazovalo postupy všech běžících úloh.
+*   **Stabilita:** Všech 107 testů je zelených.
 
 ## ⚡ Co nás čeká příště
-1.  **Paralelní stahování seriálů:** Využití `asyncio.gather` pro stahování více epizod naráz (Bod 2 - dokončení).
-2.  **Service Layer (Fasáda `CroDL`):** Vytvoření čistého API pro budoucí GUI a vyčištění `main.py` (Bod 3).
-3.  **Persistence:** Implementace `SQLModel` pro ukládání historie a metadat (Bod 4).
+1.  **Service Layer (Fasáda `CroDL`):** Vytvoření čistého API pro budoucí GUI a vyčištění `main.py` (Bod 3).
+2.  **Persistence:** Implementace `SQLModel` pro ukládání historie a metadat (Bod 4).
 
 ---
-*Hotovo. Skvělý posun k moderní asynchronní architektuře!* 🚀
+*Hotovo. Seriály teď lítají jako blesk!* ⚡⚡⚡
 

@@ -68,24 +68,27 @@ class HLS(AudioParts):
 
         return [mp4_url + "/" + chunk for chunk in chunks]
 
-    async def download(self) -> None:
+    async def download(self, progress: Progress = None, task_id=None) -> None:
         self._prepare_directories()
 
         if not self.segments_path:
             raise ValueError("self.segments_path is not set!")
 
         self._create_list_txt()
-
         urls = self.chunks_urls()
-        with Progress() as progress:
-            task = progress.add_task(
-                shorten_title(self.audio_title, 20), total=len(urls)
-            )
 
-            def update_progress():
-                progress.update(task, advance=1)
-
-            await download_parts(urls, self.segments_path, progress_callback=update_progress)
+        if progress:
+            if task_id is None:
+                task_id = progress.add_task(
+                    shorten_title(self.audio_title, 20), total=len(urls)
+                )
+            await download_parts(urls, self.segments_path, progress_callback=lambda: progress.update(task_id, advance=1))
+        else:
+            with Progress() as internal_progress:
+                task_id = internal_progress.add_task(
+                    shorten_title(self.audio_title, 20), total=len(urls)
+                )
+                await download_parts(urls, self.segments_path, progress_callback=lambda: internal_progress.update(task_id, advance=1))
 
         # Merge using ffmpeg via base class method
         self._merge_chunks("aac")
