@@ -54,6 +54,7 @@ class AudioWork(Content):
             raise ValueError(err_msg)
 
         if not self.uuid:
+            # client.get_audio_uuid is guaranteed to return str or raise
             self.uuid = self.client.get_audio_uuid(self.url) if self.url else None
 
         if not self.json_data and self.uuid:
@@ -174,6 +175,9 @@ class AudioWork(Content):
         if not mpd_url:
             raise ValueError("DASH Manifest URL not found.")
 
+        if not self.audiowork_dir:
+            raise ValueError("audiowork_dir is not set.")
+
         manifest = DASH(
             url=mpd_url,
             audio_title=self.title,
@@ -187,6 +191,9 @@ class AudioWork(Content):
         hls_url = self.audio_formats_urls.get("hls")
         if not hls_url:
             raise ValueError("HLS chunklist.txt URL not found.")
+
+        if not self.audiowork_dir:
+            raise ValueError("audiowork_dir is not set.")
 
         chunklist = HLS(
             url=hls_url,
@@ -202,6 +209,9 @@ class AudioWork(Content):
         if not mp3_url:
             raise ValueError("MP3 file URL not found.")
 
+        if not self.audiowork_dir:
+            raise ValueError("audiowork_dir is not set.")
+
         mp3 = MP3(
             url=mp3_url,
             audiowork_dir=self.audiowork_dir,
@@ -215,7 +225,7 @@ class AudioWork(Content):
         """
         Extracts metadata from JSON data, downloads thumbnail, and saves to database.
         """
-        if not self.json_data or not self.uuid:
+        if not self.json_data or not self.uuid or not self.audiowork_dir:
             return
 
         data = self.json_data.get("data", {})
@@ -236,7 +246,6 @@ class AudioWork(Content):
         stations_data = rels.get("stations", {}).get("data", [])
         if stations_data:
             s_id = stations_data[0].get("id")
-            # We don't have station title here, could fetch it, but using ID for now
             station = Station(id=s_id, title=f"Station {s_id}")
 
         # 3. Extract Show
@@ -252,14 +261,12 @@ class AudioWork(Content):
         series_rel = rels.get("serial", {}).get("data")
         if series_rel:
             series_id = series_rel.get("id")
-            # Series title is not directly in episode attrs, might be mirror of show or same as show
             series = Series(id=series_id, title=attrs.get("mirroredShow", {}).get("title", "Unknown Series"))
 
         # 5. Create Episode
         since_dt = None
         if self.since:
             try:
-                # Basic ISO format parsing
                 since_dt = datetime.fromisoformat(self.since.replace("Z", "+00:00"))
             except ValueError:
                 pass
@@ -305,13 +312,15 @@ class AudioWork(Content):
             crologger.info("Format %s not available, searching for alternative...", selected_format.value)
             selected_format = get_preferred_audio_format(self.audio_formats)
 
+        if not self.audiowork_dir:
+            raise ValueError("audiowork_dir is not set.")
+
         if not self.already_exists():
-            if not self.series and not self.show and self.audiowork_dir:
+            if not self.series and not self.show:
                 create_dir_if_does_not_exist(self.audiowork_dir)
 
             # Determine target path for metadata saving
             ext = selected_format.value if selected_format else "mp3"
-            # Some formats use m4a as container
             if ext in ("dash", "hls"):
                 ext = "aac" if ext == "hls" else "m4a"
                 
@@ -340,7 +349,8 @@ class AudioWork(Content):
             
             # Even if exists on disk, we might want to ensure metadata is in DB
             ext = selected_format.value if selected_format else "mp3"
-            if ext in ("dash", "hls"): ext = "aac" if ext == "hls" else "m4a"
+            if ext in ("dash", "hls"):
+                ext = "aac" if ext == "hls" else "m4a"
             audio_path = self.audiowork_dir / f"{process_audiowork_title(self.title)}.{ext}"
             await self._save_metadata(audio_path)
             

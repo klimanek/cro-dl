@@ -1,11 +1,9 @@
 import asyncio
-from typing import Optional, List, Sequence
+from typing import Optional, Sequence
 from sqlmodel import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
 from crodl.persistence.models import Episode, Show, Series, Station
-from crodl.persistence.database import engine
+from crodl.persistence.database import async_session_factory
 
 
 class LibraryRepository:
@@ -16,9 +14,6 @@ class LibraryRepository:
     """
 
     def __init__(self):
-        self.async_session_factory = sessionmaker(
-            engine, class_=AsyncSession, expire_on_commit=False
-        )
         self._lock = asyncio.Lock()
 
     async def save_episode(
@@ -33,7 +28,7 @@ class LibraryRepository:
         Uses a lock to prevent IntegrityErrors when multiple tasks save shared entities.
         """
         async with self._lock:
-            async with self.async_session_factory() as session:
+            async with async_session_factory() as session:
                 # 1. Merge related entities first to handle foreign key constraints
                 if station_data:
                     await session.merge(station_data)
@@ -53,7 +48,7 @@ class LibraryRepository:
         """
         Checks if an episode with the given UUID already exists in the database.
         """
-        async with self.async_session_factory() as session:
+        async with async_session_factory() as session:
             statement = select(Episode).where(Episode.id == uuid)
             result = await session.execute(statement)
             return result.first() is not None
@@ -62,7 +57,7 @@ class LibraryRepository:
         """
         Retrieves a single episode by its UUID.
         """
-        async with self.async_session_factory() as session:
+        async with async_session_factory() as session:
             statement = select(Episode).where(Episode.id == uuid)
             result = await session.execute(statement)
             return result.scalar_one_or_none()
@@ -72,7 +67,7 @@ class LibraryRepository:
         Returns all downloaded episodes from the database.
         Useful for the web library interface.
         """
-        async with self.async_session_factory() as session:
+        async with async_session_factory() as session:
             statement = select(Episode)
             result = await session.execute(statement)
             return result.scalars().all()

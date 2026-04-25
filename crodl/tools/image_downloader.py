@@ -16,7 +16,8 @@ async def download_image(url: str, target_path: Path) -> Optional[Path]:
     
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=30) as response:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with session.get(url, timeout=timeout) as response:
                 if response.status == 200:
                     content = await response.read()
                     
