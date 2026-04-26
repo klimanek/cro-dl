@@ -1,4 +1,5 @@
 import sys
+import importlib.metadata
 import asyncclick as click
 from rich import print
 
@@ -8,21 +9,14 @@ from crodl.program.show import Show
 from crodl.settings import AudioFormat
 from crodl.persistence.database import init_db
 
-from . import __version__
-
-
-def get_version(ctx, param, value) -> None:
-    if not value or ctx.resilient_parsing:
-        return
-    click.echo(__version__)
-    ctx.exit()
-
 
 FORMAT_OPTIONS = {
     "mp3": AudioFormat.MP3,
     "hls": AudioFormat.HLS,
     "dash": AudioFormat.DASH,
 }
+
+__version__ = importlib.metadata.version("cro-dl")
 
 
 @click.command()
@@ -34,9 +28,7 @@ FORMAT_OPTIONS = {
     default="mp3",
     help="Formát audio streamu. (mp3, hls, dash)",
 )
-@click.option(
-    "--version", is_flag=True, callback=get_version, expose_value=False, is_eager=True
-)
+@click.version_option(__version__)
 async def main(recording_url: str, stream_format: str) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
     # Initialize database tables before doing anything else

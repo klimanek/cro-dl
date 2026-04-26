@@ -8,13 +8,13 @@ cro_session = Session()
 _api_client = CroAPIClient(session=cro_session)
 
 
-def get_audio_uuid(site_url: str, session: Session) -> str:
+def get_audio_uuid(site_url: str, session) -> str:
     """Return the audio UUID from the site URL."""
     client = _api_client if session == cro_session else CroAPIClient(session=session)
     return client.get_audio_uuid(site_url)
 
 
-def get_show_uuid(site_url: str, session: Session) -> str:
+def get_show_uuid(site_url: str, session) -> str:
     """Return the show's UUID from the site URL."""
     client = _api_client if session == cro_session else CroAPIClient(session=session)
     return client.get_show_uuid(site_url)
@@ -37,7 +37,9 @@ def get_attributes(uuid: str, session: Session) -> dict:
 
 
 def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
-    """Searches for an audio link of preferred audio format. If not found, returns None."""
+    """Searches for an audio link of preferred audio format.
+    If not found, returns None.
+    """
     audio_links = attrs.get("audioLinks")
 
     if not audio_links:
@@ -54,25 +56,22 @@ def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
     return audio_formats.get(audio_format.value) if audio_format else None
 
 
-def get_js_value_from_url(site_url: str, jsvar: str, session: Session) -> str | None:
+def get_js_value_from_url(site_url: str, jsvar: str, session) -> str | None:
     """Returns the value of a JavaScript variable from the given URL."""
     client = _api_client if session == cro_session else CroAPIClient(session=session)
     return client.get_js_value_from_url(site_url, jsvar)
 
 
-def is_series(url: str, session: Session) -> bool:
+def is_series(url: str, session) -> bool:
     """Returns True, if the page contains a series."""
     return get_js_value_from_url(url, "siteEntityBundle", session) == "serial"
 
 
-def get_series_id(site_url: str, session: Session) -> str | None:
+def get_series_id(site_url: str, session) -> str | None:
     """Returns series ID, based on its URL"""
     return get_js_value_from_url(site_url, "contentId", session)
 
 
-def is_show(url: str, session: Session) -> bool:
+def is_show(url: str, session) -> bool:
     """Returns True,  if the page contains a show."""
     return get_js_value_from_url(url, "siteEntityBundle", session) == "show"
-
-
-# "siteEntityBundle":"serialPart"
