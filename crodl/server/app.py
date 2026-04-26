@@ -38,37 +38,95 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Render the main library web interface."""
+    """Render the main library web interface showing shows and series."""
     try:
         repo = LibraryRepository()
-        episodes = await repo.get_all_episodes()
+        shows = await repo.get_all_shows()
+        series = await repo.get_all_series()
         
-        processed_episodes = []
-        for ep in episodes:
-            ep_dict = ep.model_dump()
+        collections = []
+        
+        # Process Shows
+        for s in shows:
+            # Get first episode to extract thumbnail
+            episodes = await repo.get_episodes_by_show(s.id)
+            if not episodes: continue
             
-            # Safe path processing
-            try:
-                rel_audio = os.path.relpath(ep.local_path, DOWNLOAD_PATH)
-                ep_dict["audio_url"] = f"/library/{rel_audio}"
+            thumb_url = None
+            if episodes[0].image_path:
+                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
+                thumb_url = f"/library/{rel_img}"
                 
-                if ep.image_path:
-                    rel_img = os.path.relpath(ep.image_path, DOWNLOAD_PATH)
-                    ep_dict["thumb_url"] = f"/library/{rel_img}"
-                else:
-                    ep_dict["thumb_url"] = None
-            except Exception:
-                ep_dict["audio_url"] = "#"
-                ep_dict["thumb_url"] = None
+            collections.append({
+                "type": "show",
+                "id": s.id,
+                "title": s.title,
+                "description": s.description or episodes[0].description,
+                "thumb_url": thumb_url,
+                "count": len(episodes)
+            })
+
+        # Process Series (avoid duplicates if series is also a show)
+        show_ids = [s.id for s in shows]
+        for sr in series:
+            if sr.id in show_ids: continue
+            
+            episodes = await repo.get_episodes_by_series(sr.id)
+            if not episodes: continue
+            
+            thumb_url = None
+            if episodes[0].image_path:
+                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
+                thumb_url = f"/library/{rel_img}"
                 
-            processed_episodes.append(ep_dict)
+            collections.append({
+                "type": "series",
+                "id": sr.id,
+                "title": sr.title,
+                "description": sr.description or episodes[0].description,
+                "thumb_url": thumb_url,
+                "count": len(episodes)
+            })
 
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"episodes": processed_episodes}
+            context={"collections": collections}
         )
     except Exception as e:
-        # Return the traceback to the browser for debugging
         error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
         return PlainTextResponse(error_msg, status_code=500)
+
+@app.get("/detail/{ctype}/{id}", response_class=HTMLResponse)
+async def detail(request: Request, ctype: str, id: str):
+    """Render the detail page for a show or series with episode list."""
+    try:
+        repo = LibraryRepository()
+        if ctype == "show":
+            content = await repo.get_show(id)
+            episodes = await repo.get_episodes_by_show(id)
+        else:
+            content = await repo.get_series(id)
+            episodes = await repo.get_episodes_by_series(id)
+            
+        if not content:
+            return PlainTextResponse("Not found", status_code=404)
+
+        processed_episodes = []
+        for ep in episodes:
+            ep_dict = ep.model_dump()
+            rel_audio = os.path.relpath(ep.local_path, DOWNLOAD_PATH)
+            ep_dict["audio_url"] = f"/library/{rel_audio}"
+            processed_episodes.append(ep_dict)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="detail.html",
+            context={
+                "content": content,
+                "episodes": processed_episodes,
+                "type": ctype
+            }
+        )
+    except Exception as e:
+        return PlainTextResponse(str(e), status_code=500)

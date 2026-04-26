@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Sequence
+from typing import Optional, List, Sequence
 from sqlmodel import select
 
 from crodl.persistence.models import Episode, Show, Series, Station
@@ -25,49 +25,70 @@ class LibraryRepository:
     ) -> None:
         """
         Saves or updates an episode and its related entities in the database.
-        Uses a lock to prevent IntegrityErrors when multiple tasks save shared entities.
         """
         async with self._lock:
             async with async_session_factory() as session:
-                # 1. Merge related entities first to handle foreign key constraints
                 if station_data:
                     await session.merge(station_data)
-
                 if show_data:
                     await session.merge(show_data)
-
                 if series_data:
                     await session.merge(series_data)
-
-                # 2. Merge the primary episode data
                 await session.merge(episode_data)
-
                 await session.commit()
 
-    async def is_downloaded(self, uuid: str) -> bool:
-        """
-        Checks if an episode with the given UUID already exists in the database.
-        """
+    async def get_all_episodes(self) -> Sequence[Episode]:
+        """Returns all downloaded episodes."""
         async with async_session_factory() as session:
-            statement = select(Episode).where(Episode.id == uuid)
+            statement = select(Episode).order_by(Episode.since.desc())
             result = await session.execute(statement)
-            return result.first() is not None
+            return result.scalars().all()
+
+    async def get_episodes_by_show(self, show_id: str) -> Sequence[Episode]:
+        """Returns all episodes belonging to a specific show."""
+        async with async_session_factory() as session:
+            statement = select(Episode).where(Episode.show_id == show_id).order_by(Episode.since.desc())
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+    async def get_episodes_by_series(self, series_id: str) -> Sequence[Episode]:
+        """Returns all episodes belonging to a specific series."""
+        async with async_session_factory() as session:
+            statement = select(Episode).where(Episode.series_id == series_id).order_by(Episode.since.desc())
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+    async def get_all_shows(self) -> Sequence[Show]:
+        """Returns all shows that have at least one downloaded episode."""
+        async with async_session_factory() as session:
+            statement = select(Show)
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+    async def get_all_series(self) -> Sequence[Series]:
+        """Returns all series that have at least one downloaded episode."""
+        async with async_session_factory() as session:
+            statement = select(Series)
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+    async def get_show(self, show_id: str) -> Optional[Show]:
+        """Retrieves a single show by its ID."""
+        async with async_session_factory() as session:
+            statement = select(Show).where(Show.id == show_id)
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
+
+    async def get_series(self, series_id: str) -> Optional[Series]:
+        """Retrieves a single series by its ID."""
+        async with async_session_factory() as session:
+            statement = select(Series).where(Series.id == series_id)
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
 
     async def get_episode(self, uuid: str) -> Optional[Episode]:
-        """
-        Retrieves a single episode by its UUID.
-        """
+        """Retrieves a single episode by its UUID."""
         async with async_session_factory() as session:
             statement = select(Episode).where(Episode.id == uuid)
             result = await session.execute(statement)
             return result.scalar_one_or_none()
-
-    async def get_all_episodes(self) -> Sequence[Episode]:
-        """
-        Returns all downloaded episodes from the database.
-        Useful for the web library interface.
-        """
-        async with async_session_factory() as session:
-            statement = select(Episode)
-            result = await session.execute(statement)
-            return result.scalars().all()

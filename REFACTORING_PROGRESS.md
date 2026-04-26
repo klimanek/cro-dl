@@ -1,7 +1,7 @@
 # Log refaktoringu cro-dl (Duben 2026)
 
 ## 🏁 Celkový přehled
-Projekt prošel transformací z procedurálního/synchronního přístupu na moderní asynchronní architekturu založenou na principech Clean Code a OOP.
+Projekt prošel transformací z procedurálního/synchronního přístupu na moderní asynchronní architekturu založenou na principech Clean Code a OOP. Je plně připraven pro webovou nadstavbu a lokální správu audio knihovny.
 
 ---
 
@@ -26,19 +26,33 @@ Projekt prošel transformací z procedurálního/synchronního přístupu na mod
 
 ---
 
-## 📅 24. dubna 2026 (odpoledne): Service Layer / Fasáda (Bod 3)
-**Cíl:** Oddělit logiku aplikace od CLI rozhraní a vyčistit typování.
+## 📅 24. dubna 2026 (odpoledne): Service Layer a Persistence (Bod 3 & 4)
+**Cíl:** Oddělit logiku aplikace od CLI, vyčistit typování a zavést ukládání metadat do databáze.
 
 ### Provedené změny:
 *   **Fasáda `CroDL`:** Vytvořena třída `crodl.facade.CroDL` jako jediný vstupní bod do logiky.
-*   **Refaktoring `main.py`:** CLI je nyní pouze tenká slupka nad fasádou.
-*   **Typová hygiena:** Opraveno 20+ chyb v typování (Pyright) a vyčištěn lint (Ruff).
-*   **Exporty:** Sjednocen přístup k balíčku přes `from crodl import CroDL`.
+*   **Persistence (SQLModel):** Implementována asynchronní SQLite databáze (`library.db`).
+    *   Schéma obsahuje tabulky pro Epizody, Pořady, Seriály a Stanice.
+    *   Automatické ukládání bohatých metadat z API po každém úspěšném stažení.
+    *   Vyřešeny "race conditions" při paralelním zápisu do DB pomocí asynchronních zámků.
+*   **Thumbnails:** Implementován automatický stahovač obrázků, které se ukládají k audio souborům pro budoucí webovou knihovnu.
+*   **Typová hygiena:** Opraveno všech 20+ chyb v typování (Pyright) a vyčištěn lint (Ruff).
 
 ---
 
-## ⚡ Budoucí kroky
-1.  **Persistence (Bod 4):** Implementace `SQLModel` (SQLite) pro ukládání historie stahování a metadat. (Vybráno jako moderní async alternativa k Djangu).
+## 📅 25. dubna 2026: Webová knihovna (Bod 5)
+**Cíl:** Vytvořit grafické rozhraní pro prohlížení a přehrávání staženého obsahu přímo v prohlížeči.
+
+### Provedené změny:
+*   **FastAPI Server:** Vytvořen balíček `crodl/server/` s asynchronním API.
+*   **Webový Frontend:** Vytvořena moderní HTML5 šablona s Dark Mode designem a integrovaným přehrávačem.
+*   **Statické soubory:** Server automaticky mapuje lokální složku `Z Rozhlasu` na URL `/library`, což umožňuje přehrávání přímo z disku.
+*   **Integrace:** Přidán příkaz `uv run cro-dl-server` pro snadné spuštění.
 
 ---
-*Všechny dosavadní kroky byly úspěšně ověřeny reálným stahováním a 100% pokrytím testy.* 🚀
+
+## 🏆 Aktuální stav
+Projekt je nyní robustní, asynchronní a datově orientovaný. Má jasně oddělené vrstvy a funkční webové rozhraní.
+
+---
+*Všechny cíle byly úspěšně splněny. cro-dl je nyní kompletní ekosystém pro audio archiv.* 🚀✨
