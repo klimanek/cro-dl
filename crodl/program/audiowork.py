@@ -1,4 +1,5 @@
 import os
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -232,6 +233,9 @@ class AudioWork(Content):
         attrs = data.get("attributes", {})
         rels = data.get("relationships", {})
 
+        # Generate a unique local ID based on the audio file path
+        local_id = hashlib.sha256(str(audio_path).encode()).hexdigest()[:16]
+
         # 1. Download image/thumbnail
         image_path = None
         asset = attrs.get("asset")
@@ -272,7 +276,8 @@ class AudioWork(Content):
                 pass
 
         episode = Episode(
-            id=self.uuid,
+            id=local_id,
+            remote_id=self.uuid,
             title=self.title,
             short_title=attrs.get("shortTitle"),
             description=self.description,
@@ -294,6 +299,14 @@ class AudioWork(Content):
             station_data=station
         )
         crologger.info("Metadata and thumbnail saved for: %s", self.title)
+
+    async def save_metadata_only(self, audio_path: Path) -> None:
+        """
+        Public method to trigger metadata and thumbnail saving for an existing file.
+        Useful for syncing existing library with the database.
+        """
+        crologger.info("Syncing metadata for existing file: %s", self.title)
+        await self._save_metadata(audio_path)
 
     async def download(
         self, 

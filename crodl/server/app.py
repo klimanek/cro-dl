@@ -38,39 +38,17 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Render the main library web interface showing shows and series."""
+    """Render the main library web interface showing unique shows and series."""
     try:
         repo = LibraryRepository()
         shows = await repo.get_all_shows()
         series = await repo.get_all_series()
+        all_episodes = await repo.get_all_episodes()
         
-        collections = []
+        unique_collections = {}
         
-        # Process Shows
-        for s in shows:
-            # Get first episode to extract thumbnail
-            episodes = await repo.get_episodes_by_show(s.id)
-            if not episodes: continue
-            
-            thumb_url = None
-            if episodes[0].image_path:
-                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
-                thumb_url = f"/library/{rel_img}"
-                
-            collections.append({
-                "type": "show",
-                "id": s.id,
-                "title": s.title,
-                "description": s.description or episodes[0].description,
-                "thumb_url": thumb_url,
-                "count": len(episodes)
-            })
-
-        # Process Series (avoid duplicates if series is also a show)
-        show_ids = [s.id for s in shows]
+        # 1. Process Series
         for sr in series:
-            if sr.id in show_ids: continue
-            
             episodes = await repo.get_episodes_by_series(sr.id)
             if not episodes: continue
             
@@ -79,19 +57,52 @@ async def index(request: Request):
                 rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
                 thumb_url = f"/library/{rel_img}"
                 
-            collections.append({
+            unique_collections[sr.title] = {
                 "type": "series",
                 "id": sr.id,
                 "title": sr.title,
-                "description": sr.description or episodes[0].description,
                 "thumb_url": thumb_url,
                 "count": len(episodes)
-            })
+            }
+
+        # 2. Process Shows
+        for s in shows:
+            if s.title in unique_collections:
+                episodes = await repo.get_episodes_by_show(s.id)
+                unique_collections[s.title]["count"] = max(unique_collections[s.title]["count"], len(episodes))
+                continue
+                
+            episodes = await repo.get_episodes_by_show(s.id)
+            if not episodes: continue
+            
+            thumb_url = None
+            if episodes[0].image_path:
+                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
+                thumb_url = f"/library/{rel_img}"
+                
+            unique_collections[s.title] = {
+                "type": "show",
+                "id": s.id,
+                "title": s.title,
+                "thumb_url": thumb_url,
+                "count": len(episodes)
+            }
+
+        # 3. Process Orphaned Episodes (Manual Imports)
+        orphans = [e for e in all_episodes if not e.show_id and not e.series_id]
+        if orphans:
+            unique_collections["_orphans"] = {
+                "type": "orphans",
+                "id": "orphans",
+                "title": "Místní soubory",
+                "thumb_url": None,
+                "count": len(orphans)
+            }
 
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"collections": collections}
+            context={"collections": list(unique_collections.values())}
         )
     except Exception as e:
         error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
@@ -99,15 +110,21 @@ async def index(request: Request):
 
 @app.get("/detail/{ctype}/{id}", response_class=HTMLResponse)
 async def detail(request: Request, ctype: str, id: str):
-    """Render the detail page for a show or series with episode list."""
+    """Render the detail page for a show, series or orphaned episodes."""
     try:
         repo = LibraryRepository()
+        
         if ctype == "show":
             content = await repo.get_show(id)
             episodes = await repo.get_episodes_by_show(id)
-        else:
+        elif ctype == "series":
             content = await repo.get_series(id)
             episodes = await repo.get_episodes_by_series(id)
+        else:
+            # Handle orphaned episodes
+            content = type('obj', (object,), {'title': 'Místní soubory', 'description': 'Soubory importované bez metadat.'})
+            all_episodes = await repo.get_all_episodes()
+            episodes = [e for e in all_episodes if not e.show_id and not e.series_id]
             
         if not content:
             return PlainTextResponse("Not found", status_code=404)
@@ -115,8 +132,11 @@ async def detail(request: Request, ctype: str, id: str):
         processed_episodes = []
         for ep in episodes:
             ep_dict = ep.model_dump()
-            rel_audio = os.path.relpath(ep.local_path, DOWNLOAD_PATH)
-            ep_dict["audio_url"] = f"/library/{rel_audio}"
+            try:
+                rel_audio = os.path.relpath(ep.local_path, DOWNLOAD_PATH)
+                ep_dict["audio_url"] = f"/library/{rel_audio}"
+            except Exception:
+                ep_dict["audio_url"] = "#"
             processed_episodes.append(ep_dict)
 
         return templates.TemplateResponse(

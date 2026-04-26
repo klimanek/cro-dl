@@ -8,6 +8,7 @@ from crodl.program.series import Series
 from crodl.program.show import Show
 from crodl.settings import AudioFormat
 from crodl.persistence.database import init_db
+from crodl.tools.sync import LibrarySync
 
 
 FORMAT_OPTIONS = {
@@ -20,7 +21,7 @@ __version__ = importlib.metadata.version("cro-dl")
 
 
 @click.command()
-@click.argument("recording_url")
+@click.argument("recording_url", required=False)
 @click.option(
     "--stream-format",
     "-sf",
@@ -28,12 +29,30 @@ __version__ = importlib.metadata.version("cro-dl")
     default="mp3",
     help="Formát audio streamu. (mp3, hls, dash)",
 )
+@click.option(
+    "--sync",
+    is_flag=True,
+    help="Synchronizuje existující soubory na disku s databází knihovny.",
+)
 @click.version_option(__version__)
-async def main(recording_url: str, stream_format: str) -> None:
+async def main(recording_url: str, stream_format: str, sync: bool) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
-    # Initialize database tables before doing anything else
+    # Initialize database tables
     await init_db()
     
+    if sync:
+        print("[bold yellow]Zahajuji synchronizaci knihovny...[/bold yellow]")
+        syncer = LibrarySync()
+        results = await syncer.sync_all()
+        print(f"\n[bold green]Synchronizace dokončena![/bold green]")
+        print(f"Úspěšně spárováno: {results['success']}")
+        print(f"Nenalezeno: {results['failed']}")
+        sys.exit(0)
+
+    if not recording_url:
+        print("[red]Chyba: Chybí URL adresa záznamu nebo parametr --sync.[/red]")
+        sys.exit(1)
+
     dl = CroDL()
 
     try:
@@ -53,23 +72,23 @@ async def main(recording_url: str, stream_format: str) -> None:
     else:
         content.info()
 
-    # Kontrola existence na disku (budoucí verze může kontrolovat i DB)
+    # Kontrola existence na disku
     if content.already_exists():
         if isinstance(content, (Show, Series)):
             print("[bold yellow]Všechny díly byly již staženy.[/bold yellow]")
         else:
             print("[bold magenta]Soubor již existuje.[/bold magenta] :wave:")
         
-        # We still run download to ensure metadata is in the database
+        # Still run to ensure metadata is in the database
         await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])
         sys.exit(0)
 
-    # Potvrzení stahování pro kolekce (Show/Series)
+    # Potvrzení stahování pro kolekce
     if isinstance(content, (Show, Series)):
         ans = input("Pokračovat ve stahování? [a/n]  ")
         if ans not in ("a", "A", "y", "Y"):
             print("[bold magenta]OK, končím. :wave:[/bold magenta]")
             sys.exit(0)
 
-    # Samotné stahování přes fasádu (metadata se uloží uvnitř)
+    # Samotné stahování přes fasádu
     await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])

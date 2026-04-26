@@ -7,52 +7,38 @@ Projekt prošel transformací z procedurálního/synchronního přístupu na mod
 
 ## 📅 23. dubna 2026: Abstrakce stahovačů (Bod 1)
 **Cíl:** Sjednotit logiku stahování a převést ji do asynchronního režimu.
-
-### Provedené změny:
-*   **`AudioParts` -> ABC:** Vytvořena abstraktní bázová třída vynucující asynchronní rozhraní `.download()`.
-*   **MP3 Downloader:** Kompletně přepsán na `async` pomocí `aiohttp`. Vyřešeny timeouty u velkých souborů.
-*   **HLS & DASH Downloadery:** Sjednoceny s bázovou třídou, využívají asynchronní stahování segmentů.
-*   **Testy:** Aktualizováno všech 107 testů pro podporu asynchronity a nových signatur.
+(Detaily v předchozích verzích logu...)
 
 ---
 
-## 📅 24. dubna 2026 (dopoledne): Paralelní stahování (Bod 2)
-**Cíl:** Zrychlit stahování seriálů a sjednotit vizuální progres.
-
-### Provedené změny:
-*   **Paralelismus:** Zaveden `asyncio.gather` se semaforem (limit 3) v `Series` a `Show`.
-*   **Sjednocené UI:** Refaktoring stahovačů pro podporu sdíleného `rich.progress` objektu. Vyřešen `LiveError`.
-*   **Izolace dat:** Každá epizoda má nyní unikátní temporary složku pro kousky, čímž se eliminovaly kolize při paralelním volání `ffmpeg`.
+## 📅 24. dubna 2026: Paralelní stahování a Fasáda (Bod 2 & 3)
+**Cíl:** Zrychlit stahování a vytvořit jednotné rozhraní pro ovládání knihovny.
+(Detaily v předchozích verzích logu...)
 
 ---
 
-## 📅 24. dubna 2026 (odpoledne): Service Layer a Persistence (Bod 3 & 4)
-**Cíl:** Oddělit logiku aplikace od CLI, vyčistit typování a zavést ukládání metadat do databáze.
+## 📅 25. dubna 2026: Webová knihovna a Persistence (Bod 4 & 5)
+**Cíl:** Implementace SQLite databáze a FastAPI rozhraní pro prohlížení archivu.
 
 ### Provedené změny:
-*   **Fasáda `CroDL`:** Vytvořena třída `crodl.facade.CroDL` jako jediný vstupní bod do logiky.
-*   **Persistence (SQLModel):** Implementována asynchronní SQLite databáze (`library.db`).
-    *   Schéma obsahuje tabulky pro Epizody, Pořady, Seriály a Stanice.
-    *   Automatické ukládání bohatých metadat z API po každém úspěšném stažení.
-    *   Vyřešeny "race conditions" při paralelním zápisu do DB pomocí asynchronních zámků.
-*   **Thumbnails:** Implementován automatický stahovač obrázků, které se ukládají k audio souborům pro budoucí webovou knihovnu.
-*   **Typová hygiena:** Opraveno všech 20+ chyb v typování (Pyright) a vyčištěn lint (Ruff).
-
----
-
-## 📅 25. dubna 2026: Webová knihovna (Bod 5)
-**Cíl:** Vytvořit grafické rozhraní pro prohlížení a přehrávání staženého obsahu přímo v prohlížeči.
-
-### Provedené změny:
-*   **FastAPI Server:** Vytvořen balíček `crodl/server/` s asynchronním API.
-*   **Webový Frontend:** Vytvořena moderní HTML5 šablona s Dark Mode designem a integrovaným přehrávačem.
-*   **Statické soubory:** Server automaticky mapuje lokální složku `Z Rozhlasu` na URL `/library`, což umožňuje přehrávání přímo z disku.
-*   **Integrace:** Přidán příkaz `uv run cro-dl-server` pro snadné spuštění.
+*   **SQLModel Integration:** Zavedena asynchronní persistence metadat.
+*   **Webové rozhraní:** Vytvořen přehled pořadů a detail s přehrávačem.
+*   **Robustní Synchronizace:** Implementován nástroj pro import stávajících souborů z disku do DB.
+    *   Využívá "slug guessing" pro párování s API.
+    *   Podporuje generický import pro soubory, které již v ČRo archivu nejsou.
+*   **Unikátní identifikace:** Každý soubor na disku má vlastní ID (hash cesty), což řeší konflikty u vícedílných děl.
 
 ---
 
 ## 🏆 Aktuální stav
-Projekt je nyní robustní, asynchronní a datově orientovaný. Má jasně oddělené vrstvy a funkční webové rozhraní.
+Projekt je stabilní, asynchronní a umí spravovat lokální archiv i pro historicky stažené kousky. 
 
 ---
-*Všechny cíle byly úspěšně splněny. cro-dl je nyní kompletní ekosystém pro audio archiv.* 🚀✨
+
+## ⚡ Co nás čeká příště
+1.  **Hierarchická knihovna:** Rozdělení webu na úroveň Autor -> Dílo -> Epizoda.
+2.  **Editace metadat:** Možnost ručně upravit popisy a názvy přímo přes web.
+3.  **Kategorizace:** Menu s žánry (Krimi, Horory, Komedie).
+
+---
+*Hotovo. Čas na zasloužený odpočinek!* 🚀😴
