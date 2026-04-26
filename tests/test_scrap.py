@@ -2,12 +2,14 @@ import unittest
 from unittest.mock import patch, Mock
 from requests import Session
 
-from crodl.tools.scrap import (
+from crodl.exceptions import (
     AudioUUIDDoesNotExist,
     PageDoesNotExist,
     DataEntryDoesNotExist,
     PlayerWrapperDoesNotExist,
     ShowUUIDDoesNotExist,
+)
+from crodl.tools.scrap import (
     get_attributes,
     get_audio_link_of_preferred_format,
     get_audio_uuid,

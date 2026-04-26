@@ -94,31 +94,25 @@ def run_tests() -> None:
         url="https://www.mujrozhlas.cz/hororove-povidky/lukas-vavrecka-kousacek-ve-starem-mlyne-za-vsi-ziji-bytosti-ktere-nemel-nikdo",
         audio_format=AudioFormat.MP3,
     )
-    # download_example(
-    #     "Seriál, epizody ve formátu MP3",
-    #     download_a_series,
-    #     url="https://www.mujrozhlas.cz/lyzak/lyzak-poslechnete-si-hororovy-podcast-s-mrazivym-jirim-labusem-prostorovym-zvukem",
-    #     audio_format=AudioFormat.MP3,
-    # )
 
     # --------------------------------- HLS ---------------------------------
     # Shows broadcasted in streams (HSL, DASH) are usually time-limited. In case they are not available at the time of testing,
     # try some newer show.
 
     download_example(
-        "Seriál ve formátu streamu HLS",
+        "Seriál ve formátu streamu MP3",
         download_a_series,
-        url="https://www.mujrozhlas.cz/povidka/cerny-kocour-jama-kyvadlo-dve-povidky-mistra-hororu-edgara-allana-poea",
-        audio_format=AudioFormat.HLS,
+        url="https://www.mujrozhlas.cz/tip-mujrozhlas/lewis-carroll-alenka-v-kraji-divu",
+        audio_format=AudioFormat.MP3,
     )
 
     # --------------------------------- DASH ---------------------------------
-    download_example(
-        "Povídka ve formátu streamu DASH",
-        download_single_novel,
-        url="https://www.mujrozhlas.cz/setkani-s-literaturou/montague-rhodes-james-album-kanovnika-alberika-straslivy-pribeh-o-setkani-s",
-        audio_format=AudioFormat.DASH,
-    )
+    # download_example(
+    #     "Povídka ve formátu streamu DASH",
+    #     download_single_novel,
+    #     url="https://www.mujrozhlas.cz/setkani-s-literaturou/montague-rhodes-james-album-kanovnika-alberika-straslivy-pribeh-o-setkani-s",
+    #     audio_format=AudioFormat.DASH,
+    # )
 
     # Delete tmp folder with downloaded files
     delete_tmp_download()

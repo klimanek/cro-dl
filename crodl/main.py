@@ -1,29 +1,13 @@
 import sys
 import importlib.metadata
-from urllib.parse import urlparse
-
 import asyncclick as click
 from rich import print
 
-from crodl.program.audiowork import AudioWork
+from crodl import CroDL
 from crodl.program.series import Series
 from crodl.program.show import Show
-from crodl.tools.scrap import cro_session, is_series, is_show
-from crodl.tools.logger import crologger
-from crodl.settings import SUPPORTED_DOMAINS, AudioFormat
-
-
-def is_domain_supported(url: str) -> bool:
-    """Checks whether the website with 'hidden' audio lies in a supported domain."""
-    domain = urlparse(url).netloc
-
-    if not domain:
-        err = "The URL is invalid!"
-        crologger.error(err)
-        print(err)
-        raise ValueError(err)
-
-    return domain in SUPPORTED_DOMAINS
+from crodl.settings import AudioFormat
+from crodl.persistence.database import init_db
 
 
 FORMAT_OPTIONS = {
@@ -44,48 +28,48 @@ __version__ = importlib.metadata.version("cro-dl")
     default="mp3",
     help="Formát audio streamu. (mp3, hls, dash)",
 )
-@click.version_option(importlib.metadata.version("cro-dl"))
+@click.version_option(__version__)
 async def main(recording_url: str, stream_format: str) -> None:
-    if not is_domain_supported(recording_url):
-        raise NotImplementedError(
-            f"Unsuported domain: {urlparse(recording_url).netloc}"
-        )
+    """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
+    # Initialize database tables before doing anything else
+    await init_db()
+    
+    dl = CroDL()
 
-    show, series = False, False
+    try:
+        content = await dl.get_content(recording_url)
+    except (ValueError, NotImplementedError) as e:
+        print(f"[red]Chyba: {e}[/red]")
+        sys.exit(1)
 
-    if is_show(recording_url, cro_session):
-        show = True
-        audiowork = Show(url=recording_url)
-        print(f"[bold yellow]{audiowork.title}[/bold yellow]")
-        print(f"Celkový počet dílů: {audiowork.episodes.count}")
-
-        if audiowork.already_exists():
-            print("[bold yellow]Pořad byl již celý stažen.[/bold yellow]")
-            sys.exit(0)
-
-    elif is_series(recording_url, cro_session):
-        series = True
-        audiowork = Series(url=recording_url)
-        print(f"[bold yellow]{audiowork.title}[/bold yellow]")
-        print(f"[blue]{audiowork.description}[/blue]\n")
-        print(f"Stažené díly: {str(audiowork.downloaded_parts)} / {audiowork.parts}")
-
-        if audiowork.already_exists():
-            print("[bold yellow]Seriál byl již celý stažen.[/bold yellow]")
-            sys.exit(0)
+    # Zobrazení informací o obsahu
+    if isinstance(content, Show):
+        print(f"[bold yellow]{content.title}[/bold yellow]")
+        print(f"Celkový počet dílů: {content.episodes.count}")
+    elif isinstance(content, Series):
+        print(f"[bold yellow]{content.title}[/bold yellow]")
+        print(f"[blue]{content.description}[/blue]\n")
+        print(f"Stažené díly: {content.downloaded_parts} / {content.parts}")
     else:
-        audiowork = AudioWork(url=recording_url)
-        audiowork.info()
+        content.info()
 
-    if show or series:
-        ans = input("Pokračovat ve stahování? [a/n]  ")
-        if ans in ("a", "A", "y", "Y"):
-            await audiowork.download(audio_format=FORMAT_OPTIONS[stream_format])
+    # Kontrola existence na disku (budoucí verze může kontrolovat i DB)
+    if content.already_exists():
+        if isinstance(content, (Show, Series)):
+            print("[bold yellow]Všechny díly byly již staženy.[/bold yellow]")
         else:
+            print("[bold magenta]Soubor již existuje.[/bold magenta] :wave:")
+        
+        # We still run download to ensure metadata is in the database
+        await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])
+        sys.exit(0)
+
+    # Potvrzení stahování pro kolekce (Show/Series)
+    if isinstance(content, (Show, Series)):
+        ans = input("Pokračovat ve stahování? [a/n]  ")
+        if ans not in ("a", "A", "y", "Y"):
             print("[bold magenta]OK, končím. :wave:[/bold magenta]")
             sys.exit(0)
-    else:
-        if audiowork.already_exists():
-            print("[bold magenta]Soubor již existuje.[/bold magenta] :wave:")
-            sys.exit(0)
-        await audiowork.download(audio_format=FORMAT_OPTIONS[stream_format])
+
+    # Samotné stahování přes fasádu (metadata se uloží uvnitř)
+    await dl.download(content, audio_format=FORMAT_OPTIONS[stream_format])

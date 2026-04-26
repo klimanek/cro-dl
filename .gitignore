@@ -12,3 +12,5 @@ dist/
 tests/test_downloads
 
 .coverage
+*.code-workspace
+.vscode/

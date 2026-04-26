@@ -24,6 +24,9 @@ dependencies = [
     "asyncclick<9.0.0.0,>=8.1.7.2",
     "cloudscraper>=1.2.71",
     "anyio>=4.11.0",
+    "sqlmodel>=0.0.38",
+    "aiosqlite>=0.22.1",
+    "greenlet>=3.4.0",
 ]
 
 name = "cro-dl"

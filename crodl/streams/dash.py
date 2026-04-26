@@ -1,9 +1,9 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-
+from typing import Optional, Any
 from bs4 import BeautifulSoup
-from yaspin import yaspin
+from rich.progress import Progress
 
 from crodl.streams.audioparts import AudioParts
 from crodl.streams.download import download_parts
@@ -12,7 +12,10 @@ from crodl.streams.utils import (
     get_m4a_url,
     partial_sums,
     simplify_audio_name,
+    shorten_title,
 )
+from crodl.tools.logger import crologger
+from crodl.settings import TIMEOUT
 
 
 def get_m4s_segment_url(
@@ -23,15 +26,6 @@ def get_m4s_segment_url(
 ) -> str:
     """
     Get the segment URL for a given audio link and representation ID.
-
-    Args:
-        audio_link (str): The URL of the audio.
-        repr_id (str): The representation ID.
-        segment_time (str | int | None, optional): The segment time. Defaults to None.
-        init (bool, optional): Whether it is an initial segment. Defaults to False.
-
-    Returns:
-        str | None: The segment URL if it exists, else None.
     """
     m4a_url = get_m4a_url(audio_link)
 
@@ -44,22 +38,11 @@ def get_m4s_segment_url(
 def audio_segment_times(mpd_content: BeautifulSoup) -> list[int]:
     """
     Return a list of stream segment times extracted from the MPD content.
-
-    Args:
-        mpd_content (BeautifulSoup): The parsed MPD content.
-
-    Returns:
-        list[int]: A list of segment times.
     """
-
     segment_times = []
     for s_tag in mpd_content.find_all("S"):
         duration = int(s_tag["d"])  # type: ignore
-
-        # Default to 0 if 'r' attribute is not present
         repeat = int(s_tag.get("r", 0))  # type: ignore
-
-        # Repeat 'r' times
         segment_times.extend([duration] * (repeat + 1))  # type: ignore
 
     return segment_times
@@ -68,16 +51,8 @@ def audio_segment_times(mpd_content: BeautifulSoup) -> list[int]:
 def segments_info(manifest_content: str) -> tuple[list[int], str]:
     """
     Retrieve information about segments from the provided MPD Manifest file.
-
-    Args:
-        manifest_content (str): MPD file content.
-
-    Returns:
-        list[str]: A list containing the partial sums of d_values and the representation ID.
     """
-
     soup = BeautifulSoup(manifest_content, "xml")
-
     representation = soup.find("Representation", id=True)
 
     if not representation:
@@ -92,29 +67,11 @@ def segments_info(manifest_content: str) -> tuple[list[int], str]:
 def segments_urls(manifest: "DASH") -> list[str]:
     """
     Generate a list of segment URLs for the given MPD URL.
-
-    Args:
-        manifest_content (str): The content of the MPD file.
-
-    Returns:
-        list[str]: A list of segment URLs.
-
-    Example:
-        [
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cinit_mpd.m4s', # initial segment
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cs0_mpd.m4s', # zeroth segment
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cs480240_mpd.m4s', # first segment
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cs960528_mpd.m4s',
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cs1439760_mpd.m4s',
-        'https://example.com/stream/xyz.m4a/audio_09876abc_cs1920000_mpd.m4s',
-        ...
-        ]
     """
     segment_times, id_ = segments_info(manifest.content)
     init_chunk = get_m4s_segment_url(manifest.url, id_, init=True)
     zeroth_chunk = get_m4s_segment_url(manifest.url, id_, 0)
 
-    # The last segment is not included in the list, according to DASH specification.
     return (
         [init_chunk]
         + [zeroth_chunk]
@@ -130,7 +87,7 @@ class DASH(AudioParts):
     """Processes a DASH stream using its manifest file."""
 
     @property
-    def manifest_path(self) -> Path:  # pragma: no cover
+    def manifest_path(self) -> Path:
         """Path to the manifest file"""
         if not self.segments_path:
             raise ValueError("Segments Path is not set!")
@@ -138,17 +95,19 @@ class DASH(AudioParts):
 
     def _get_manifest(self) -> None:
         """Fetches the manifest and saves it to a file locally."""
-        from crodl.tools.scrap import cro_session
+        from requests import Session
+
+        session = self.session or Session()
 
         mp4_url = get_m4a_url(self.url)
         manifest_url = mp4_url + "/manifest.mpd"
-        _manifest = cro_session.get(manifest_url, timeout=5)
+        _manifest = session.get(manifest_url, timeout=TIMEOUT)
 
         with open(self.manifest_path, "wb") as f:
             f.write(_manifest.content)
 
     @property
-    def content(self) -> str:  # pragma: no cover
+    def content(self) -> str:
         """Manifest content"""
         if not os.path.isfile(self.manifest_path):
             self._get_manifest()
@@ -172,6 +131,9 @@ class DASH(AudioParts):
 
     def create_list_txt(self) -> None:
         """Creates a sorted list of all audio segment names (processed) and saves it to list.txt"""
+        if not self.segments_path:
+            raise ValueError("Segments Path is not set!")
+
         segment_names = list(os.listdir(self.segments_path))
 
         if not segment_names or all(
@@ -182,54 +144,58 @@ class DASH(AudioParts):
         simplified_names = [
             simplify_audio_name(self.id, name)
             for name in segment_names
-            if "init" not in name
+            if "init" not in name and name.endswith(".m4s")
         ]
 
         sorted_names = sorted(simplified_names, key=audio_segment_sort)
         sorted_names.insert(0, "cinit.m4s")
-
-        # Write the segment names to list.txt
-        if not self.segments_path:
-            raise ValueError("Segments Path is not set!")
-        if not isinstance(self.segments_path, Path):
-            self.segments_path = Path(self.segments_path)
 
         list_path = self.segments_path / "list.txt"
         with list_path.open("w", encoding="utf-8") as segment:
             for name in sorted_names:
                 segment.write(f"{name}\n")
 
-    def rename_segments(self) -> None:  # pragma: no cover
+    def rename_segments(self) -> None:
         """Simplifies / renames audio segments."""
+        if not self.segments_path:
+            raise ValueError("Segments Path is not set!")
+
         for segment in os.listdir(self.segments_path):
             if segment.startswith("segment_"):
                 new_name = simplify_audio_name(self.id, segment)
-
-                if not self.segments_path:
-                    raise ValueError("Segments Path is not set!")
-
                 os.rename(
                     self.segments_path / segment,
                     self.segments_path / new_name,
                 )
 
-    async def download(self):  # pragma: no cover
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None):
         """
         Asynchronously downloads chunk files using the segment URLs
         and saves them to the specified segments path.
-
-        After the download is completed, merging is run and, finally,
-        the tmp dir with chunks is deleted.
         """
+        self._prepare_directories()
+
         if not self.segments_path:
             raise ValueError("Segments Path is not set!")
 
-        with yaspin(text=f"Stahuji {self.audio_title}", color="yellow") as _:
-            await download_parts(self.segment_urls, self.segments_path)
+        urls = self.segment_urls
+        if progress:
+            if task_id is None:
+                task_id = progress.add_task(
+                    shorten_title(self.audio_title, 20), total=len(urls)
+                )
+            await download_parts(urls, self.segments_path, progress_callback=lambda: progress.update(task_id, advance=1))
+        else:
+            with Progress() as internal_progress:
+                task_id = internal_progress.add_task(
+                    shorten_title(self.audio_title, 20), total=len(urls)
+                )
+                await download_parts(urls, self.segments_path, progress_callback=lambda: internal_progress.update(task_id, advance=1))
 
-        with yaspin(text=f"Zpracovávám {self.audio_title}", color="yellow") as _:
-            self.create_list_txt()
-            self.rename_segments()
+        crologger.info("Processing segments...")
+        self.rename_segments()
+        self.create_list_txt()
 
         self._merge_chunks("m4a")
         self._purge_chunks_dir()
+        crologger.info("DASH download completed.")

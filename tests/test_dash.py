@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import unittest
-from unittest.mock import patch, PropertyMock, Mock
+from unittest.mock import patch, PropertyMock, Mock, MagicMock
 
 from bs4 import BeautifulSoup
 from crodl.streams.dash import (
@@ -14,6 +14,8 @@ from crodl.streams.dash import (
     segments_info,
     segments_urls,
 )
+
+from crodl.settings import TIMEOUT
 
 
 class TestGetM4sSegmentUrl(unittest.TestCase):
@@ -138,17 +140,22 @@ class TestSegmentsUrls(unittest.TestCase):
 
 class TestManifest(unittest.TestCase):
     @patch("crodl.streams.utils.get_m4a_url")
-    @patch("crodl.tools.scrap.cro_session.get")
-    def test_get_manifest(self, mock_get, mock_get_m4a_url):
+    def test_get_manifest(self, mock_get_m4a_url):
         # Test case: fetching manifest and saving it locally
         mock_get_m4a_url.return_value = "https://example.com/test.mp4"
-        mock_get.return_value.content = b'{"manifest": "test"}'
+        mock_session = MagicMock()
+        mock_session.get.return_value.content = b'{"manifest": "test"}'
 
-        manifest = DASH("https://example.com/test.mp4/manifest.mpd", "Some Title")
+        manifest = DASH(
+            url="https://example.com/test.mp4/manifest.mpd",
+            audio_title="Some Title",
+            session=mock_session,
+        )
+        manifest._prepare_directories()
         manifest._get_manifest()  # pylint: disable=protected-access
 
-        mock_get.assert_called_once_with(
-            "https://example.com/test.mp4/manifest.mpd", timeout=5
+        mock_session.get.assert_called_once_with(
+            "https://example.com/test.mp4/manifest.mpd", timeout=TIMEOUT
         )
         with open(f"{manifest.segments_path}/manifest.mpd", "rb") as f:
             content = f.read()
@@ -178,6 +185,7 @@ class TestManifestContent(unittest.TestCase):
 class TestManifestIdProperty(unittest.TestCase):
     def setUp(self):
         self.manifest = DASH("http://example.com/mp4/manifest.mpd", "Some Title")
+        self.manifest._prepare_directories()
 
     def test_id_property_returns_correct_value(self, mock_segments_info):
         mock_segments_info.return_value = (None, "12345")
