@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRo-DL Library</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent: #1db954; 
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+        h1 { margin: 0; color: var(--accent); }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+        .card:hover { transform: scale(1.03); }
+        .card-img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            background-color: #333;
+        }
+        .card-content { padding: 15px; }
+        .card-title { font-weight: bold; margin-bottom: 5px; }
+        .card-meta { font-size: 0.8em; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📻 Moje Knihovna</h1>
+    </header>
+
+    <div class="grid">
+        {% for coll in collections %}
+        <a href="/detail/{{ coll.type }}/{{ coll.id }}" class="card">
+            {% if coll.thumb_url %}
+                <img src="{{ coll.thumb_url }}" alt="{{ coll.title }}" class="card-img">
+            {% else %}
+                <div class="card-img" style="display:flex; align-items:center; justify-content:center; font-size: 3em;">🎙️</div>
+            {% endif %}
+            <div class="card-content">
+                <div class="card-title">{{ coll.title }}</div>
+                <div class="card-meta">{{ coll.count }} dílů</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if not collections %}
+    <p style="text-align:center; color: var(--text-secondary);">Knihovna je zatím prázdná.</p>
+    {% endif %}
+</body>
+</html>

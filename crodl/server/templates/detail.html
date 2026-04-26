@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ content.title }} - CRo-DL</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent: #1db954; 
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            margin-bottom: 30px;
+        }
+        .back-link {
+            text-decoration: none;
+            color: var(--accent);
+            font-size: 0.9em;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .episode-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .episode-item {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .episode-title { font-weight: bold; }
+        .episode-meta { font-size: 0.8em; color: var(--text-secondary); }
+        .episode-player { width: 100%; margin-top: 5px; }
+        .description {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            max-width: 800px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="back-link">← Zpět do knihovny</a>
+        <h1>{{ content.title }}</h1>
+        <div class="description">{{ content.description }}</div>
+    </header>
+
+    <div class="episode-list">
+        {% for ep in episodes %}
+        <div class="episode-item">
+            <div class="episode-title">{{ ep.title }}</div>
+            <div class="episode-meta">
+                {{ ep.since.strftime('%d. %m. %Y') if ep.since else '' }} 
+                {% if ep.duration %} | {{ ep.duration // 60 }} min {% endif %}
+            </div>
+            <audio controls class="episode-player">
+                <source src="{{ ep.audio_url }}" type="audio/mpeg">
+                Tvůj prohlížeč nepodporuje přehrávání.
+            </audio>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
