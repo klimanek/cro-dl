@@ -176,3 +176,10 @@ class CroAPIClient:
         response = self.session.get(url, timeout=TIMEOUT)
         response.raise_for_status()
         return response.json()
+
+    def search(self, query: str) -> Dict[str, Any]:
+        """Searches for programs, episodes or series by a query string."""
+        crologger.info("Searching for: %s", query)
+        response = self.session.get(f"{API_SERVER}/search?q={query}", timeout=TIMEOUT)
+        response.raise_for_status()
+        return response.json()
