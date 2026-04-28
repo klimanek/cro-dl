@@ -19,9 +19,9 @@ class Content(ABC):
 
     @abstractmethod
     async def download(
-        self, 
-        audio_format: Optional[AudioFormat] = None, 
-        progress: Any = None, 
-        task_id: Any = None
+        self,
+        audio_format: Optional[AudioFormat] = None,
+        progress: Any = None,
+        task_id: Any = None,
     ) -> None:
         pass

@@ -67,8 +67,8 @@ class AudioWork(Content):
 
         # Determine download directory
         if not self.audiowork_dir:
-            self.audiowork_dir = (
-                DOWNLOAD_PATH / process_audiowork_title(self.title, remove_accents=self.remove_accents)
+            self.audiowork_dir = DOWNLOAD_PATH / process_audiowork_title(
+                self.title, remove_accents=self.remove_accents
             )
 
         if not self.audiowork_root:
@@ -153,20 +153,24 @@ class AudioWork(Content):
         """Checks whether the audiowork already exists on disk."""
         if not self.audiowork_dir:
             return False
-            
+
         try:
             files_in_directory = os.listdir(self.audiowork_dir)
         except FileNotFoundError:
             files_in_directory = []
 
         if files_in_directory:
-            processed_title = process_audiowork_title(self.title, remove_accents=self.remove_accents)
+            processed_title = process_audiowork_title(
+                self.title, remove_accents=self.remove_accents
+            )
             for file in files_in_directory:
                 if processed_title in os.path.splitext(file)[0]:
                     return True
         return False
 
-    async def _download_dash(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+    async def _download_dash(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ) -> None:
         """Download DASH stream."""
         mpd_url = self.audio_formats_urls.get("dash")
         if not mpd_url:
@@ -183,7 +187,9 @@ class AudioWork(Content):
         )
         await manifest.download(progress=progress, task_id=task_id)
 
-    async def _download_hls(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+    async def _download_hls(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ) -> None:
         """Download HLS stream."""
         hls_url = self.audio_formats_urls.get("hls")
         if not hls_url:
@@ -200,7 +206,9 @@ class AudioWork(Content):
         )
         await chunklist.download(progress=progress, task_id=task_id)
 
-    async def _download_mp3(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None):
+    async def _download_mp3(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ):
         """Download MP3 file."""
         mp3_url = self.audio_formats_urls.get("mp3")
         if not mp3_url:
@@ -219,10 +227,10 @@ class AudioWork(Content):
         await mp3.download(progress=progress, task_id=task_id)
 
     async def download(
-        self, 
+        self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
-        task_id: Optional[Any] = None
+        task_id: Optional[Any] = None,
     ) -> None:  # pragma: no cover
         """Downloads audio and handles storage."""
         if not self.audio_formats:
@@ -230,7 +238,10 @@ class AudioWork(Content):
 
         selected_format = audio_format
         if selected_format and selected_format.value not in self.audio_formats:
-            crologger.info("Format %s not available, searching for alternative...", selected_format.value)
+            crologger.info(
+                "Format %s not available, searching for alternative...",
+                selected_format.value,
+            )
             selected_format = get_preferred_audio_format(self.audio_formats)
 
         if not self.audiowork_dir:
@@ -255,8 +266,13 @@ class AudioWork(Content):
 
         else:
             if progress and task_id:
-                progress.update(task_id, description=f"[cyan]{self.title} (existuje)[/cyan]", completed=1, total=1)
+                progress.update(
+                    task_id,
+                    description=f"[cyan]{self.title} (existuje)[/cyan]",
+                    completed=1,
+                    total=1,
+                )
             else:
                 print(f"{self.title} již existuje.")
-            
+
             crologger.info("%s already exists.", self.title)

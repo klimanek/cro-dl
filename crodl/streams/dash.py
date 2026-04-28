@@ -168,7 +168,9 @@ class DASH(AudioParts):
                     self.segments_path / new_name,
                 )
 
-    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None):
+    async def download(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ):
         """
         Asynchronously downloads chunk files using the segment URLs
         and saves them to the specified segments path.
@@ -184,13 +186,23 @@ class DASH(AudioParts):
                 task_id = progress.add_task(
                     shorten_title(self.audio_title, 20), total=len(urls)
                 )
-            await download_parts(urls, self.segments_path, progress_callback=lambda: progress.update(task_id, advance=1))
+            await download_parts(
+                urls,
+                self.segments_path,
+                progress_callback=lambda: progress.update(task_id, advance=1),
+            )
         else:
             with Progress() as internal_progress:
                 task_id = internal_progress.add_task(
                     shorten_title(self.audio_title, 20), total=len(urls)
                 )
-                await download_parts(urls, self.segments_path, progress_callback=lambda: internal_progress.update(task_id, advance=1))
+                await download_parts(
+                    urls,
+                    self.segments_path,
+                    progress_callback=lambda: internal_progress.update(
+                        task_id, advance=1
+                    ),
+                )
 
         crologger.info("Processing segments...")
         self.rename_segments()

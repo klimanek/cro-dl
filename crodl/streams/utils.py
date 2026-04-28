@@ -45,24 +45,26 @@ def sanitize_filename(name: str, remove_accents: bool = False) -> str:
     """
     # 1. Replace common separators with something safe
     name = name.replace(":", " -").replace("/", "-").replace("\\", "-")
-    
+
     # 2. Remove other invalid Windows characters
-    name = re.sub(r'[<>|"*?]', '', name)
-    
+    name = re.sub(r'[<>|"*?]', "", name)
+
     # 3. Handle accents if requested
     if remove_accents:
-        nfkd_form = unicodedata.normalize('NFKD', name)
+        nfkd_form = unicodedata.normalize("NFKD", name)
         name = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-        name = name.encode('ascii', 'ignore').decode('ascii')
+        name = name.encode("ascii", "ignore").decode("ascii")
 
     # 4. Clean up whitespace and dots
     name = " ".join(name.split())
     name = name.strip(". ")
-    
+
     return name[:200]
 
 
-def process_audiowork_title(title: str, prefix: str | None = None, remove_accents: bool = False) -> str:
+def process_audiowork_title(
+    title: str, prefix: str | None = None, remove_accents: bool = False
+) -> str:
     """Process the audiowork title to get a valid filename."""
     sanitized = sanitize_filename(title, remove_accents=remove_accents)
     if prefix:
@@ -116,9 +118,11 @@ def title_with_part(title: str, part: int | str | None = None) -> str:
 class HMS:
     def __init__(self, secs: int):
         self.secs = secs
+
     def __str__(self) -> str:
         hrs, mins, secs = self.hms()
         return f"{hrs:02d}:{mins:02d}:{secs:02d}"
+
     def hms(self) -> tuple[int, int, int]:
         hrs = self.secs // 3600
         mins = (self.secs % 3600) // 60
@@ -171,7 +175,9 @@ def not_available_yet(audiowork: "AudioWork") -> str:
     if now < since:
         msg = f"Epizoda bude uvedena {parsed_since[0]} v {parsed_since[1]}."
     else:
-        crologger.info(f"Aired: {parsed_since[0]} at {parsed_since[1]}. Copyright expired.")
+        crologger.info(
+            f"Aired: {parsed_since[0]} at {parsed_since[1]}. Copyright expired."
+        )
         msg = f"Epizoda byla uvedena {parsed_since[0]} v {parsed_since[1]}. Možná vypršela práva."
     return msg
 
@@ -209,6 +215,8 @@ def remove_html_tags(text: str | None) -> str | None:
 def slugify(value: str) -> str:
     """Converts a string to a URL slug."""
     value = str(value)
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
-    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
-    return re.sub(r'[-\s]+', '-', value)
+    value = (
+        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    )
+    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
+    return re.sub(r"[-\s]+", "-", value)

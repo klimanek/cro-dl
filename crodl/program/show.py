@@ -16,7 +16,11 @@ from crodl.settings import (
     PREFERRED_AUDIO_FORMAT,
     AudioFormat,
 )
-from crodl.streams.utils import create_dir_if_does_not_exist, title_with_part, process_audiowork_title
+from crodl.streams.utils import (
+    create_dir_if_does_not_exist,
+    title_with_part,
+    process_audiowork_title,
+)
 from crodl.tools.logger import crologger
 
 
@@ -57,7 +61,7 @@ class Show(Content):
         # Use custom title if provided, otherwise fallback to API title
         if self.title == "Unknown" or not self.title:
             self.title = str(json_data["data"]["attributes"]["title"])
-            
+
         self.json = json_data
         self.data = data
         episodes_data = self.client.get_related_data(
@@ -66,9 +70,11 @@ class Show(Content):
         self.episodes = Episodes(
             show_title=self.title, show_id=self.uuid, json_data=episodes_data
         )
-        
+
         if not self.download_dir:
-            self.download_dir = DOWNLOAD_PATH / process_audiowork_title(self.title, remove_accents=self.remove_accents)
+            self.download_dir = DOWNLOAD_PATH / process_audiowork_title(
+                self.title, remove_accents=self.remove_accents
+            )
 
     @property
     def downloaded_parts(self) -> int:
@@ -91,7 +97,11 @@ class Show(Content):
         return self.downloaded_parts == self.episodes.count
 
     async def _download_episode(
-        self, episode: dict, audio_format: Optional[AudioFormat], semaphore: asyncio.Semaphore, progress: Progress
+        self,
+        episode: dict,
+        audio_format: Optional[AudioFormat],
+        semaphore: asyncio.Semaphore,
+        progress: Progress,
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
@@ -99,7 +109,9 @@ class Show(Content):
             audio_work = AudioWork(
                 uuid=episode.get("uuid"),
                 audiowork_dir=download_to,
-                title=title_with_part(str(episode.get("title", "Unknown")), int(episode.get("part", 0))),
+                title=title_with_part(
+                    str(episode.get("title", "Unknown")), int(episode.get("part", 0))
+                ),
                 since=str(episode.get("since", "")),
                 show=True,
                 remove_accents=self.remove_accents,
@@ -108,15 +120,15 @@ class Show(Content):
             await audio_work.download(audio_format, progress=progress)
 
     async def download(
-        self, 
+        self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
-        task_id: Optional[Any] = None
+        task_id: Optional[Any] = None,
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
         if not self.download_dir:
             raise ValueError("download_dir is not set.")
-            
+
         create_dir_if_does_not_exist(self.download_dir)
 
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
@@ -129,7 +141,9 @@ class Show(Content):
         else:
             with Progress() as internal_progress:
                 tasks = [
-                    self._download_episode(episode, audio_format, semaphore, internal_progress)
+                    self._download_episode(
+                        episode, audio_format, semaphore, internal_progress
+                    )
                     for episode in self.episodes.info
                 ]
                 await asyncio.gather(*tasks)

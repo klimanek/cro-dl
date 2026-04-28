@@ -28,7 +28,7 @@ def check_ffmpeg() -> bool:
             ["ffmpeg", "-version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=True
+            check=True,
         )
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
@@ -61,9 +61,15 @@ def check_ffmpeg() -> bool:
     help="Odstraní diakritiku z názvů souborů a složek.",
 )
 @click.version_option(__version__)
-async def main(recording_url: str, stream_format: str, title: Optional[str], output: Optional[Path], no_accents: bool) -> None:
+async def main(
+    recording_url: str,
+    stream_format: str,
+    title: Optional[str],
+    output: Optional[Path],
+    no_accents: bool,
+) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
-    
+
     # Check for ffmpeg at startup
     if not check_ffmpeg():
         print("[bold red]Chyba: 'ffmpeg' nebyl nalezen ve vašem systému.[/bold red]")
@@ -73,21 +79,31 @@ async def main(recording_url: str, stream_format: str, title: Optional[str], out
         print("  [bold cyan]scoop install ffmpeg[/bold cyan] (Windows - Scoop)")
         print("  [bold cyan]brew install ffmpeg[/bold cyan] (macOS)")
         print("\nVíce informací naleznete na [blue]https://ffmpeg.org[/blue]")
-        
+
         if FORMAT_OPTIONS[stream_format] != AudioFormat.MP3:
             sys.exit(1)
         else:
-            print("[yellow]Upozornění: MP3 stahování bude fungovat, ale ostatní formáty selžou.[/yellow]\n")
+            print(
+                "[yellow]Upozornění: MP3 stahování bude fungovat, ale ostatní formáty selžou.[/yellow]\n"
+            )
 
     await download_logic(recording_url, stream_format, title, output, no_accents)
 
 
-async def download_logic(recording_url: str, stream_format: str, title: Optional[str] = None, output: Optional[Path] = None, no_accents: bool = False) -> None:
+async def download_logic(
+    recording_url: str,
+    stream_format: str,
+    title: Optional[str] = None,
+    output: Optional[Path] = None,
+    no_accents: bool = False,
+) -> None:
     """Internal logic for the download process."""
     dl = CroDL()
 
     try:
-        content = await dl.get_content(recording_url, title=title, output_dir=output, remove_accents=no_accents)
+        content = await dl.get_content(
+            recording_url, title=title, output_dir=output, remove_accents=no_accents
+        )
     except (ValueError, NotImplementedError) as e:
         print(f"[red]Chyba: {e}[/red]")
         sys.exit(1)
@@ -123,4 +139,5 @@ async def download_logic(recording_url: str, stream_format: str, title: Optional
 
 def run():
     import asyncio
+
     asyncio.run(main())

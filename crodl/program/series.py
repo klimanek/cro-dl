@@ -51,7 +51,7 @@ class Series(Content):
         # Use custom title if provided, otherwise fallback to API title
         if self.title == "Unknown" or not self.title:
             self.title = str(self._attrs.get("title", "Unknown"))
-            
+
         self.parts = int(self._attrs.get("totalParts", 0))
 
         crologger.info("Opening series %s", self.title)
@@ -67,7 +67,9 @@ class Series(Content):
             self.download_dir = (
                 DOWNLOAD_PATH
                 / SERIES_DOWNLOAD_DIR
-                / process_audiowork_title(self.title, remove_accents=self.remove_accents)
+                / process_audiowork_title(
+                    self.title, remove_accents=self.remove_accents
+                )
             )
 
     def __str__(self) -> str:
@@ -134,7 +136,7 @@ class Series(Content):
         data = self.episodes_data
         if not data:
             return []
-        
+
         episode = data[0]
         audiolinks = episode.get("attributes", {}).get("audioLinks", [])
 
@@ -195,7 +197,11 @@ class Series(Content):
         return self.downloaded_parts == self.parts
 
     async def _download_episode(
-        self, episode: dict, audio_format: Optional[AudioFormat], semaphore: asyncio.Semaphore, progress: Progress
+        self,
+        episode: dict,
+        audio_format: Optional[AudioFormat],
+        semaphore: asyncio.Semaphore,
+        progress: Progress,
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
@@ -213,10 +219,10 @@ class Series(Content):
             await audio_work.download(audio_format, progress=progress)
 
     async def download(
-        self, 
+        self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
-        task_id: Optional[Any] = None
+        task_id: Optional[Any] = None,
     ) -> None:
         """Downloads all series episodes in parallel (limited by semaphore)."""
         if not self.download_dir:
@@ -227,7 +233,7 @@ class Series(Content):
 
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
         episodes = self.list_all_series_episodes()
-        
+
         if progress:
             tasks = [
                 self._download_episode(episode, audio_format, semaphore, progress)
@@ -237,7 +243,9 @@ class Series(Content):
         else:
             with Progress() as internal_progress:
                 tasks = [
-                    self._download_episode(episode, audio_format, semaphore, internal_progress)
+                    self._download_episode(
+                        episode, audio_format, semaphore, internal_progress
+                    )
                     for episode in episodes
                 ]
                 await asyncio.gather(*tasks)

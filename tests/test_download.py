@@ -99,7 +99,9 @@ class TestDownloadParts(unittest.IsolatedAsyncioTestCase):
                     for i in range(3):
                         mock_response = AsyncMock()
                         mock_response.status = 200
-                        mock_response.read.return_value = f"content of file {i + 1}".encode()
+                        mock_response.read.return_value = (
+                            f"content of file {i + 1}".encode()
+                        )
 
                         mock_response.__aenter__.return_value = mock_response
                         mock_responses.append(mock_response)

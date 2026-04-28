@@ -14,14 +14,16 @@ async def download_part(
     session: aiohttp.ClientSession,
     target_folder: Path,
     semaphore: asyncio.Semaphore,
-    on_success: Optional[Callable[[], None]] = None
+    on_success: Optional[Callable[[], None]] = None,
 ):
     """Download a single part (segment / chunk) of an audio stream."""
     file_name = target_folder / os.path.basename(url)
 
     async with semaphore:
         try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as response:
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=60)
+            ) as response:
                 if response.status == 200:
                     content = await response.read()
                     with open(file_name, "wb") as f:
@@ -43,7 +45,7 @@ async def download_part(
 async def download_parts(
     urls: list[str],
     target_folder: Path,
-    progress_callback: Optional[Callable[[], None]] = None
+    progress_callback: Optional[Callable[[], None]] = None,
 ):
     """Download asynchronously audio parts (segments / chunks)."""
     os.makedirs(target_folder, exist_ok=True)  # Ensure the target folder exists
@@ -51,7 +53,9 @@ async def download_parts(
 
     async with aiohttp.ClientSession() as session:
         tasks = [
-            download_part(url, session, target_folder, semaphore, on_success=progress_callback)
+            download_part(
+                url, session, target_folder, semaphore, on_success=progress_callback
+            )
             for url in urls
         ]
         await asyncio.gather(*tasks)

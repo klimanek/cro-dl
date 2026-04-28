@@ -23,12 +23,12 @@ class TestMP3Download(unittest.IsolatedAsyncioTestCase):
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.headers = {"Content-Length": "1024"}
-        
+
         async def mock_iter_chunked(*args, **kwargs):
             yield b"fake audio data"
-        
+
         mock_response.content.iter_chunked = MagicMock(side_effect=mock_iter_chunked)
-        
+
         with patch("aiohttp.ClientSession.get") as mock_get:
             mock_get.return_value.__aenter__.return_value = mock_response
             await self.mp3.download()
@@ -41,10 +41,10 @@ class TestMP3Download(unittest.IsolatedAsyncioTestCase):
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.headers = {}
-        
+
         async def mock_iter_chunked(*args, **kwargs):
             yield b"fake audio data"
-            
+
         mock_response.content.iter_chunked = MagicMock(side_effect=mock_iter_chunked)
 
         with patch("aiohttp.ClientSession.get") as mock_get:

@@ -12,7 +12,9 @@ from crodl.tools.logger import crologger
 class MP3(AudioParts):
     """Process mp3 stream from CRo asynchronously."""
 
-    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+    async def download(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ) -> None:
         """Download audiowork mp3 file asynchronously."""
         self._prepare_directories()
 
@@ -20,7 +22,7 @@ class MP3(AudioParts):
         crologger.info("Downloading mp3: %s", file_url)
 
         async with aiohttp.ClientSession() as session:
-            # For large files, we don't want a strict total timeout. 
+            # For large files, we don't want a strict total timeout.
             # We set a reasonable connect timeout and a longer sock_read timeout.
             timeout = aiohttp.ClientTimeout(total=None, connect=10, sock_read=60)
             async with session.get(file_url, timeout=timeout) as resp:
@@ -44,13 +46,17 @@ class MP3(AudioParts):
                         task_id = progress.add_task(
                             shorten_title(self.audio_title, 20), total=total_length
                         )
-                    await self._download_to_file(resp, audio_full_path, progress, task_id)
+                    await self._download_to_file(
+                        resp, audio_full_path, progress, task_id
+                    )
                 else:
                     with Progress() as internal_progress:
                         task_id = internal_progress.add_task(
                             shorten_title(self.audio_title, 20), total=total_length
                         )
-                        await self._download_to_file(resp, audio_full_path, internal_progress, task_id)
+                        await self._download_to_file(
+                            resp, audio_full_path, internal_progress, task_id
+                        )
 
         crologger.info("MP3 download completed: %s", audio_full_path)
 

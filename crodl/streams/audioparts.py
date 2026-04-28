@@ -48,12 +48,16 @@ class AudioParts(ABC):
             if not self.segments_path:
                 # Make segments directory unique to avoid collisions during parallel downloads
                 unique_suffix = process_audiowork_title(self.audio_title)
-                self.segments_path = self.audiowork_dir / f"{SEGMENTS_SUBDIR}-{unique_suffix}"
+                self.segments_path = (
+                    self.audiowork_dir / f"{SEGMENTS_SUBDIR}-{unique_suffix}"
+                )
 
             create_dir_if_does_not_exist(self.segments_path)
 
     @abstractmethod
-    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+    async def download(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ) -> None:
         """
         Abstract method to be implemented by subclasses.
         Accepts optional rich.progress.Progress and TaskID for parallel reporting.
@@ -73,7 +77,7 @@ class AudioParts(ABC):
 
         crologger.info("Merging files using ffmpeg...")
         output_filename = f"{process_audiowork_title(self.audio_title)}.{audio_format}"
-        
+
         # CRITICAL FIX: Always use ABSOLUTE path for output when calling subprocess
         if self.audiowork_dir:
             output_path = self.audiowork_dir.absolute() / output_filename
@@ -101,5 +105,7 @@ class AudioParts(ABC):
             return
 
         if self.segments_path.exists():
-            crologger.info("Deleting temporary segments directory: %s", self.segments_path)
+            crologger.info(
+                "Deleting temporary segments directory: %s", self.segments_path
+            )
             shutil.rmtree(self.segments_path)

@@ -34,11 +34,11 @@ class CroDL:
             return False
 
     async def get_content(
-        self, 
-        url: str, 
-        title: Optional[str] = None, 
+        self,
+        url: str,
+        title: Optional[str] = None,
         output_dir: Optional[Path] = None,
-        remove_accents: bool = False
+        remove_accents: bool = False,
     ) -> Union[AudioWork, Series, Show]:
         """
         Resolves a URL to a specific content type (AudioWork, Series, or Show).
@@ -53,37 +53,42 @@ class CroDL:
         if self.client.is_show(url):
             crologger.info("URL resolved as Show")
             return Show(
-                url=url, 
-                title=title or "Unknown", 
-                download_dir=output_dir, 
-                remove_accents=remove_accents, 
-                client=self.client
+                url=url,
+                title=title or "Unknown",
+                download_dir=output_dir,
+                remove_accents=remove_accents,
+                client=self.client,
             )
-        
+
         if self.client.is_series(url):
             crologger.info("URL resolved as Series")
             return Series(
-                url=url, 
-                title=title or "Unknown", 
-                download_dir=output_dir, 
-                remove_accents=remove_accents, 
-                client=self.client
+                url=url,
+                title=title or "Unknown",
+                download_dir=output_dir,
+                remove_accents=remove_accents,
+                client=self.client,
             )
-        
+
         crologger.info("URL resolved as AudioWork (Episode/Broadcast)")
         return AudioWork(
-            url=url, 
-            title=title or "Unknown", 
-            audiowork_dir=output_dir, 
-            remove_accents=remove_accents, 
-            client=self.client
+            url=url,
+            title=title or "Unknown",
+            audiowork_dir=output_dir,
+            remove_accents=remove_accents,
+            client=self.client,
         )
 
-    async def download(self, content: Union[AudioWork, Series, Show], 
-                       audio_format: AudioFormat = PREFERRED_AUDIO_FORMAT,
-                       progress: Optional[Progress] = None) -> None:
+    async def download(
+        self,
+        content: Union[AudioWork, Series, Show],
+        audio_format: AudioFormat = PREFERRED_AUDIO_FORMAT,
+        progress: Optional[Progress] = None,
+    ) -> None:
         """
         Starts the download process for the given content.
         """
-        crologger.info("Starting download for: %s (Format: %s)", content.title, audio_format.value)
+        crologger.info(
+            "Starting download for: %s (Format: %s)", content.title, audio_format.value
+        )
         await content.download(audio_format=audio_format, progress=progress)
