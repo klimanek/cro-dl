@@ -53,24 +53,20 @@ def sanitize_filename(name: str, remove_accents: bool = False) -> str:
     if remove_accents:
         nfkd_form = unicodedata.normalize('NFKD', name)
         name = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-        # After removing accents, we might want to ensure only basic ASCII stays
         name = name.encode('ascii', 'ignore').decode('ascii')
 
     # 4. Clean up whitespace and dots
-    name = " ".join(name.split()) # Normalize internal spaces
-    name = name.strip(". ") # Remove trailing/leading dots and spaces
+    name = " ".join(name.split())
+    name = name.strip(". ")
     
-    # 5. Limit length (Windows has 255 char limit for filename, but paths can be longer)
     return name[:200]
 
 
 def process_audiowork_title(title: str, prefix: str | None = None, remove_accents: bool = False) -> str:
     """Process the audiowork title to get a valid filename."""
     sanitized = sanitize_filename(title, remove_accents=remove_accents)
-    
     if prefix:
         sanitized = f"{prefix} - {sanitized}"
-        
     return sanitized
 
 

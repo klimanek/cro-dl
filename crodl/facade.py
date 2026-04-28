@@ -54,7 +54,7 @@ class CroDL:
             crologger.info("URL resolved as Show")
             return Show(
                 url=url, 
-                title=title, 
+                title=title or "Unknown", 
                 download_dir=output_dir, 
                 remove_accents=remove_accents, 
                 client=self.client
@@ -64,7 +64,7 @@ class CroDL:
             crologger.info("URL resolved as Series")
             return Series(
                 url=url, 
-                title=title, 
+                title=title or "Unknown", 
                 download_dir=output_dir, 
                 remove_accents=remove_accents, 
                 client=self.client
@@ -73,7 +73,7 @@ class CroDL:
         crologger.info("URL resolved as AudioWork (Episode/Broadcast)")
         return AudioWork(
             url=url, 
-            title=title, 
+            title=title or "Unknown", 
             audiowork_dir=output_dir, 
             remove_accents=remove_accents, 
             client=self.client
