@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import importlib.metadata
 from pathlib import Path
 import asyncclick as click
@@ -17,6 +18,20 @@ FORMAT_OPTIONS = {
 }
 
 __version__ = importlib.metadata.version("cro-dl")
+
+
+def check_ffmpeg() -> bool:
+    """Checks if ffmpeg is installed and accessible in the system path."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return False
 
 
 @click.command()
@@ -47,6 +62,23 @@ __version__ = importlib.metadata.version("cro-dl")
 @click.version_option(__version__)
 async def main(recording_url: str, stream_format: str, title: str, output: Path, no_accents: bool) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
+    
+    # Check for ffmpeg at startup
+    if not check_ffmpeg():
+        print("[bold red]Chyba: 'ffmpeg' nebyl nalezen ve vašem systému.[/bold red]")
+        print("\nPro spojování stažených kousků (DASH/HLS) je ffmpeg nezbytný.")
+        print("Prosím nainstalujte jej pomocí:")
+        print("  [bold cyan]winget install ffmpeg[/bold cyan] (Windows)")
+        print("  [bold cyan]scoop install ffmpeg[/bold cyan] (Windows - Scoop)")
+        print("  [bold cyan]brew install ffmpeg[/bold cyan] (macOS)")
+        print("\nVíce informací naleznete na [blue]https://ffmpeg.org[/blue]")
+        
+        # We only stop if they are not downloading a direct MP3 (which doesn't need ffmpeg)
+        if FORMAT_OPTIONS[stream_format] != AudioFormat.MP3:
+            sys.exit(1)
+        else:
+            print("[yellow]Upozornění: MP3 stahování bude fungovat, ale ostatní formáty selžou.[/yellow]\n")
+
     await download_logic(recording_url, stream_format, title, output, no_accents)
 
 
