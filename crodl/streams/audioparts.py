@@ -73,8 +73,12 @@ class AudioParts(ABC):
 
         crologger.info("Merging files using ffmpeg...")
         output_filename = f"{process_audiowork_title(self.audio_title)}.{audio_format}"
-        # The output path should be in the parent of segments_path (which is audiowork_dir)
-        output_path = self.audiowork_dir / output_filename if self.audiowork_dir else Path(f"../{output_filename}")
+        
+        # CRITICAL FIX: Always use ABSOLUTE path for output when calling subprocess
+        if self.audiowork_dir:
+            output_path = self.audiowork_dir.absolute() / output_filename
+        else:
+            output_path = Path(output_filename).absolute()
 
         command = [
             "ffmpeg",

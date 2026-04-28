@@ -27,6 +27,7 @@ from crodl.tools.scrap import get_audio_link_of_preferred_format
 @dataclass
 class Series(Content):
     download_dir: Optional[Path] = field(default=None)
+    remove_accents: bool = False
 
     def __post_init__(self):
         """
@@ -47,7 +48,10 @@ class Series(Content):
 
         self._attrs = self.json.get("data", {}).get("attributes", {})
 
-        self.title = str(self._attrs.get("title", "Unknown"))
+        # Use custom title if provided, otherwise fallback to API title
+        if self.title == "Unknown" or not self.title:
+            self.title = str(self._attrs.get("title", "Unknown"))
+            
         self.parts = int(self._attrs.get("totalParts", 0))
 
         crologger.info("Opening series %s", self.title)
@@ -63,7 +67,7 @@ class Series(Content):
             self.download_dir = (
                 DOWNLOAD_PATH
                 / SERIES_DOWNLOAD_DIR
-                / process_audiowork_title(self.title)
+                / process_audiowork_title(self.title, remove_accents=self.remove_accents)
             )
 
     def __str__(self) -> str:
@@ -203,6 +207,7 @@ class Series(Content):
                 title=episode.get("title", "Unknown"),
                 series=True,
                 since=episode.get("since", ""),
+                remove_accents=self.remove_accents,
                 client=self.client,
             )
             await audio_work.download(audio_format, progress=progress)

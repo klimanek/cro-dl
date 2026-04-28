@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from pathlib import Path
 from urllib.parse import urlparse
 from rich.progress import Progress
 
@@ -32,9 +33,16 @@ class CroDL:
         except Exception:
             return False
 
-    async def get_content(self, url: str) -> Union[AudioWork, Series, Show]:
+    async def get_content(
+        self, 
+        url: str, 
+        title: Optional[str] = None, 
+        output_dir: Optional[Path] = None,
+        remove_accents: bool = False
+    ) -> Union[AudioWork, Series, Show]:
         """
         Resolves a URL to a specific content type (AudioWork, Series, or Show).
+        Applies custom title, output directory and accent removal settings.
         """
         if not self.is_domain_supported(url):
             raise ValueError(f"Unsupported domain: {urlparse(url).netloc}")
@@ -44,14 +52,32 @@ class CroDL:
         # The order of checks matters
         if self.client.is_show(url):
             crologger.info("URL resolved as Show")
-            return Show(url=url, client=self.client)
+            return Show(
+                url=url, 
+                title=title, 
+                download_dir=output_dir, 
+                remove_accents=remove_accents, 
+                client=self.client
+            )
         
         if self.client.is_series(url):
             crologger.info("URL resolved as Series")
-            return Series(url=url, client=self.client)
+            return Series(
+                url=url, 
+                title=title, 
+                download_dir=output_dir, 
+                remove_accents=remove_accents, 
+                client=self.client
+            )
         
         crologger.info("URL resolved as AudioWork (Episode/Broadcast)")
-        return AudioWork(url=url, client=self.client)
+        return AudioWork(
+            url=url, 
+            title=title, 
+            audiowork_dir=output_dir, 
+            remove_accents=remove_accents, 
+            client=self.client
+        )
 
     async def download(self, content: Union[AudioWork, Series, Show], 
                        audio_format: AudioFormat = PREFERRED_AUDIO_FORMAT,

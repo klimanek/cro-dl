@@ -2,7 +2,6 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
-from datetime import datetime
 
 from rich import print
 from rich.progress import Progress
@@ -21,16 +20,13 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
-from crodl.persistence.repository import LibraryRepository
-from crodl.persistence.models import Episode, Show, Series, Station
-from crodl.tools.image_downloader import download_image
 
 
 @dataclass
 class AudioWork(Content):
     """
     Processes the audiowork at given URL or by its UUID.
-    Includes logic for downloading audio and managing local library metadata.
+    Focuses on downloading audio content.
     """
 
     audiowork_dir: Optional[Path] = None
@@ -38,9 +34,9 @@ class AudioWork(Content):
     since: str = ""
     series: bool = False
     show: bool = False
+    remove_accents: bool = False
     _attrs: Dict[str, Any] = field(default_factory=dict, repr=False)
     json_data: Dict[str, Any] = field(default_factory=dict, repr=False)
-    _repository: LibraryRepository = field(default_factory=LibraryRepository, repr=False)
 
     def __post_init__(self) -> None:
         if self.url and self.uuid:
@@ -54,7 +50,6 @@ class AudioWork(Content):
             raise ValueError(err_msg)
 
         if not self.uuid:
-            # client.get_audio_uuid is guaranteed to return str or raise
             self.uuid = self.client.get_audio_uuid(self.url) if self.url else None
 
         if not self.json_data and self.uuid:
@@ -66,12 +61,14 @@ class AudioWork(Content):
             except (AttributeError, TypeError):
                 self._attrs = {}
 
+        # Use custom title if provided, otherwise fallback to API title
         if self.title == "Unknown" or not self.title:
             self.title = str(self._attrs.get("title", "Unknown"))
 
+        # Determine download directory
         if not self.audiowork_dir:
             self.audiowork_dir = (
-                DOWNLOAD_PATH / process_audiowork_title(self.title)
+                DOWNLOAD_PATH / process_audiowork_title(self.title, remove_accents=self.remove_accents)
             )
 
         if not self.audiowork_root:
@@ -163,7 +160,7 @@ class AudioWork(Content):
             files_in_directory = []
 
         if files_in_directory:
-            processed_title = process_audiowork_title(self.title)
+            processed_title = process_audiowork_title(self.title, remove_accents=self.remove_accents)
             for file in files_in_directory:
                 if processed_title in os.path.splitext(file)[0]:
                     return True
@@ -221,89 +218,13 @@ class AudioWork(Content):
         )
         await mp3.download(progress=progress, task_id=task_id)
 
-    async def _save_metadata(self, audio_path: Path) -> None:
-        """
-        Extracts metadata from JSON data, downloads thumbnail, and saves to database.
-        """
-        if not self.json_data or not self.uuid or not self.audiowork_dir:
-            return
-
-        data = self.json_data.get("data", {})
-        attrs = data.get("attributes", {})
-        rels = data.get("relationships", {})
-
-        # 1. Download image/thumbnail
-        image_path = None
-        asset = attrs.get("asset")
-        if asset and asset.get("url"):
-            img_url = asset["url"]
-            img_ext = os.path.splitext(img_url)[1] or ".png"
-            target_img = self.audiowork_dir / f"{process_audiowork_title(self.title)}{img_ext}"
-            image_path = await download_image(img_url, target_img)
-
-        # 2. Extract Station
-        station = None
-        stations_data = rels.get("stations", {}).get("data", [])
-        if stations_data:
-            s_id = stations_data[0].get("id")
-            station = Station(id=s_id, title=f"Station {s_id}")
-
-        # 3. Extract Show
-        show = None
-        show_rel = rels.get("show", {}).get("data")
-        if show_rel:
-            show_id = show_rel.get("id")
-            show_title = attrs.get("mirroredShow", {}).get("title", "Unknown Show")
-            show = Show(id=show_id, title=show_title)
-
-        # 4. Extract Series
-        series = None
-        series_rel = rels.get("serial", {}).get("data")
-        if series_rel:
-            series_id = series_rel.get("id")
-            series = Series(id=series_id, title=attrs.get("mirroredShow", {}).get("title", "Unknown Series"))
-
-        # 5. Create Episode
-        since_dt = None
-        if self.since:
-            try:
-                since_dt = datetime.fromisoformat(self.since.replace("Z", "+00:00"))
-            except ValueError:
-                pass
-
-        episode = Episode(
-            id=self.uuid,
-            title=self.title,
-            short_title=attrs.get("shortTitle"),
-            description=self.description,
-            since=since_dt,
-            duration=attrs.get("audioLinks", [{}])[0].get("duration"),
-            local_path=str(audio_path),
-            image_path=str(image_path) if image_path else None,
-            show_id=show.id if show else None,
-            series_id=series.id if series else None,
-            station_id=station.id if station else None,
-            audio_format=audio_path.suffix.lstrip(".")
-        )
-
-        # 6. Persist to DB
-        await self._repository.save_episode(
-            episode_data=episode,
-            show_data=show,
-            series_data=series,
-            station_data=station
-        )
-        crologger.info("Metadata and thumbnail saved for: %s", self.title)
-
     async def download(
         self, 
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None
     ) -> None:  # pragma: no cover
-        """
-        Downloads audio and persists metadata to the local library.
-        """
+        """Downloads audio and handles storage."""
         if not self.audio_formats:
             return
 
@@ -319,13 +240,6 @@ class AudioWork(Content):
             if not self.series and not self.show:
                 create_dir_if_does_not_exist(self.audiowork_dir)
 
-            # Determine target path for metadata saving
-            ext = selected_format.value if selected_format else "mp3"
-            if ext in ("dash", "hls"):
-                ext = "aac" if ext == "hls" else "m4a"
-                
-            audio_path = self.audiowork_dir / f"{process_audiowork_title(self.title)}.{ext}"
-
             match selected_format:
                 case AudioFormat.DASH:
                     await self._download_dash(progress=progress, task_id=task_id)
@@ -337,8 +251,6 @@ class AudioWork(Content):
                     crologger.error("No valid format found for: %s", self.title)
                     return
 
-            # After successful download, save metadata and thumbnail
-            await self._save_metadata(audio_path)
             crologger.info("Done.")
 
         else:
@@ -346,12 +258,5 @@ class AudioWork(Content):
                 progress.update(task_id, description=f"[cyan]{self.title} (existuje)[/cyan]", completed=1, total=1)
             else:
                 print(f"{self.title} již existuje.")
-            
-            # Even if exists on disk, we might want to ensure metadata is in DB
-            ext = selected_format.value if selected_format else "mp3"
-            if ext in ("dash", "hls"):
-                ext = "aac" if ext == "hls" else "m4a"
-            audio_path = self.audiowork_dir / f"{process_audiowork_title(self.title)}.{ext}"
-            await self._save_metadata(audio_path)
             
             crologger.info("%s already exists.", self.title)

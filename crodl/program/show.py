@@ -16,7 +16,7 @@ from crodl.settings import (
     PREFERRED_AUDIO_FORMAT,
     AudioFormat,
 )
-from crodl.streams.utils import create_dir_if_does_not_exist, title_with_part
+from crodl.streams.utils import create_dir_if_does_not_exist, title_with_part, process_audiowork_title
 from crodl.tools.logger import crologger
 
 
@@ -27,7 +27,8 @@ class Show(Content):
     Example: https://www.mujrozhlas.cz/dan-barta-nevinnosti-sveta
     """
 
-    download_dir: Path = field(init=False)
+    download_dir: Optional[Path] = field(default=None)
+    remove_accents: bool = False
 
     def __post_init__(self):
         if not self.uuid and self.url:
@@ -53,7 +54,10 @@ class Show(Content):
             attributes=attributes,
         )
 
-        self.title = str(json_data["data"]["attributes"]["title"])
+        # Use custom title if provided, otherwise fallback to API title
+        if self.title == "Unknown" or not self.title:
+            self.title = str(json_data["data"]["attributes"]["title"])
+            
         self.json = json_data
         self.data = data
         episodes_data = self.client.get_related_data(
@@ -62,12 +66,14 @@ class Show(Content):
         self.episodes = Episodes(
             show_title=self.title, show_id=self.uuid, json_data=episodes_data
         )
-        self.download_dir = DOWNLOAD_PATH / self.title
+        
+        if not self.download_dir:
+            self.download_dir = DOWNLOAD_PATH / process_audiowork_title(self.title, remove_accents=self.remove_accents)
 
     @property
     def downloaded_parts(self) -> int:
         crologger.info("Checking whether the show has been already downloaded...")
-        if not os.path.isdir(self.download_dir):
+        if not self.download_dir or not os.path.isdir(self.download_dir):
             return 0
 
         downloaded_parts = sum(
@@ -96,6 +102,7 @@ class Show(Content):
                 title=title_with_part(str(episode.get("title", "Unknown")), int(episode.get("part", 0))),
                 since=str(episode.get("since", "")),
                 show=True,
+                remove_accents=self.remove_accents,
                 client=self.client,
             )
             await audio_work.download(audio_format, progress=progress)
@@ -107,6 +114,9 @@ class Show(Content):
         task_id: Optional[Any] = None
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
+        if not self.download_dir:
+            raise ValueError("download_dir is not set.")
+            
         create_dir_if_does_not_exist(self.download_dir)
 
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
