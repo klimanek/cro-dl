@@ -15,7 +15,7 @@ class TestFFmpegCheck(unittest.TestCase):
             ["ffmpeg", "-version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=True
+            check=True,
         )
 
     @patch("subprocess.run")

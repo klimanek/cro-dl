@@ -72,17 +72,17 @@ class TestGetPreferredAudioFormat(unittest.TestCase):
 class TestSanitizeFilename(unittest.TestCase):
     def test_remove_invalid_chars(self):
         title = 'Title with < > : " / \\ | ? *'
-        expected = 'Title with -' # Colon and slashes are replaced by - and space, others removed
+        expected = "Title with -"  # Colon and slashes are replaced by - and space, others removed
         # After my implementation:
         # : -> " -"
         # / -> "-"
         # \ -> "-"
         # <>|"*? -> removed
         sanitized = sanitize_filename(title)
-        self.assertNotIn('<', sanitized)
-        self.assertNotIn('>', sanitized)
-        self.assertNotIn('?', sanitized)
-        self.assertNotIn('*', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertNotIn("?", sanitized)
+        self.assertNotIn("*", sanitized)
 
     def test_remove_accents(self):
         title = "Příliš žluťoučký kůň úpěl ďábelské ódy"
