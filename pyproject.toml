@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 name = "cro-dl"
-version = "1.5.1"
+dynamic = ["version"]
 description = "Enjoy the ČRo offline"
 readme = "README.md"
 
@@ -66,3 +66,6 @@ include = ["crodl", "crodl.*"]
 
 [tool.setuptools.package-data]
 crodl = ["../assets/**/*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "crodl.__version__"}
