@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import patch, AsyncMock
 
 import tempfile
 import asyncio

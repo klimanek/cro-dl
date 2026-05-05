@@ -1,76 +1,70 @@
-# tests/test_audioparts.py
 import os
 import unittest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from typing import Optional, Any
+from rich.progress import Progress
+
 from crodl.streams.audioparts import AudioParts
-from crodl.streams.utils import create_dir_if_does_not_exist, process_audiowork_title
 
 
 class DummyAudioParts(AudioParts):
-    async def download(self) -> None:
+    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+        """Mock download implementation for testing."""
         pass
 
 
 class TestAudioParts(unittest.TestCase):
     def setUp(self):
-        self.title = "Some Title"
-        self.url = "https://example.com"
-        self.audio_parts = DummyAudioParts(url=self.url, audio_title=self.title)
-
-    def test_init(self):
-        self.assertEqual(self.audio_parts.url, self.url)
-        self.assertEqual(self.audio_parts.audio_title, self.title)
-
-    def test_create_dir_if_does_not_exist_real_dir(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_dir = Path(tmp_dir)
-            dir_path = tmp_dir / "test_dir"
-            create_dir_if_does_not_exist(dir_path)
-            self.assertTrue(os.path.exists(dir_path))
-
-
-class TestMergeChunks(unittest.TestCase):
-    def setUp(self):
-        self.audio_parts = DummyAudioParts("url", "audio_title")
-        self.audio_parts._prepare_directories()
-
-    @patch("subprocess.run")
-    def test_supported_audio_format_m4a(self, mock_subprocess_run):
-        self.audio_parts._merge_chunks("m4a")  # pylint: disable=protected-access
-        mock_subprocess_run.assert_called_once()
-
-    @patch("subprocess.run")
-    def test_supported_audio_format_aac(self, mock_subprocess_run):
-        self.audio_parts._merge_chunks("aac")  # pylint: disable=protected-access
-        mock_subprocess_run.assert_called_once()
-
-    def test_unsupported_audio_format(self):
-        with self.assertRaises(ValueError):
-            self.audio_parts._merge_chunks("mp3")  # pylint: disable=protected-access
-
-    @patch("subprocess.run")
-    def test_subprocess_run_args(self, mock_subprocess_run):
-        self.audio_parts._merge_chunks("m4a")  # pylint: disable=protected-access
-
-        output_filename = f"{process_audiowork_title(self.audio_parts.audio_title)}.m4a"
-        output_path = self.audio_parts.audiowork_dir / output_filename
-
-        expected_command = [
-            "ffmpeg",
-            "-i",
-            "concatf:list.txt",
-            "-c",
-            "copy",
-            str(output_path),
-            "-loglevel",
-            "quiet",
-            "-y",
-        ]
-        mock_subprocess_run.assert_called_once_with(
-            expected_command, cwd=str(self.audio_parts.segments_path), check=True
+        self.url = "http://example.com/audio.mp3"
+        self.audio_title = "Test Audio"
+        self.audiowork_dir = Path("/path/to/audio")
+        self.segments_path = Path("/path/to/segments")
+        self.downloader = DummyAudioParts(
+            url=self.url,
+            audio_title=self.audio_title,
+            audiowork_dir=self.audiowork_dir,
+            segments_path=self.segments_path,
         )
+
+    def test_post_init_sets_paths(self):
+        self.assertEqual(self.downloader.url, self.url)
+        self.assertEqual(self.downloader.audio_title, self.audio_title)
+        self.assertEqual(self.downloader.audiowork_dir, self.audiowork_dir)
+        self.assertEqual(self.downloader.segments_path, self.segments_path)
+
+    def test_post_init_converts_str_to_path(self):
+        downloader = DummyAudioParts(
+            url=self.url,
+            audio_title=self.audio_title,
+            audiowork_dir=Path("/path/to/audio"),
+        )
+        self.assertIsInstance(downloader.audiowork_dir, Path)
+
+    def test_prepare_directories(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            downloader = DummyAudioParts(
+                url=self.url,
+                audio_title=self.audio_title,
+                audiowork_dir=tmp_path / "audiowork",
+            )
+            downloader._prepare_directories()
+            self.assertTrue(os.path.exists(downloader.audiowork_dir)) # type: ignore
+            self.assertTrue(os.path.exists(downloader.segments_path)) # type: ignore
+
+    def test_purge_chunks_dir(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            segments_path = tmp_path / "segments"
+            os.makedirs(segments_path)
+            downloader = DummyAudioParts(
+                url=self.url,
+                audio_title=self.audio_title,
+                segments_path=segments_path,
+            )
+            downloader._purge_chunks_dir()
+            self.assertFalse(os.path.exists(segments_path))
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from crodl.program.audiowork import AudioWork
 from crodl.program.series import Series
-from crodl.settings import DOWNLOAD_PATH
 
 
 class TestCLIParamsIntegration(unittest.TestCase):
@@ -15,9 +14,7 @@ class TestCLIParamsIntegration(unittest.TestCase):
                 "attributes": {
                     "title": "Příliš žluťoučký kůň",
                     "since": "2024-04-29T12:00:00Z",
-                    "audioLinks": [
-                        {"variant": "mp3", "url": "http://example.com/a.mp3"}
-                    ],
+                    "audioLinks": [{"variant": "mp3", "url": "http://example.com/a.mp3"}]
                 }
             }
         }
@@ -27,7 +24,7 @@ class TestCLIParamsIntegration(unittest.TestCase):
                 "attributes": {
                     "title": "Seriál s diakritikou",
                     "totalParts": 5,
-                    "playable": True,
+                    "playable": True
                 }
             }
         }
@@ -38,11 +35,13 @@ class TestCLIParamsIntegration(unittest.TestCase):
             url="http://example.com/show",
             title="Můj Vlastní Název",
             remove_accents=True,
-            client=self.mock_client,
+            client=self.mock_client
         )
         self.assertEqual(aw.title, "Můj Vlastní Název")
         # Check that download dir is sanitized and has no accents
-        self.assertEqual(aw.audiowork_dir.name, "Muj Vlastni Nazev")
+        self.assertIsNotNone(aw.audiowork_dir)
+        if aw.audiowork_dir:
+            self.assertEqual(aw.audiowork_dir.name, "Muj Vlastni Nazev")
 
     def test_audiowork_custom_output_dir(self):
         """Test AudioWork with custom output directory."""
@@ -50,7 +49,7 @@ class TestCLIParamsIntegration(unittest.TestCase):
         aw = AudioWork(
             url="http://example.com/show",
             audiowork_dir=custom_path,
-            client=self.mock_client,
+            client=self.mock_client
         )
         self.assertEqual(aw.audiowork_dir, custom_path)
 
@@ -58,12 +57,12 @@ class TestCLIParamsIntegration(unittest.TestCase):
         """Test Series with custom title and accent removal."""
         # We need to mock get_series_id since it's called in __post_init__
         self.mock_client.get_series_id.return_value = "123"
-
+        
         s = Series(
             url="http://example.com/series",
             title="Custom Series",
             remove_accents=True,
-            client=self.mock_client,
+            client=self.mock_client
         )
         self.assertEqual(s.title, "Custom Series")
         # Check download_dir (should be under SERIES_DOWNLOAD_DIR / processed_title)
