@@ -80,7 +80,7 @@ class TestSanitizeFilename(unittest.TestCase):
         # <>|"*? -> removed
         sanitized = sanitize_filename(title)
         self.assertEqual(sanitized, expected)
-        self.assertNotIn('<', sanitized)
+        self.assertNotIn("<", sanitized)
 
         self.assertNotIn(">", sanitized)
         self.assertNotIn("?", sanitized)

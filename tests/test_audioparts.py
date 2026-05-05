@@ -9,7 +9,9 @@ from crodl.streams.audioparts import AudioParts
 
 
 class DummyAudioParts(AudioParts):
-    async def download(self, progress: Optional[Progress] = None, task_id: Optional[Any] = None) -> None:
+    async def download(
+        self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
+    ) -> None:
         """Mock download implementation for testing."""
         pass
 
@@ -50,8 +52,8 @@ class TestAudioParts(unittest.TestCase):
                 audiowork_dir=tmp_path / "audiowork",
             )
             downloader._prepare_directories()
-            self.assertTrue(os.path.exists(downloader.audiowork_dir)) # type: ignore
-            self.assertTrue(os.path.exists(downloader.segments_path)) # type: ignore
+            self.assertTrue(os.path.exists(downloader.audiowork_dir))  # type: ignore
+            self.assertTrue(os.path.exists(downloader.segments_path))  # type: ignore
 
     def test_purge_chunks_dir(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
