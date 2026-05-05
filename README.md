@@ -46,10 +46,16 @@ uv run cro-dl <url>
 cro-dl <url>
 ```
 
-If multiple formats are available, MP3 is preferred. To specify a format (e.g., HLS):
+If multiple formats are available, MP3 is preferred. You can customize the download using the following options:
 
+* `--stream-format` / `-sf`: Specify format (mp3, hls, dash).
+* `--title` / `-t`: Set a custom title for the file or folder.
+* `--output` / `-o`: Specify a custom output directory.
+* `--no-accents`: Remove diacritics from filenames.
+
+Example with custom settings:
 ```
-cro-dl --stream-format "hls" <url>
+cro-dl --title "My-Favorite-Show" --no-accents --output "./my-radio" <url>
 ```
 
 
@@ -117,22 +123,17 @@ Otevřete stránku mujrozhlas.cz, najděte si pořad / epizodu / seriál a z adr
 cro-dl <url>
 ```
 
-## Příklad
-[„Tuk dá každý raději než kostní dřeň.“ Endokrinolog vyvíjí novou léčbu diabetu kmenovými buňkami](https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi). Zkopírujte URL z adresního řádku a abyste si pořad stáhli, do terminálu zadejte
+### Pokročilé možnosti stahování
+Kromě základního stahování můžete použít následující parametry:
+
+* `--stream-format` / `-sf`: Výběr formátu (mp3, hls, dash).
+* `--title` / `-t`: Vlastní název pro soubor nebo složku (vhodné pro přejmenování).
+* `--output` / `-o`: Cesta k adresáři, kam se má obsah uložit.
+* `--no-accents`: Odstraní diakritiku z názvů souborů a složek.
+
+### Příklad
+Chcete-li si pořad stáhnout ve vámi preferovaném formátu, s vlastním názvem a bez diakritiky:
 
 ```
-cro-dl https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi
-```
-
-
-![Stažení příspěvku](./assets/images/broadcast.png)
-
-V tomto případě jsou dostupné tři formáty: mp3, stream HLS a stream DASH. Většinou však bývá dostupný pouze stream, anebo soubor ve formátu mp3. Ten je preferován (viz soubor `settings.py`). Není-li dostupný, použije se HLS, DASH jako poslední.
-
-Chcete-li si pořad stáhnout ve vámi preferovaném formátu, použijte možnost `--stream-format` (`-sf`):
-
-```
-
-cro-dl --stream-format "hls" https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi
-
+cro-dl --title "Můj Pořad" --no-accents --output "./stazeno" https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi
 ```
