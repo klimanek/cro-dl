@@ -38,13 +38,13 @@ def get_preferred_audio_format(audio_variants: list[str]) -> AudioFormat | None:
 
 
 def sanitize_filename(name: str, remove_accents: bool = False) -> str:
-    """
+    r"""
     Sanitizes a string to be a valid filename across different OS (especially Windows).
     Removes invalid characters: <>:"/\|?*
     Also strips trailing dots and spaces which are invalid on Windows.
     """
-    # 1. Replace common separators with something safe
-    name = name.replace(":", " -").replace("/", "-").replace("\\", "-")
+    # 1. Replace common separators with a dash
+    name = name.replace(":", "-").replace("/", "-").replace("\\", "-")
 
     # 2. Remove other invalid Windows characters
     name = re.sub(r'[<>|"*?]', "", name)
@@ -56,6 +56,14 @@ def sanitize_filename(name: str, remove_accents: bool = False) -> str:
         name = name.encode("ascii", "ignore").decode("ascii")
 
     # 4. Clean up whitespace and dots
+    name = " ".join(name.split())
+
+    # 5. Collapse multiple dashes and clean up surrounding spaces
+    name = re.sub(r"\s*-\s*", "-", name)
+    name = re.sub(r"-+", "-", name)
+    name = name.replace("-", " - ")
+
+    # Final cleanup of whitespace and trailing characters
     name = " ".join(name.split())
     name = name.strip(". ")
 
