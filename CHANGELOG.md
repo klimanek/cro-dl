@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.5.2] - 2026-10-06
 
 ### Fixed
 - FFmpeg merge failing with "Too many open files" (exit code 232) for long
