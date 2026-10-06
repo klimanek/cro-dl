@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.2] - 2026-10-06
+
+### Fixed
+- FFmpeg merge failing with "Too many open files" (exit code 232) for long
+  episodes: the `concatf:` protocol keeps all segments open at once, so the
+  open-file limit is now raised before merging. FFmpeg errors are also
+  reported with the actual error message instead of a bare exit code.
+
 ## [1.5.1] - 2026-05-05
 
 ### Added

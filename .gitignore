@@ -15,3 +15,7 @@ tests/test_downloads
 *.code-workspace
 .vscode/
 downloads/
+
+CONTENT_ARCHITECTURE.md
+REFACTORING_PROGRESS.md
+REFACTORING.md

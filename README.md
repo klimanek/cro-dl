@@ -1,9 +1,8 @@
-### 🇬🇧 English Summary
-# 🐍 CRo-DL (Czech Radio Downloader)
+# CRo-DL (Czech Radio Downloader)
 Listen to MůjRozhlas.cz programs offline.
 
 ## Overview
-CRo-DL is a Python-based 🐍 tool that allows Czech Radio license payers to download and store radio programs locally for offline listening. It supports individual broadcasts, full series, and entire program schedules. Series are saved with episode numbers and user-friendly titles.
+CRo-DL is a Python-based tool that allows Czech Radio license payers to download and store radio programs locally for offline listening. It supports individual broadcasts, full series, and entire program schedules. Series are saved with episode numbers and user-friendly titles.
 
 ⚠️ Respect copyright laws—downloaded content is for personal use only and should not be shared.
 
@@ -15,13 +14,13 @@ CRo-DL is a Python-based 🐍 tool that allows Czech Radio license payers to dow
 ## Installation
 CRo-DL can be installed via:
 
-### 📦 PyPI
+### PyPI
 
 ```
 pip install cro-dl
 ```
 
-### 🚀 uv (alternative method)
+### uv (alternative method)
 Download the source code (zip) and sync dependencies:
 
 ```
@@ -29,18 +28,16 @@ uv sync
 uv run cro-dl <url>
 ```
 
-### 🔧 Git clone (development mode)
+### Git clone (development mode)
 ```
 git clone git@github.com:klimanek/cro-dl.git
 uv sync
 uv run cro-dl <url>
 ```
 ## Usage
-1️⃣ Open mujrozhlas.cz, find a broadcast, series, or episode.
-
-2️⃣ Copy the URL from the address bar.
-
-3️⃣ Run in the terminal:
+* Open mujrozhlas.cz, find a broadcast, series, or episode.
+* Copy the URL from the address bar.
+* Run in the terminal:
 
 ```
 cro-dl <url>
@@ -61,7 +58,7 @@ cro-dl --title "My-Favorite-Show" --no-accents --output "./my-radio" <url>
 
 <hr />
 
-### 🇨🇿 Česká verze
+### 🇨🇿
 # CRo-DL (Český Rozhlas Downloader)
 Poslouchejte pořady z MůjRozhlas.cz i offline.
 
@@ -70,12 +67,10 @@ CRo-DL je nástroj umožňující každému koncesionáři ČRo stáhnout si po�
 
 Podporovány jsou jak jednotlivé rozhlasové příspěvky, tak i celé seriály a kompletní programy -- seriály se stahují s číslem dílu a pod svým názvem. Každý titul je uložen do vlastní složky.
 
-![Stažení seriálu](./assets/images/series.png)
-
 Není-li ještě nějaký díl seriálu dostupný, CRo-DL vás upozorní a uvede datum i čas uvedení.
 
 ## Závislosti
-Software je napsaný v jazyce Python 🐍, proto byste v systému měli mít Python ve verzi alespoň 3.10.
+Software je napsaný v jazyce Python, proto byste v systému měli mít Python ve verzi alespoň 3.10.
 
 Můjrozhlas.cz v zásadě používá formát mp3 pro svá díla (ČRo) a streamy HLS a DASH pro díla třetích stran. Preferovány jsou formáty mp3 a HLS pro stream. Pokud byste však chtěli z různých důvodů použít DASH, pro vytvoření a uložení finálního souboru je nutné mít v systému nainstalovaný [ffmpeg](https://www.ffmpeg.org/).
 
@@ -89,14 +84,14 @@ CRo-DL lze instalovat několika způsoby:
 3. Git clone + uv
 
 
-### 📦 PyPi
+### PyPi
 Nejčastěji z PyPi pomocí nástroje `pip`:
 
 ```
 pip install cro-dl
 ```
 
-### 🚀  uv
+### uv
 Alternativou je lokální použití CRo-DL pomocí nástroje [uv](https://docs.astral.sh/uv/) poté, co si stáhnete zde zip soubor s codebase.
 
 `uv sync`

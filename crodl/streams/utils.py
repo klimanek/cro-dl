@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 from zoneinfo import ZoneInfo
 
-from crodl.settings import AudioFormat, DOWNLOAD_PATH
+from crodl.settings import AudioFormat, DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -35,6 +35,26 @@ def get_preferred_audio_format(audio_variants: list[str]) -> AudioFormat | None:
         if audio_format.value in audio_variants:
             return audio_format
     return None
+
+
+def get_audio_link_of_preferred_format(attrs: dict) -> str | None:
+    """Searches for an audio link of preferred audio format.
+    If not found, returns None.
+    """
+    audio_links = attrs.get("audioLinks")
+
+    if not audio_links:
+        return None
+
+    audio_variants = [link.get("variant") for link in audio_links]
+    audio_formats = {link.get("variant"): link.get("url") for link in audio_links}
+
+    if PREFERRED_AUDIO_FORMAT.value not in audio_variants:
+        audio_format = get_preferred_audio_format(audio_variants)
+    else:
+        audio_format = PREFERRED_AUDIO_FORMAT
+
+    return audio_formats.get(audio_format.value) if audio_format else None
 
 
 def sanitize_filename(name: str, remove_accents: bool = False) -> str:

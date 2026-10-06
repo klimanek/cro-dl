@@ -8,9 +8,39 @@ from typing import Optional, Any
 from requests import Session
 from rich.progress import Progress
 
+from crodl.exceptions import DownloadError
 from crodl.settings import DOWNLOAD_PATH, SEGMENTS_SUBDIR, SUPPORTED_AUDIO_FORMATS
 from crodl.tools.logger import crologger
 from crodl.streams.utils import create_dir_if_does_not_exist, process_audiowork_title
+
+# The `concatf:` ffmpeg protocol holds every input segment open at once
+# (it must be able to seek across all of them), so merging long episodes
+# needs one file descriptor per segment. A generous ceiling covers even
+# multi-hour recordings while staying well within typical hard limits.
+OPEN_FILE_LIMIT = 8192
+
+
+def _raise_open_file_limit(minimum: int = OPEN_FILE_LIMIT) -> None:
+    """
+    Raise the soft limit of open files, if possible.
+
+    Without this, ffmpeg fails with "Too many open files" (exit code 232)
+    when an episode has more segments than the default soft limit
+    (e.g. 256 on macOS).
+    """
+    try:
+        import resource
+    except ImportError:  # pragma: no cover - Windows has no `resource` module
+        return
+
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        target = minimum if hard == resource.RLIM_INFINITY else min(minimum, hard)
+        if target > soft:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+            crologger.info("Raised the open-file limit from %s to %s", soft, target)
+    except (OSError, ValueError):  # pragma: no cover
+        crologger.warning("Could not raise the open-file limit.", exc_info=True)
 
 
 @dataclass
@@ -84,6 +114,10 @@ class AudioParts(ABC):
         else:
             output_path = Path(output_filename).absolute()
 
+        # `concatf:` keeps all segments open at once -> raise the open-file
+        # limit first, otherwise long episodes fail with "Too many open files".
+        _raise_open_file_limit()
+
         command = [
             "ffmpeg",
             "-i",
@@ -92,11 +126,24 @@ class AudioParts(ABC):
             "copy",
             str(output_path),
             "-loglevel",
-            "quiet",
+            "error",
             "-y",  # Overwrite output files without asking
         ]
 
-        subprocess.run(command, cwd=str(self.segments_path), check=True)
+        try:
+            subprocess.run(
+                command,
+                cwd=str(self.segments_path),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            detail = "\n".join((exc.stderr or "").strip().splitlines()[-5:])
+            message = f"FFmpeg merge failed (exit code {exc.returncode})."
+            if detail:
+                message += f" {detail}"
+            raise DownloadError(message) from exc
         crologger.info("Merging completed: %s", output_path)
 
     def _purge_chunks_dir(self) -> None:

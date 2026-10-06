@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
-from crodl.tools.scrap import get_audio_link_of_preferred_format
+from crodl.streams.utils import get_audio_link_of_preferred_format
 
 
 @dataclass
@@ -18,6 +18,23 @@ class Data:
     show_type: str
     uuid: str
     attributes: Attributes
+
+
+def extract_episode_info(episode: dict) -> dict:
+    """
+    Maps one episode dict (as returned by the API) to a plain info dict.
+
+    Shared by all content collections (Series, Show) so that the episode
+    mapping logic lives in a single place.
+    """
+    attrs = episode.get("attributes", {})
+    return {
+        "uuid": episode.get("id"),
+        "title": attrs.get("title", ""),
+        "url": get_audio_link_of_preferred_format(attrs),
+        "since": attrs.get("since"),
+        "part": attrs.get("part"),
+    }
 
 
 @dataclass
@@ -40,20 +57,7 @@ class Episodes:
 
     @property
     def info(self) -> list[dict]:
-        info = []
-        for _data in self.data:
-            attrs = _data["attributes"]
-            info.append(
-                {
-                    "uuid": _data["id"],
-                    "title": attrs["title"],
-                    "url": get_audio_link_of_preferred_format(attrs),
-                    "since": attrs["since"],
-                    "part": attrs["part"],
-                }
-            )
-
-        return info
+        return [extract_episode_info(_data) for _data in self.data]
 
     # @property
     # def df(self) -> pds.DataFrame | str:
