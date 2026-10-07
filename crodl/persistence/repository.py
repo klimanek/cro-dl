@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, List, Sequence
+from typing import Optional, Sequence
 from sqlmodel import select
 
 from crodl.persistence.models import Episode, Show, Series, Station
@@ -47,14 +47,22 @@ class LibraryRepository:
     async def get_episodes_by_show(self, show_id: str) -> Sequence[Episode]:
         """Returns all episodes belonging to a specific show."""
         async with async_session_factory() as session:
-            statement = select(Episode).where(Episode.show_id == show_id).order_by(Episode.since.desc())
+            statement = (
+                select(Episode)
+                .where(Episode.show_id == show_id)
+                .order_by(Episode.since.desc())
+            )
             result = await session.execute(statement)
             return result.scalars().all()
 
     async def get_episodes_by_series(self, series_id: str) -> Sequence[Episode]:
         """Returns all episodes belonging to a specific series."""
         async with async_session_factory() as session:
-            statement = select(Episode).where(Episode.series_id == series_id).order_by(Episode.since.desc())
+            statement = (
+                select(Episode)
+                .where(Episode.series_id == series_id)
+                .order_by(Episode.since.desc())
+            )
             result = await session.execute(statement)
             return result.scalars().all()
 

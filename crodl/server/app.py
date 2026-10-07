@@ -18,7 +18,7 @@ templates = Jinja2Templates(directory=template_dir)
 app = FastAPI(
     title="CRo-DL Library",
     description="Local library for Czech Radio downloads",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Enable CORS
@@ -36,6 +36,7 @@ if os.path.exists(DOWNLOAD_PATH):
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Render the main library web interface showing unique shows and series."""
@@ -44,48 +45,52 @@ async def index(request: Request):
         shows = await repo.get_all_shows()
         series = await repo.get_all_series()
         all_episodes = await repo.get_all_episodes()
-        
+
         unique_collections = {}
-        
+
         # 1. Process Series
         for sr in series:
             episodes = await repo.get_episodes_by_series(sr.id)
-            if not episodes: continue
-            
+            if not episodes:
+                continue
+
             thumb_url = None
             if episodes[0].image_path:
                 rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
                 thumb_url = f"/library/{rel_img}"
-                
+
             unique_collections[sr.title] = {
                 "type": "series",
                 "id": sr.id,
                 "title": sr.title,
                 "thumb_url": thumb_url,
-                "count": len(episodes)
+                "count": len(episodes),
             }
 
         # 2. Process Shows
         for s in shows:
             if s.title in unique_collections:
                 episodes = await repo.get_episodes_by_show(s.id)
-                unique_collections[s.title]["count"] = max(unique_collections[s.title]["count"], len(episodes))
+                unique_collections[s.title]["count"] = max(
+                    unique_collections[s.title]["count"], len(episodes)
+                )
                 continue
-                
+
             episodes = await repo.get_episodes_by_show(s.id)
-            if not episodes: continue
-            
+            if not episodes:
+                continue
+
             thumb_url = None
             if episodes[0].image_path:
                 rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
                 thumb_url = f"/library/{rel_img}"
-                
+
             unique_collections[s.title] = {
                 "type": "show",
                 "id": s.id,
                 "title": s.title,
                 "thumb_url": thumb_url,
-                "count": len(episodes)
+                "count": len(episodes),
             }
 
         # 3. Process Orphaned Episodes (Manual Imports)
@@ -96,24 +101,25 @@ async def index(request: Request):
                 "id": "orphans",
                 "title": "Místní soubory",
                 "thumb_url": None,
-                "count": len(orphans)
+                "count": len(orphans),
             }
 
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"collections": list(unique_collections.values())}
+            context={"collections": list(unique_collections.values())},
         )
     except Exception as e:
         error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
         return PlainTextResponse(error_msg, status_code=500)
+
 
 @app.get("/detail/{ctype}/{id}", response_class=HTMLResponse)
 async def detail(request: Request, ctype: str, id: str):
     """Render the detail page for a show, series or orphaned episodes."""
     try:
         repo = LibraryRepository()
-        
+
         if ctype == "show":
             content = await repo.get_show(id)
             episodes = await repo.get_episodes_by_show(id)
@@ -122,10 +128,17 @@ async def detail(request: Request, ctype: str, id: str):
             episodes = await repo.get_episodes_by_series(id)
         else:
             # Handle orphaned episodes
-            content = type('obj', (object,), {'title': 'Místní soubory', 'description': 'Soubory importované bez metadat.'})
+            content = type(
+                "obj",
+                (object,),
+                {
+                    "title": "Místní soubory",
+                    "description": "Soubory importované bez metadat.",
+                },
+            )
             all_episodes = await repo.get_all_episodes()
             episodes = [e for e in all_episodes if not e.show_id and not e.series_id]
-            
+
         if not content:
             return PlainTextResponse("Not found", status_code=404)
 
@@ -142,11 +155,7 @@ async def detail(request: Request, ctype: str, id: str):
         return templates.TemplateResponse(
             request=request,
             name="detail.html",
-            context={
-                "content": content,
-                "episodes": processed_episodes,
-                "type": ctype
-            }
+            context={"content": content, "episodes": processed_episodes, "type": ctype},
         )
     except Exception as e:
         return PlainTextResponse(str(e), status_code=500)
