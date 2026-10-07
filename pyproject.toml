@@ -24,6 +24,8 @@ dependencies = [
     "anyio>=4.11.0",
     "sqlmodel>=0.0.38",
     "aiosqlite>=0.22.1",
+    # Pulled in by SQLAlchemy's async layer (we use it through SQLModel);
+    # cro-dl never calls greenlet itself. See WEB_LIBRARY_STACK.md.
     "greenlet>=3.4.0",
     "fastapi>=0.136.1",
     "uvicorn>=0.46.0",

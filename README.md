@@ -55,6 +55,25 @@ Example with custom settings:
 cro-dl --title "My-Favorite-Show" --no-accents --output "./my-radio" <url>
 ```
 
+## Web library
+
+Downloaded works can be browsed in a small local web UI (FastAPI + Jinja2) backed by a SQLite
+library in `~/Z Rozhlasu/library.db`:
+
+1. Import what is already on disk (optional):
+   ```
+   cro-dl --sync
+   ```
+2. Start the server:
+   ```
+   uv run python -m crodl.server.run
+   ```
+3. Open <http://127.0.0.1:8000>.
+
+The server listens on `127.0.0.1` only and is meant for personal, local use. It lists shows and
+series with their covers and plays the stored files. See `WEB_LIBRARY_STACK.md` for how the stack
+fits together (SQLModel, SQLAlchemy, uvicorn).
+
 
 <hr />
 
@@ -132,3 +151,23 @@ Chcete-li si pořad stáhnout ve vámi preferovaném formátu, s vlastním názv
 ```
 cro-dl --title "Můj Pořad" --no-accents --output "./stazeno" https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi
 ```
+
+## Webová knihovna
+
+Stažená díla si můžete procházet v malém lokálním webovém rozhraní (FastAPI + Jinja2) nad SQLite
+knihovnou v `~/Z Rozhlasu/library.db`:
+
+1. Naimportujte, co už na disku máte (nepovinné):
+   ```
+   cro-dl --sync
+   ```
+2. Spusťte server:
+   ```
+   uv run python -m crodl.server.run
+   ```
+3. Otevřete <http://127.0.0.1:8000>.
+
+Server poslouchá jen na `127.0.0.1`, tedy pouze na vašem počítači — je určený pro osobní použití.
+Zobrazuje pořady a seriály včetně obalů a umí přehrát uložené soubory. Jak spolu technologicky
+souvisí SQLModel, SQLAlchemy a uvicorn (a proč je v závislostech `greenlet`) popisuje
+`WEB_LIBRARY_STACK.md`.
