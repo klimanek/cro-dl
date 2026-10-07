@@ -249,7 +249,7 @@ class TestAudioWorkFormats(unittest.TestCase):
 
 
 class TestAudioWorkAlreadyExists(unittest.TestCase):
-    def _make_audio_work(self, audiowork_dir, title):
+    def _make_audio_work(self, audiowork_dir, title, remove_accents=False):
         mock_client = mock.Mock()
         mock_client.get_episode_data.return_value = {
             "data": {
@@ -263,6 +263,7 @@ class TestAudioWorkAlreadyExists(unittest.TestCase):
             uuid="12345",
             title=title,
             audiowork_dir=audiowork_dir,
+            remove_accents=remove_accents,
             client=mock_client,
         )
 
@@ -294,6 +295,64 @@ class TestAudioWorkAlreadyExists(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             audio_work = self._make_audio_work(Path(tmp) / "does-not-exist", "Title")
             self.assertFalse(audio_work.already_exists())
+
+    def test_no_accents_matches_the_stripped_file_name(self):
+        # Regression: with --no-accents the file kept its diacritics, so
+        # already_exists() never found it.
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(
+                Path(tmp), "Příliš žluťoučký", remove_accents=True
+            )
+            (Path(tmp) / "Prilis zlutoucky.mp3").write_text("x", encoding="utf-8")
+            self.assertTrue(audio_work.already_exists())
+
+
+class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
+    """AudioWork must hand `remove_accents` down to every downloader."""
+
+    def _make_audio_work(self, audio_links):
+        client = mock.Mock()
+        client.session = mock.Mock()
+        client.get_episode_data.return_value = {
+            "data": {
+                "attributes": {
+                    "title": "Title",
+                    "since": "2024-08-14T18:05:00+02:00",
+                    "audioLinks": audio_links,
+                }
+            }
+        }
+        return AudioWork(
+            uuid="12345",
+            title="Title",
+            audiowork_dir=Path("/tmp/unused"),
+            remove_accents=True,
+            client=client,
+        )
+
+    async def test_mp3_receives_remove_accents(self):
+        audio_work = self._make_audio_work([{"variant": "mp3", "url": "u.mp3"}])
+        with mock.patch("crodl.program.audiowork.MP3") as mock_mp3:
+            mock_mp3.return_value.download = mock.AsyncMock()
+            await audio_work._download_mp3()
+
+        self.assertTrue(mock_mp3.call_args.kwargs["remove_accents"])
+
+    async def test_hls_receives_remove_accents(self):
+        audio_work = self._make_audio_work([{"variant": "hls", "url": "u.m3u8"}])
+        with mock.patch("crodl.program.audiowork.HLS") as mock_hls:
+            mock_hls.return_value.download = mock.AsyncMock()
+            await audio_work._download_hls()
+
+        self.assertTrue(mock_hls.call_args.kwargs["remove_accents"])
+
+    async def test_dash_receives_remove_accents(self):
+        audio_work = self._make_audio_work([{"variant": "dash", "url": "u.mpd"}])
+        with mock.patch("crodl.program.audiowork.DASH") as mock_dash:
+            mock_dash.return_value.download = mock.AsyncMock()
+            await audio_work._download_dash()
+
+        self.assertTrue(mock_dash.call_args.kwargs["remove_accents"])
 
 
 if __name__ == "__main__":

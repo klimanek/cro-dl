@@ -185,6 +185,7 @@ class AudioWork(Content):
             audio_title=self.title,
             audiowork_dir=self.audiowork_dir,
             session=self.client.session,
+            remove_accents=self.remove_accents,
         )
         await manifest.download(progress=progress, task_id=task_id)
 
@@ -204,6 +205,7 @@ class AudioWork(Content):
             audio_title=self.title,
             audiowork_dir=self.audiowork_dir,
             session=self.client.session,
+            remove_accents=self.remove_accents,
         )
         await chunklist.download(progress=progress, task_id=task_id)
 
@@ -224,6 +226,7 @@ class AudioWork(Content):
             audio_title=self.title,
             segments=False,
             session=self.client.session,
+            remove_accents=self.remove_accents,
         )
         await mp3.download(progress=progress, task_id=task_id)
 

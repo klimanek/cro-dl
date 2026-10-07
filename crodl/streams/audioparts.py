@@ -56,6 +56,7 @@ class AudioParts(ABC):
     segments_path: Path | None = field(default=None)
     segments: bool = True
     session: Optional[Session] = field(default=None, repr=False)
+    remove_accents: bool = False
 
     def __post_init__(self):
         """Basic validation and logging."""
@@ -68,7 +69,7 @@ class AudioParts(ABC):
         """Creates necessary directories for downloading and processing."""
         if not self.audiowork_dir:
             self.audiowork_dir = DOWNLOAD_PATH / process_audiowork_title(
-                self.audio_title
+                self.audio_title, remove_accents=self.remove_accents
             )
             crologger.info("Set audiowork_dir to %s", self.audiowork_dir)
 
@@ -77,7 +78,9 @@ class AudioParts(ABC):
         if self.segments:
             if not self.segments_path:
                 # Make segments directory unique to avoid collisions during parallel downloads
-                unique_suffix = process_audiowork_title(self.audio_title)
+                unique_suffix = process_audiowork_title(
+                    self.audio_title, remove_accents=self.remove_accents
+                )
                 self.segments_path = (
                     self.audiowork_dir / f"{SEGMENTS_SUBDIR}-{unique_suffix}"
                 )
@@ -106,7 +109,10 @@ class AudioParts(ABC):
             raise ValueError("segments_path is not set")
 
         crologger.info("Merging files using ffmpeg...")
-        output_filename = f"{process_audiowork_title(self.audio_title)}.{audio_format}"
+        processed_title = process_audiowork_title(
+            self.audio_title, remove_accents=self.remove_accents
+        )
+        output_filename = f"{processed_title}.{audio_format}"
 
         # CRITICAL FIX: Always use ABSOLUTE path for output when calling subprocess
         if self.audiowork_dir:

@@ -55,6 +55,31 @@ class TestMP3Download(unittest.IsolatedAsyncioTestCase):
         expected_file_path = os.path.join(self.temp_dir.name, "My Audio.mp3")  # type: ignore
         self.assertTrue(os.path.exists(expected_file_path))
 
+    async def test_download_applies_remove_accents(self):
+        mp3 = MP3(
+            url="http://example.com/audio.mp3",
+            audiowork_dir=Path(self.temp_dir.name),
+            audio_title="Příliš žluťoučký kůň",
+            remove_accents=True,
+        )
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.headers = {"Content-Length": "16"}
+
+        async def mock_iter_chunked(*args, **kwargs):
+            yield b"fake audio data"
+
+        mock_response.content.iter_chunked = MagicMock(side_effect=mock_iter_chunked)
+
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            mock_get.return_value.__aenter__.return_value = mock_response
+            await mp3.download()
+
+        stripped = os.path.join(self.temp_dir.name, "Prilis zlutoucky kun.mp3")
+        accented = os.path.join(self.temp_dir.name, "Příliš žluťoučký kůň.mp3")
+        self.assertTrue(os.path.exists(stripped))
+        self.assertFalse(os.path.exists(accented))
+
 
 if __name__ == "__main__":
     unittest.main()

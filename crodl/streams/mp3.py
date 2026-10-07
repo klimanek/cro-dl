@@ -35,10 +35,10 @@ class MP3(AudioParts):
                 if not self.audiowork_dir:
                     raise ValueError("self.audiowork_dir is not set.")
 
-                audio_full_path = (
-                    self.audiowork_dir
-                    / f"{process_audiowork_title(self.audio_title)}.mp3"
+                processed_title = process_audiowork_title(
+                    self.audio_title, remove_accents=self.remove_accents
                 )
+                audio_full_path = self.audiowork_dir / f"{processed_title}.mp3"
 
                 # Use external progress or create a new one
                 if progress:

@@ -182,6 +182,24 @@ class TestMergeChunks(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.downloader._merge_chunks("mp3")
 
+    def test_merge_chunks_removes_accents_from_output_name(self):
+        downloader = DummyAudioParts(
+            url="http://example.com/audio.m3u8",
+            audio_title="Příliš žluťoučký kůň",
+            audiowork_dir=self.audiowork_dir,
+            segments_path=self.segments_path,
+            remove_accents=True,
+        )
+        with (
+            mock.patch("crodl.streams.audioparts._raise_open_file_limit"),
+            mock.patch("crodl.streams.audioparts.subprocess.run") as mock_run,
+        ):
+            downloader._merge_chunks("aac")
+
+        command = mock_run.call_args.args[0]
+        output = next(arg for arg in command if arg.endswith(".aac"))
+        self.assertTrue(output.endswith("Prilis zlutoucky kun.aac"), output)
+
 
 if __name__ == "__main__":
     unittest.main()

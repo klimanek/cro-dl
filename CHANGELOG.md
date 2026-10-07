@@ -16,6 +16,9 @@
   the file name, so a fully downloaded series is recognised.
 - `AudioWork.already_exists()` no longer matches a different episode via
   substring (e.g. `"13 - Title.mp3"` satisfying a lookup for `"3 - Title"`).
+- `--no-accents` now also applies to the downloaded file name, not just the
+  folder: the flag is propagated from `AudioWork` into the MP3/HLS/DASH
+  downloaders, so accent-free files are named and found consistently.
 
 ## [1.5.2] - 2026-10-06
 
