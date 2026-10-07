@@ -66,7 +66,7 @@
         <div class="episode-item">
             <div class="episode-title">{{ ep.title }}</div>
             <div class="episode-meta">
-                {{ ep.since.strftime('%d. %m. %Y') if ep.since else '' }} 
+                {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }} 
                 {% if ep.duration %} | {{ ep.duration // 60 }} min {% endif %}
             </div>
             <audio controls class="episode-player">

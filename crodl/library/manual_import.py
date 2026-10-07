@@ -3,9 +3,9 @@ import os
 import hashlib
 from pathlib import Path
 
-from crodl.persistence.repository import LibraryRepository
-from crodl.persistence.models import Episode, Show, Series
-from crodl.persistence.database import init_db
+from crodl.library.database import init_db
+from crodl.library.models import Episode, Series, Show
+from crodl.library.repository import SqliteLibraryRepository
 from crodl.settings import DOWNLOAD_PATH
 
 # Knowledge base for manual/AI metadata injection
@@ -50,7 +50,7 @@ METADATA_KNOWLEDGE = {
 
 async def manual_import():
     await init_db()
-    repo = LibraryRepository()
+    repo = SqliteLibraryRepository()
 
     print("Starting AI-assisted manual import...")
 
@@ -79,36 +79,40 @@ async def manual_import():
                 show = None
                 if "show" in match:
                     show = Show(
-                        id=hashlib.md5(match["show"].encode()).hexdigest()[:8],
+                        uuid=hashlib.md5(match["show"].encode()).hexdigest()[:8],
                         title=match["show"],
                     )
 
                 series = None
                 if "series" in match:
                     series = Series(
-                        id=hashlib.md5(match["series"].encode()).hexdigest()[:8],
+                        uuid=hashlib.md5(match["series"].encode()).hexdigest()[:8],
                         title=match["series"],
                     )
 
                 episode = Episode(
-                    id=local_id,
+                    uuid=local_id,
                     title=file.split(".")[0],  # Use filename as title if not specified
                     short_title=match["title"],
                     description=match["desc"],
                     local_path=str(path),
                     is_manual=True,
                     audio_format=path.suffix.lstrip("."),
-                    show_id=show.id if show else None,
-                    series_id=series.id if series else None,
+                    show_id=show.uuid if show else None,
+                    series_id=series.uuid if series else None,
                 )
 
-                await repo.save_episode(episode, show_data=show, series_data=series)
+                if show:
+                    await repo.save_show(show)
+                if series:
+                    await repo.save_series(series)
+                await repo.save_episode(episode)
                 print(f"✓ Imported: {file}")
             else:
                 # Basic import for unknown files
                 local_id = hashlib.sha256(str(path).encode()).hexdigest()[:16]
                 episode = Episode(
-                    id=local_id,
+                    uuid=local_id,
                     title=file.split(".")[0],
                     local_path=str(path),
                     is_manual=True,

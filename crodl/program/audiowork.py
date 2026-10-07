@@ -145,6 +145,12 @@ class AudioWork(Content):
         return None
 
     @property
+    def asset_url(self) -> str | None:
+        """URL of the work's artwork (thumbnail), if the API provides one."""
+        value = self._attrs.get("asset")
+        return str(value) if value else None
+
+    @property
     def short_title(self) -> str | None:
         """The API's short title for the work, if it provides one."""
         value = self._attrs.get("shortTitle")

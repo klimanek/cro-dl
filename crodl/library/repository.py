@@ -1,13 +1,14 @@
+import asyncio
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from crodl.library.database import async_session_factory
-from crodl.library.models import Episode
+from crodl.library.models import Episode, Series, Show, Station
 from crodl.tools.logger import crologger
 
 
@@ -47,9 +48,24 @@ class DownloadedWork(Protocol):
     @property
     def audio_formats(self) -> Optional[list[str]]: ...
 
+    @property
+    def asset_url(self) -> Optional[str]: ...
+
 
 @runtime_checkable
-class LibraryRepository(Protocol):
+class DownloadStore(Protocol):
+    """
+    The only thing the core's `on_downloaded` hook needs: store one finished
+    download. Anything that can do this may be handed to the facade.
+    """
+
+    async def save_download(
+        self, work: DownloadedWork, path: Path, audio_format: Optional[str] = None
+    ) -> Optional[Episode]: ...
+
+
+@runtime_checkable
+class LibraryRepository(DownloadStore, Protocol):
     """Storage for downloaded works. The core never talks SQL directly."""
 
     async def save_download(
@@ -97,12 +113,20 @@ class SqliteLibraryRepository:
         session_factory: Callable[[], AsyncSession] = async_session_factory,
     ) -> None:
         self._session_factory = session_factory
+        # Writes arrive from parallel episode downloads; SQLite needs them serialized.
+        self._lock = asyncio.Lock()
 
     async def save_download(
         self,
         work: DownloadedWork,
         path: Path,
         audio_format: Optional[str] = None,
+        image_path: Optional[Path] = None,
+        station_id: Optional[str] = None,
+        show_id: Optional[str] = None,
+        series_id: Optional[str] = None,
+        is_manual: bool = False,
+        source_url: Optional[str] = None,
     ) -> Optional[Episode]:
         if not work.uuid:
             crologger.warning("Not saving '%s' to the library: no uuid.", work.title)
@@ -118,22 +142,95 @@ class SqliteLibraryRepository:
             duration=work.duration,
             broadcast_at=to_naive_utc(parse_since(work.since)),
             local_path=str(path),
+            image_path=str(image_path) if image_path else None,
             audio_format=audio_format,
+            is_manual=is_manual,
+            source_url=source_url,
+            station_id=station_id,
+            show_id=show_id,
+            series_id=series_id,
             meta=self._build_meta(work),
         )
 
-        async with self._session_factory() as session:
-            # merge() makes this an upsert on the primary key.
-            await session.merge(episode)
-            await session.commit()
+        async with self._lock:
+            async with self._session_factory() as session:
+                # merge() makes this an upsert on the primary key.
+                await session.merge(episode)
+                await session.commit()
 
         crologger.info("Library: saved %s", episode.uuid)
         return episode
 
+    async def save_station(self, station: Station) -> Station:
+        return await self._upsert(station)
+
+    async def save_episode(self, episode: Episode) -> Episode:
+        """Stores a hand-built episode row (used by the scan and manual import)."""
+        return await self._upsert(episode)
+
+    async def save_show(self, show: Show) -> Show:
+        return await self._upsert(show)
+
+    async def save_series(self, series: Series) -> Series:
+        return await self._upsert(series)
+
     async def get_all_downloads(self) -> Sequence[Episode]:
+        """Alias of `get_all_episodes`, kept for the core-facing protocol."""
+        return await self.get_all_episodes()
+
+    async def get_all_episodes(self) -> Sequence[Episode]:
         async with self._session_factory() as session:
-            result = await session.execute(select(Episode))
+            result = await session.execute(
+                select(Episode).order_by(col(Episode.broadcast_at).desc())
+            )
             return result.scalars().all()
+
+    async def get_episode(self, uuid: str) -> Optional[Episode]:
+        async with self._session_factory() as session:
+            return await session.get(Episode, uuid)
+
+    async def get_episodes_by_show(self, show_id: str) -> Sequence[Episode]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(Episode)
+                .where(Episode.show_id == show_id)
+                .order_by(col(Episode.broadcast_at).desc())
+            )
+            return result.scalars().all()
+
+    async def get_episodes_by_series(self, series_id: str) -> Sequence[Episode]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(Episode)
+                .where(Episode.series_id == series_id)
+                .order_by(col(Episode.broadcast_at).desc())
+            )
+            return result.scalars().all()
+
+    async def get_all_shows(self) -> Sequence[Show]:
+        async with self._session_factory() as session:
+            result = await session.execute(select(Show))
+            return result.scalars().all()
+
+    async def get_all_series(self) -> Sequence[Series]:
+        async with self._session_factory() as session:
+            result = await session.execute(select(Series))
+            return result.scalars().all()
+
+    async def get_show(self, show_id: str) -> Optional[Show]:
+        async with self._session_factory() as session:
+            return await session.get(Show, show_id)
+
+    async def get_series(self, series_id: str) -> Optional[Series]:
+        async with self._session_factory() as session:
+            return await session.get(Series, series_id)
+
+    async def _upsert(self, row: Any) -> Any:
+        async with self._lock:
+            async with self._session_factory() as session:
+                await session.merge(row)
+                await session.commit()
+        return row
 
     @staticmethod
     def _build_meta(work: DownloadedWork) -> dict[str, Any]:

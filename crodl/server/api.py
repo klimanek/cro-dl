@@ -1,24 +1,24 @@
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends
-from crodl.persistence.repository import LibraryRepository
-from crodl.persistence.models import Episode
+from crodl.library.repository import SqliteLibraryRepository
+from crodl.library.models import Episode
 
 router = APIRouter()
 
 
 # Dependency to get the repository
 async def get_repo():
-    return LibraryRepository()
+    return SqliteLibraryRepository()
 
 
 @router.get("/episodes", response_model=List[Episode])
-async def list_episodes(repo: LibraryRepository = Depends(get_repo)):
+async def list_episodes(repo: SqliteLibraryRepository = Depends(get_repo)):
     """Returns a list of all downloaded episodes."""
     return await repo.get_all_episodes()
 
 
 @router.get("/episodes/{uuid}", response_model=Episode)
-async def get_episode(uuid: str, repo: LibraryRepository = Depends(get_repo)):
+async def get_episode(uuid: str, repo: SqliteLibraryRepository = Depends(get_repo)):
     """Returns details of a specific episode."""
     episode = await repo.get_episode(uuid)
     if not episode:
@@ -27,7 +27,7 @@ async def get_episode(uuid: str, repo: LibraryRepository = Depends(get_repo)):
 
 
 @router.get("/library-stats")
-async def get_stats(repo: LibraryRepository = Depends(get_repo)):
+async def get_stats(repo: SqliteLibraryRepository = Depends(get_repo)):
     """Returns basic statistics about the local library."""
     episodes = await repo.get_all_episodes()
     return {

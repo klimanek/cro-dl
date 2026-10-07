@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
@@ -8,13 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
-from crodl.library.models import Episode
+from crodl.library.artwork import artwork_path
+from crodl.library.models import Episode, Series, Show, Station
 from crodl.library.repository import (
     LibraryRepository,
     SqliteLibraryRepository,
     parse_since,
     to_naive_utc,
 )
+from crodl.library.scan import LibraryScan
+from crodl.library.service import LibraryService
 
 
 class FakeWork:
@@ -31,6 +35,7 @@ class FakeWork:
         short_title: Optional[str] = "Krátce",
         part: Optional[int] = 3,
         duration: Optional[int] = 3229,
+        asset_url: Optional[str] = None,
     ) -> None:
         self.uuid = uuid
         self.title = title
@@ -41,6 +46,7 @@ class FakeWork:
         self.short_title = short_title
         self.part = part
         self.duration = duration
+        self.asset_url = asset_url
 
 
 async def make_repo() -> SqliteLibraryRepository:
@@ -148,3 +154,137 @@ class TestEpisodeModel(unittest.TestCase):
 class TestRepositoryProtocol(unittest.TestCase):
     def test_sqlite_repository_implements_the_protocol(self):
         self.assertIsInstance(SqliteLibraryRepository(), LibraryRepository)
+
+    def test_library_service_satisfies_the_download_store(self):
+        from crodl.library.repository import DownloadStore
+
+        self.assertIsInstance(LibraryService(), DownloadStore)
+
+
+class TestLibraryQueries(unittest.IsolatedAsyncioTestCase):
+    async def test_episodes_are_grouped_by_show_and_series(self):
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="a"), Path("/tmp/a.mp3"), show_id="show-1"
+        )
+        await repo.save_download(
+            FakeWork(uuid="b"), Path("/tmp/b.mp3"), series_id="ser-1"
+        )
+        await repo.save_download(FakeWork(uuid="c"), Path("/tmp/c.mp3"))
+
+        self.assertEqual(
+            {e.uuid for e in await repo.get_all_episodes()}, {"a", "b", "c"}
+        )
+        self.assertEqual(
+            {e.uuid for e in await repo.get_episodes_by_show("show-1")}, {"a"}
+        )
+        self.assertEqual(
+            {e.uuid for e in await repo.get_episodes_by_series("ser-1")}, {"b"}
+        )
+        episode = await repo.get_episode("b")
+        self.assertIsNotNone(episode)
+
+    async def test_shows_and_series_are_stored_and_read_back(self):
+        repo = await make_repo()
+        await repo.save_show(Show(uuid="s1", title="Pořad"))
+        await repo.save_series(Series(uuid="r1", title="Seriál"))
+        await repo.save_station(Station(id="vltava", title="Vltava"))
+
+        self.assertEqual([s.title for s in await repo.get_all_shows()], ["Pořad"])
+        self.assertEqual([s.title for s in await repo.get_all_series()], ["Seriál"])
+        show = await repo.get_show("s1")
+        series = await repo.get_series("r1")
+        self.assertIsNotNone(show)
+        self.assertIsNotNone(series)
+
+
+class TestLibraryScan(unittest.IsolatedAsyncioTestCase):
+    async def test_scan_imports_audio_files_only(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "3 - Název dílu.mp3").write_bytes(b"x")
+            (folder / "Samostatné dílo.aac").write_bytes(b"x")
+            (folder / "cover.jpg").write_bytes(b"x")
+            chunks = folder / ".chunks-x"
+            chunks.mkdir()
+            (chunks / "chunk.mp3").write_bytes(b"x")
+
+            results = await LibraryScan(
+                repository=repo, download_path=folder
+            ).sync_all()
+
+        self.assertEqual(results, {"success": 2, "failed": 0})
+
+        rows = {episode.title: episode for episode in await repo.get_all_episodes()}
+        self.assertEqual(set(rows), {"Název dílu", "Samostatné dílo"})
+        self.assertEqual(rows["Název dílu"].part, 3)
+        self.assertEqual(rows["Název dílu"].audio_format, "mp3")
+        self.assertTrue(rows["Název dílu"].is_manual)
+        self.assertIsNone(rows["Samostatné dílo"].part)
+
+    async def test_rescanning_updates_instead_of_duplicating(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "1 - Díl.mp3").write_bytes(b"x")
+            scan = LibraryScan(repository=repo, download_path=Path(tmp))
+
+            await scan.sync_all()
+            await scan.sync_all()
+            episodes = await repo.get_all_episodes()
+
+        self.assertEqual(len(episodes), 1)
+
+
+class TestLibraryService(unittest.IsolatedAsyncioTestCase):
+    async def test_artwork_is_fetched_and_its_path_stored(self):
+        repo = await make_repo()
+        service = LibraryService(repository=repo)
+        cover = Path("/tmp/library/3 - Díl.jpg")
+
+        with mock.patch(
+            "crodl.library.artwork.download_image",
+            new=mock.AsyncMock(return_value=cover),
+        ) as download:
+            episode = await service.save_download(
+                FakeWork(asset_url="https://example.com/cover.jpg"),
+                Path("/tmp/library/3 - Díl.mp3"),
+                audio_format="mp3",
+            )
+
+        download.assert_awaited_once()
+        self.assertIsNotNone(episode)
+        self.assertEqual(
+            str(episode.image_path),
+            str(cover),  # type: ignore[union-attr]
+        )
+
+    async def test_without_an_asset_url_no_image_is_fetched(self):
+        repo = await make_repo()
+        service = LibraryService(repository=repo)
+
+        with mock.patch(
+            "crodl.library.artwork.download_image", new=mock.AsyncMock()
+        ) as download:
+            episode = await service.save_download(FakeWork(), Path("/tmp/a.mp3"))
+
+        download.assert_not_awaited()
+        self.assertIsNone(episode.image_path)  # type: ignore[union-attr]
+
+
+class TestArtworkPath(unittest.TestCase):
+    def test_suffix_comes_from_the_url(self):
+        self.assertEqual(
+            artwork_path("https://example.com/x/cover.png", Path("/tmp/3 - Díl.mp3")),
+            Path("/tmp/3 - Díl.png"),
+        )
+
+    def test_defaults_to_jpg(self):
+        self.assertEqual(
+            artwork_path("https://example.com/asset/42", Path("/tmp/a.mp3")),
+            Path("/tmp/a.jpg"),
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

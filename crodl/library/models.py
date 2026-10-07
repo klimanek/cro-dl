@@ -1,19 +1,51 @@
+"""SQLModel tables of the local library.
+
+Column names mirror the field names of the Czech Radio content API
+(`api.mujrozhlas.cz`): `shortTitle`, `part`, `since`, `description`,
+`audioLinks[].duration`. See WEB_LIBRARY_DESIGN.md §7 for what is verified
+against the API and what still needs modelling.
+"""
+
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import JSON, Column
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+
+class Station(SQLModel, table=True):
+    """A Czech Radio station (the broadcaster that aired a work)."""
+
+    # Text identifier of the station.
+    id: str = Field(primary_key=True)
+    title: str
+
+    episodes: List["Episode"] = Relationship(back_populates="station")
+
+
+class Show(SQLModel, table=True):
+    """A programme (show) that episodes belong to."""
+
+    # UUID from the content API - the natural key (see design doc §7).
+    uuid: str = Field(primary_key=True)
+    title: str
+    description: Optional[str] = None
+
+    episodes: List["Episode"] = Relationship(back_populates="show")
+
+
+class Series(SQLModel, table=True):
+    """A series a multi-part programme belongs to."""
+
+    uuid: str = Field(primary_key=True)
+    title: str
+    description: Optional[str] = None
+
+    episodes: List["Episode"] = Relationship(back_populates="series")
 
 
 class Episode(SQLModel, table=True):
-    """
-    One downloaded audio work kept in the local library.
-
-    Column names mirror the field names of the Czech Radio content API
-    (`api.mujrozhlas.cz`): `shortTitle`, `part`, `since`, `description`,
-    `audioLinks[].duration`. See WEB_LIBRARY_DESIGN.md for what is verified
-    against the API and what is not.
-    """
+    """One downloaded audio work kept in the local library."""
 
     # UUID from the Czech Radio API - the natural key of a work.
     uuid: str = Field(primary_key=True)
@@ -28,6 +60,17 @@ class Episode(SQLModel, table=True):
     image_path: Optional[str] = None
     audio_format: Optional[str] = None
     downloaded_at: datetime = Field(default_factory=datetime.now)
+    # Set for files that were imported from disk rather than downloaded.
+    is_manual: bool = False
+    source_url: Optional[str] = None
     # Named `meta` on purpose: `metadata` is reserved by SQLAlchemy's declarative
     # base, so the "extra JSON" column from the design cannot use that name.
     meta: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    station_id: Optional[str] = Field(default=None, foreign_key="station.id")
+    show_id: Optional[str] = Field(default=None, foreign_key="show.uuid")
+    series_id: Optional[str] = Field(default=None, foreign_key="series.uuid")
+
+    station: Optional[Station] = Relationship(back_populates="episodes")
+    show: Optional[Show] = Relationship(back_populates="episodes")
+    series: Optional[Series] = Relationship(back_populates="episodes")

@@ -8,7 +8,8 @@ from rich import print
 
 from crodl import CroDL
 from crodl.library.database import init_db
-from crodl.library.repository import SqliteLibraryRepository
+from crodl.library.scan import LibraryScan
+from crodl.library.service import LibraryService
 from crodl.program.audiowork import AudioWork
 from crodl.program.series import Series
 from crodl.program.show import Show
@@ -57,7 +58,12 @@ def print_audiowork_info(audio_work: AudioWork) -> None:
 
 
 @click.command()
-@click.argument("recording_url")
+@click.argument("recording_url", required=False)
+@click.option(
+    "--sync",
+    is_flag=True,
+    help="Synchronizuje stažené soubory na disku s knihovnou.",
+)
 @click.option(
     "--stream-format",
     "-sf",
@@ -83,13 +89,22 @@ def print_audiowork_info(audio_work: AudioWork) -> None:
 )
 @click.version_option(__version__)
 async def main(
-    recording_url: str,
+    recording_url: Optional[str],
     stream_format: str,
+    sync: bool,
     title: Optional[str],
     output: Optional[Path],
     no_accents: bool,
 ) -> None:
     """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
+
+    if sync:
+        await sync_library()
+        return
+
+    if not recording_url:
+        print("[red]Chyba: zadejte URL pořadu, nebo použijte --sync.[/red]")
+        sys.exit(1)
 
     # Check for ffmpeg at startup
     if not check_ffmpeg():
@@ -111,6 +126,15 @@ async def main(
     await download_logic(recording_url, stream_format, title, output, no_accents)
 
 
+async def sync_library() -> None:
+    """Merges the audio files on disk into the library database."""
+    await init_db()
+    results = await LibraryScan().sync_all()
+
+    print("[bold yellow]Synchronizace knihovny[/bold yellow]")
+    print(f"Spárováno: {results['success']}, selhalo: {results['failed']}")
+
+
 async def download_logic(
     recording_url: str,
     stream_format: str,
@@ -120,7 +144,7 @@ async def download_logic(
 ) -> None:
     """Internal logic for the download process."""
     await init_db()
-    dl = CroDL(library=SqliteLibraryRepository())
+    dl = CroDL(library=LibraryService())
 
     try:
         content = await dl.get_content(

@@ -11,7 +11,7 @@ from crodl.settings import SUPPORTED_DOMAINS, AudioFormat, PREFERRED_AUDIO_FORMA
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
-    from crodl.library.repository import LibraryRepository
+    from crodl.library.repository import DownloadStore
 
 
 class CroDL:
@@ -23,7 +23,7 @@ class CroDL:
     def __init__(
         self,
         client: Optional[CroAPIClient] = None,
-        library: Optional["LibraryRepository"] = None,
+        library: Optional["DownloadStore"] = None,
     ):
         self.client = client or CroAPIClient()
         self.library = library

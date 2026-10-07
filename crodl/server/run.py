@@ -1,6 +1,6 @@
 import uvicorn
 import asyncio
-from crodl.persistence.database import init_db
+from crodl.library.database import init_db
 
 
 def start():

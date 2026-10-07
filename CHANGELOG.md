@@ -9,6 +9,11 @@
 - An `on_downloaded` hook: the core reports finished files, the facade hands
   them to the configured library, and the CLI records downloads into
   `~/Z Rozhlasu/library.db`.
+- The web library shares that one persistence layer: `crodl/library/` gained
+  the full domain (`Station`/`Show`/`Series` + episode foreign keys), a disk
+  scan (`library/scan.py`), artwork fetching (`library/artwork.py`) and a
+  `LibraryService` used by both the hook and the CLI's `--sync` flag.
+- `crodl/server/` (FastAPI + Jinja2) serves the library from `crodl/library/`.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -37,6 +42,9 @@
   describe (the broadcasting one) and what still needs modelling.
 
 ### Removed
+- `crodl/persistence/` and `crodl/tools/sync.py`, superseded by the single
+  `crodl/library/` layer (the server, the disk scan and the curation script
+  now use it too).
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the
   unused `AudioWork.links` property and a commented-out pandas block in
   `crodl/data/attributes.py`.

@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from crodl.server.api import router as api_router
-from crodl.persistence.repository import LibraryRepository
+from crodl.library.repository import SqliteLibraryRepository
 from crodl.settings import DOWNLOAD_PATH
 
 # Get the path to the current file to locate templates
@@ -41,7 +41,7 @@ app.include_router(api_router, prefix="/api")
 async def index(request: Request):
     """Render the main library web interface showing unique shows and series."""
     try:
-        repo = LibraryRepository()
+        repo = SqliteLibraryRepository()
         shows = await repo.get_all_shows()
         series = await repo.get_all_series()
         all_episodes = await repo.get_all_episodes()
@@ -50,7 +50,7 @@ async def index(request: Request):
 
         # 1. Process Series
         for sr in series:
-            episodes = await repo.get_episodes_by_series(sr.id)
+            episodes = await repo.get_episodes_by_series(sr.uuid)
             if not episodes:
                 continue
 
@@ -61,7 +61,7 @@ async def index(request: Request):
 
             unique_collections[sr.title] = {
                 "type": "series",
-                "id": sr.id,
+                "id": sr.uuid,
                 "title": sr.title,
                 "thumb_url": thumb_url,
                 "count": len(episodes),
@@ -70,13 +70,13 @@ async def index(request: Request):
         # 2. Process Shows
         for s in shows:
             if s.title in unique_collections:
-                episodes = await repo.get_episodes_by_show(s.id)
+                episodes = await repo.get_episodes_by_show(s.uuid)
                 unique_collections[s.title]["count"] = max(
                     unique_collections[s.title]["count"], len(episodes)
                 )
                 continue
 
-            episodes = await repo.get_episodes_by_show(s.id)
+            episodes = await repo.get_episodes_by_show(s.uuid)
             if not episodes:
                 continue
 
@@ -87,7 +87,7 @@ async def index(request: Request):
 
             unique_collections[s.title] = {
                 "type": "show",
-                "id": s.id,
+                "id": s.uuid,
                 "title": s.title,
                 "thumb_url": thumb_url,
                 "count": len(episodes),
@@ -118,7 +118,7 @@ async def index(request: Request):
 async def detail(request: Request, ctype: str, id: str):
     """Render the detail page for a show, series or orphaned episodes."""
     try:
-        repo = LibraryRepository()
+        repo = SqliteLibraryRepository()
 
         if ctype == "show":
             content = await repo.get_show(id)
