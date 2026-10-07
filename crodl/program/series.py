@@ -10,6 +10,7 @@ from crodl.data.attributes import extract_episode_info
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
 from crodl.settings import (
+    AUDIO_FORMATS,
     DOWNLOAD_PATH,
     PREFERRED_AUDIO_FORMAT,
     SERIES_DOWNLOAD_DIR,
@@ -18,6 +19,7 @@ from crodl.settings import (
 from crodl.streams.utils import (
     create_a_file_if_does_not_exist,
     create_dir_if_does_not_exist,
+    episode_part_from_filename,
     process_audiowork_title,
     remove_html_tags,
 )
@@ -168,11 +170,15 @@ class Series(Content):
         if not os.path.isdir(self.download_dir):
             return 0
 
-        downloaded_count = 0
-        files = os.listdir(self.download_dir)
-        for part in range(1, self.parts + 1):
-            if any(f.startswith(f"{part}-") for f in files):
-                downloaded_count += 1
+        downloaded = set()
+        for filename in os.listdir(self.download_dir):
+            if not filename.lower().endswith(AUDIO_FORMATS):
+                continue
+            part = episode_part_from_filename(filename)
+            if part is not None:
+                downloaded.add(part)
+
+        downloaded_count = len(downloaded & set(range(1, self.parts + 1)))
 
         crologger.info("Parts downloaded: %s", downloaded_count)
         crologger.info("Total parts: %s", self.parts)

@@ -7,6 +7,7 @@ from unittest.mock import patch
 from crodl.settings import AudioFormat
 from crodl.streams.utils import (
     day_month_year,
+    episode_part_from_filename,
     get_audio_link_of_preferred_format,
     get_m4a_url,
     audio_segment_sort,
@@ -223,6 +224,24 @@ class TestGetAudioLinkOfPreferredFormat(unittest.TestCase):
         mock_format.value = "aac"
         result = get_audio_link_of_preferred_format(attrs)
         self.assertIsNone(result)
+
+
+class TestEpisodePartFromFilename(unittest.TestCase):
+    def test_sanitized_separator(self):
+        # sanitize_filename expands the dash into " - ".
+        self.assertEqual(episode_part_from_filename("3 - Název dílu.mp3"), 3)
+
+    def test_compact_separator(self):
+        self.assertEqual(episode_part_from_filename("12-Název.aac"), 12)
+
+    def test_multi_digit_part(self):
+        self.assertEqual(episode_part_from_filename("150 - Title.m4a"), 150)
+
+    def test_no_part_number(self):
+        self.assertIsNone(episode_part_from_filename("Název bez čísla.mp3"))
+
+    def test_series_marker_file(self):
+        self.assertIsNone(episode_part_from_filename(".series"))
 
 
 if __name__ == "__main__":

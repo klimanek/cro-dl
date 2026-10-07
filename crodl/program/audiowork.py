@@ -149,7 +149,7 @@ class AudioWork(Content):
 
         print(f"\n[blue]{self.description}[/blue]\n")
 
-    def already_exists(self) -> bool:  # pragma: no cover
+    def already_exists(self) -> bool:
         """Checks whether the audiowork already exists on disk."""
         if not self.audiowork_dir:
             return False
@@ -159,14 +159,15 @@ class AudioWork(Content):
         except FileNotFoundError:
             files_in_directory = []
 
-        if files_in_directory:
-            processed_title = process_audiowork_title(
-                self.title, remove_accents=self.remove_accents
-            )
-            for file in files_in_directory:
-                if processed_title in os.path.splitext(file)[0]:
-                    return True
-        return False
+        # The downloaders write exactly `process_audiowork_title(title) + ext`,
+        # so compare the full stem instead of a substring (which could match
+        # e.g. "13 - Title" while looking for "3 - Title").
+        expected_stem = process_audiowork_title(
+            self.title, remove_accents=self.remove_accents
+        )
+        return any(
+            os.path.splitext(file)[0] == expected_stem for file in files_in_directory
+        )
 
     async def _download_dash(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None

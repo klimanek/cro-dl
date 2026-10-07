@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from crodl.settings import DOWNLOAD_PATH
@@ -244,6 +246,54 @@ class TestAudioWorkFormats(unittest.TestCase):
 
         audio_work = AudioWork(uuid="12345", client=self.mock_client)
         self.assertIsNone(audio_work.audio_formats)
+
+
+class TestAudioWorkAlreadyExists(unittest.TestCase):
+    def _make_audio_work(self, audiowork_dir, title):
+        mock_client = mock.Mock()
+        mock_client.get_episode_data.return_value = {
+            "data": {
+                "attributes": {
+                    "title": title,
+                    "since": "2024-08-14T18:05:00+02:00",
+                }
+            }
+        }
+        return AudioWork(
+            uuid="12345",
+            title=title,
+            audiowork_dir=audiowork_dir,
+            client=mock_client,
+        )
+
+    def test_existing_file_is_found(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(Path(tmp), "3 - Díl")
+            (Path(tmp) / "3 - Díl.mp3").write_text("x", encoding="utf-8")
+            self.assertTrue(audio_work.already_exists())
+
+    def test_substring_does_not_match_other_part(self):
+        # Regression: "3 - Díl" used to match "13 - Díl.mp3" via substring.
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(Path(tmp), "3 - Díl")
+            (Path(tmp) / "13 - Díl.mp3").write_text("x", encoding="utf-8")
+            self.assertFalse(audio_work.already_exists())
+
+    def test_any_audio_extension_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(Path(tmp), "Some Title")
+            (Path(tmp) / "Some Title.aac").write_text("x", encoding="utf-8")
+            self.assertTrue(audio_work.already_exists())
+
+    def test_empty_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(Path(tmp), "Some Title")
+            self.assertFalse(audio_work.already_exists())
+
+    def test_missing_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_work = self._make_audio_work(Path(tmp) / "does-not-exist", "Title")
+            self.assertFalse(audio_work.already_exists())
 
 
 if __name__ == "__main__":

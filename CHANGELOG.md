@@ -9,6 +9,14 @@
   `extract_episode_info()`.
 - Added direct test coverage for `CroAPIClient` in `tests/test_api_client.py`.
 
+### Fixed
+- `Series.already_exists()` always returned `False`: `downloaded_parts` looked
+  for the `"3-"` prefix, but files are written as `"3 - Title.mp3"` (the
+  filename sanitizer expands dashes). The episode number is now parsed from
+  the file name, so a fully downloaded series is recognised.
+- `AudioWork.already_exists()` no longer matches a different episode via
+  substring (e.g. `"13 - Title.mp3"` satisfying a lookup for `"3 - Title"`).
+
 ## [1.5.2] - 2026-10-06
 
 ### Fixed

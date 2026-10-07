@@ -100,6 +100,22 @@ def process_audiowork_title(
     return sanitized
 
 
+# `sanitize_filename` expands dashes into " - ", so the file of part 3 is
+# written as e.g. "3 - Title.mp3". Match the leading part number robustly.
+EPISODE_PART_RE = re.compile(r"^(\d+)\s*-\s*")
+
+
+def episode_part_from_filename(filename: str) -> int | None:
+    """
+    Returns the episode number encoded in a downloaded file name, or None.
+
+    Handles the separator produced by `sanitize_filename`, so both
+    "12 - Title.mp3" and "12-Title.mp3" yield 12.
+    """
+    match = EPISODE_PART_RE.match(filename)
+    return int(match.group(1)) if match else None
+
+
 def audio_segment_sort(filename) -> int | float:
     filename = filename.split(".")[0]
     match = re.search(r"\d+", filename)
