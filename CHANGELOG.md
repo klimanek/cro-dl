@@ -15,6 +15,9 @@
   `Show` expose an explicit, idempotent `load()` (awaited by the facade and by
   `download()`), and a series fetches its episode list once instead of on
   every property access.
+- `Series` and `Show` now share a single episode collection (`Episodes`), so
+  the episode mapping and the `"<part>-<title>"` download name live in one
+  place and a series exposes the same `episodes` attribute as a show.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

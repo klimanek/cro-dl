@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
 
-from crodl.streams.utils import get_audio_link_of_preferred_format
+from crodl.streams.utils import get_audio_link_of_preferred_format, title_with_part
 
 
 @dataclass
@@ -39,25 +38,32 @@ def extract_episode_info(episode: dict) -> dict:
 
 @dataclass
 class Episodes:
-    show_title: str
-    show_id: str
-    json_data: Dict[str, Any] = field(default_factory=dict, repr=False)
+    """
+    A collection of episodes, shared by Series and Show.
 
-    def __post_init__(self):
-        if not self.json_data:
-            self.data = []
-            self.count = 0
-            return
+    It owns the single episode mapping used for downloading: raw API entries
+    are turned into flat info dicts whose `title` already carries the
+    "<part>-<title>" file name.
+    """
 
-        self.data = self.json_data.get("data", [])
-        self.count = self.json_data.get("meta", {}).get("count", 0)
+    title: str = ""
+    uuid: str = ""
+    data: list[dict] = field(default_factory=list, repr=False)
+    count: int = 0
 
     @property
     def info(self) -> list[dict]:
-        return [extract_episode_info(_data) for _data in self.data]
+        items = []
+        for episode in self.data:
+            info = extract_episode_info(episode)
+            info["title"] = title_with_part(
+                str(info["title"] or "Unknown"), info["part"]
+            )
+            items.append(info)
+        return items
 
-    def __str__(self):
-        return f"<Episodes of {self.show_title}>"
+    def __str__(self) -> str:
+        return f"<Episodes of {self.title}>"
 
-    def __repr__(self):
-        return f"<Episodes of {self.show_title}>"
+    def __repr__(self) -> str:
+        return f"<Episodes of {self.title}>"

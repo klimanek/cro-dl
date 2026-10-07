@@ -18,7 +18,6 @@ from crodl.settings import (
 )
 from crodl.streams.utils import (
     create_dir_if_does_not_exist,
-    title_with_part,
     process_audiowork_title,
 )
 from crodl.tools.logger import crologger
@@ -35,9 +34,7 @@ class Show(Content):
     remove_accents: bool = False
     json: Dict[str, Any] = field(default_factory=dict, repr=False)
     data: Optional[Data] = None
-    episodes: Episodes = field(
-        default_factory=lambda: Episodes(show_title="", show_id="")
-    )
+    episodes: Episodes = field(default_factory=Episodes)
 
     def __post_init__(self):
         self._apply_data()
@@ -89,12 +86,15 @@ class Show(Content):
 
         self._apply_data()
 
-        if not self.episodes.count:
-            episodes_data = self.client.get_related_data(
+        if not self.episodes.data:
+            payload = self.client.get_related_data(
                 f"{API_SERVER}/shows/{self.uuid}/episodes"
             )
             self.episodes = Episodes(
-                show_title=self.title, show_id=self.uuid, json_data=episodes_data
+                title=self.title,
+                uuid=self.uuid,
+                data=payload.get("data") or [],
+                count=payload.get("meta", {}).get("count", 0),
             )
 
         self.loaded = True
@@ -130,13 +130,10 @@ class Show(Content):
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
-            download_to = self.download_dir
             audio_work = AudioWork(
                 uuid=episode.get("uuid"),
-                audiowork_dir=download_to,
-                title=title_with_part(
-                    str(episode.get("title", "Unknown")), int(episode.get("part", 0))
-                ),
+                audiowork_dir=self.download_dir,
+                title=episode.get("title", "Unknown"),
                 since=str(episode.get("since", "")),
                 show=True,
                 remove_accents=self.remove_accents,

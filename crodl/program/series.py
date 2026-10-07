@@ -6,7 +6,7 @@ from typing import Optional, Any, Dict
 
 from rich.progress import Progress
 
-from crodl.data.attributes import extract_episode_info
+from crodl.data.attributes import Episodes
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
 from crodl.settings import (
@@ -33,7 +33,7 @@ class Series(Content):
     json: Dict[str, Any] = field(default_factory=dict, repr=False)
     _attrs: Dict[str, Any] = field(default_factory=dict, repr=False)
     parts: int = 0
-    _episodes_data: list[dict] = field(default_factory=list, repr=False)
+    episodes: Episodes = field(default_factory=Episodes)
 
     def __post_init__(self):
         """A method that is called after the class is initialized."""
@@ -95,8 +95,13 @@ class Series(Content):
             crologger.error(msg)
             raise ValueError("Seriál není dostupný.")
 
-        if not self._episodes_data:
-            self._episodes_data = self._fetch_episodes()
+        if not self.episodes.data:
+            self.episodes = Episodes(
+                title=self.title,
+                uuid=self.uuid,
+                data=self._fetch_episodes(),
+                count=self.parts,
+            )
 
         self.loaded = True
 
@@ -154,8 +159,8 @@ class Series(Content):
 
     @property
     def episodes_data(self) -> list[dict]:
-        """The episodes fetched by `load()`, cached so the API is hit only once."""
-        return self._episodes_data
+        """The raw episodes fetched by `load()`, cached so the API is hit once."""
+        return self.episodes.data
 
     @property
     def audio_formats(self) -> list[str | None]:
@@ -178,13 +183,7 @@ class Series(Content):
         Returns:
             A list of dictionaries containing episode information.
         """
-        all_parts = []
-        for episode in self.episodes_data:
-            info = extract_episode_info(episode)
-            info["title"] = f"{info['part']}" + "-" + info["title"]
-            all_parts.append(info)
-
-        return all_parts
+        return self.episodes.info
 
     @property
     def downloaded_parts(self) -> int:
@@ -211,6 +210,8 @@ class Series(Content):
 
     def already_exists(self) -> bool:
         crologger.info("Checking whether the series has been downloaded already...")
+        if not self.loaded:
+            return False
         return self.downloaded_parts == self.parts
 
     async def _download_episode(
