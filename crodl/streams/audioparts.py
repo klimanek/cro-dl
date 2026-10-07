@@ -57,6 +57,18 @@ class AudioParts(ABC):
     segments: bool = True
     session: Optional[Session] = field(default=None, repr=False)
     remove_accents: bool = False
+    extension: str = ""
+
+    @property
+    def output_path(self) -> Path:
+        """The single file this downloader produces."""
+        if not self.audiowork_dir:
+            raise ValueError("audiowork_dir is not set.")
+
+        name = process_audiowork_title(
+            self.audio_title, remove_accents=self.remove_accents
+        )
+        return self.audiowork_dir / f"{name}.{self.extension}"
 
     def __post_init__(self):
         """Basic validation and logging."""
@@ -97,28 +109,20 @@ class AudioParts(ABC):
         """
         pass
 
-    def _merge_chunks(self, audio_format: str) -> None:
+    def _merge_chunks(self) -> None:
         """
-        Merges chunks of audio files into a final audiowork using ffmpeg.
+        Merges chunks of audio files into the final audiowork using ffmpeg.
         Expects a list.txt file in the segments directory.
         """
-        if audio_format not in SUPPORTED_AUDIO_FORMATS:
-            raise ValueError(f"Format '{audio_format}' is not supported!")
+        if self.extension not in SUPPORTED_AUDIO_FORMATS:
+            raise ValueError(f"Format '{self.extension}' is not supported!")
 
         if not self.segments_path:
             raise ValueError("segments_path is not set")
 
         crologger.info("Merging files using ffmpeg...")
-        processed_title = process_audiowork_title(
-            self.audio_title, remove_accents=self.remove_accents
-        )
-        output_filename = f"{processed_title}.{audio_format}"
-
         # CRITICAL FIX: Always use ABSOLUTE path for output when calling subprocess
-        if self.audiowork_dir:
-            output_path = self.audiowork_dir.absolute() / output_filename
-        else:
-            output_path = Path(output_filename).absolute()
+        output_path = self.output_path.absolute()
 
         # `concatf:` keeps all segments open at once -> raise the open-file
         # limit first, otherwise long episodes fail with "Too many open files".

@@ -1,9 +1,17 @@
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from pathlib import Path
+from typing import Optional, Any, TYPE_CHECKING
 
 from crodl.tools.api_client import CroAPIClient
 from crodl.settings import AudioFormat
+
+if TYPE_CHECKING:
+    from crodl.program.audiowork import AudioWork
+
+# Called once a work has been written to disk: (work, local_path).
+DownloadedHook = Callable[["AudioWork", Path], Awaitable[None]]
 
 
 @dataclass
@@ -34,5 +42,12 @@ class Content(ABC):
         audio_format: Optional[AudioFormat] = None,
         progress: Any = None,
         task_id: Any = None,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
+        """
+        Downloads the content.
+
+        `on_downloaded` is the core's only way out to a storage layer: the
+        core itself knows nothing about a database (see `crodl.library`).
+        """
         pass

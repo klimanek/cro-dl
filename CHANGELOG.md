@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- Local library persistence (`crodl/library`): a SQLModel/SQLite `Episode`
+  table, an async engine with `init_db()` and a `LibraryRepository` protocol
+  plus a SQLite implementation (with tests over an in-memory database).
+- An `on_downloaded` hook: the core reports finished files, the facade hands
+  them to the configured library, and the CLI records downloads into
+  `~/Z Rozhlasu/library.db`.
+
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
   `cro_session`, duplicate `get_audio_link_of_preferred_format`, unused
@@ -18,6 +26,8 @@
 - `Series` and `Show` now share a single episode collection (`Episodes`), so
   the episode mapping and the `"<part>-<title>"` download name live in one
   place and a series exposes the same `episodes` attribute as a show.
+- The downloaders own the output file name: `AudioParts.extension` and
+  `AudioParts.output_path` replaced the `_merge_chunks(format)` argument.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

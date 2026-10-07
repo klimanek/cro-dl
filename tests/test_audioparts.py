@@ -3,6 +3,7 @@ import subprocess
 import sys
 import unittest
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Any
 from unittest import mock
@@ -16,7 +17,12 @@ from crodl.streams.audioparts import (
 )
 
 
+@dataclass
 class DummyAudioParts(AudioParts):
+    """Minimal concrete downloader used by the tests."""
+
+    extension: str = "aac"
+
     async def download(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
     ) -> None:
@@ -150,7 +156,7 @@ class TestMergeChunks(unittest.TestCase):
             mock.patch("crodl.streams.audioparts._raise_open_file_limit") as mock_limit,
             mock.patch("crodl.streams.audioparts.subprocess.run") as mock_run,
         ):
-            self.downloader._merge_chunks("aac")
+            self.downloader._merge_chunks()
 
         mock_limit.assert_called_once()
         mock_run.assert_called_once()
@@ -173,14 +179,21 @@ class TestMergeChunks(unittest.TestCase):
         )
         with mock.patch("crodl.streams.audioparts.subprocess.run", side_effect=exc):
             with self.assertRaises(DownloadError) as ctx:
-                self.downloader._merge_chunks("aac")
+                self.downloader._merge_chunks()
 
         self.assertIn("exit code 232", str(ctx.exception))
         self.assertIn("Too many open files", str(ctx.exception))
 
     def test_merge_chunks_rejects_unsupported_format(self):
+        downloader = DummyAudioParts(
+            url="http://example.com/audio.ogg",
+            audio_title="Test Audio",
+            audiowork_dir=self.audiowork_dir,
+            segments_path=self.segments_path,
+            extension="ogg",
+        )
         with self.assertRaises(ValueError):
-            self.downloader._merge_chunks("mp3")
+            downloader._merge_chunks()
 
     def test_merge_chunks_removes_accents_from_output_name(self):
         downloader = DummyAudioParts(
@@ -194,7 +207,7 @@ class TestMergeChunks(unittest.TestCase):
             mock.patch("crodl.streams.audioparts._raise_open_file_limit"),
             mock.patch("crodl.streams.audioparts.subprocess.run") as mock_run,
         ):
-            downloader._merge_chunks("aac")
+            downloader._merge_chunks()
 
         command = mock_run.call_args.args[0]
         output = next(arg for arg in command if arg.endswith(".aac"))

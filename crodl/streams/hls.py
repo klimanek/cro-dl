@@ -103,6 +103,6 @@ class HLS(AudioParts):
                 )
 
         # Merge using ffmpeg via base class method
-        self._merge_chunks("aac")
+        self._merge_chunks()
         self._purge_chunks_dir()
         crologger.info("HLS download completed.")

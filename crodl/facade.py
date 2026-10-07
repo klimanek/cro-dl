@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 from pathlib import Path
 from urllib.parse import urlparse
 from rich.progress import Progress
@@ -10,6 +10,9 @@ from crodl.tools.api_client import CroAPIClient
 from crodl.settings import SUPPORTED_DOMAINS, AudioFormat, PREFERRED_AUDIO_FORMAT
 from crodl.tools.logger import crologger
 
+if TYPE_CHECKING:
+    from crodl.library.repository import LibraryRepository
+
 
 class CroDL:
     """
@@ -17,8 +20,13 @@ class CroDL:
     Provides a simplified interface for resolving URLs and downloading content.
     """
 
-    def __init__(self, client: Optional[CroAPIClient] = None):
+    def __init__(
+        self,
+        client: Optional[CroAPIClient] = None,
+        library: Optional["LibraryRepository"] = None,
+    ):
         self.client = client or CroAPIClient()
+        self.library = library
 
     def is_domain_supported(self, url: str) -> bool:
         """Checks whether the website with 'hidden' audio lies in a supported domain."""
@@ -91,8 +99,24 @@ class CroDL:
     ) -> None:
         """
         Starts the download process for the given content.
+
+        Finished works are handed to the configured library (if any) through
+        the `on_downloaded` hook - the core knows nothing about storage.
         """
         crologger.info(
             "Starting download for: %s (Format: %s)", content.title, audio_format.value
         )
-        await content.download(audio_format=audio_format, progress=progress)
+        await content.download(
+            audio_format=audio_format,
+            progress=progress,
+            on_downloaded=self._record_download,
+        )
+
+    async def _record_download(self, work: AudioWork, path: Path) -> None:
+        """Hook that stores a finished download in the local library."""
+        if self.library is None:
+            return
+
+        await self.library.save_download(
+            work, path, audio_format=path.suffix.lstrip(".")
+        )

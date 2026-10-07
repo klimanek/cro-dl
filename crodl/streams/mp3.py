@@ -4,13 +4,15 @@ from dataclasses import dataclass
 from rich.progress import Progress
 
 from crodl.streams.audioparts import AudioParts
-from crodl.streams.utils import process_audiowork_title, shorten_title
+from crodl.streams.utils import shorten_title
 from crodl.tools.logger import crologger
 
 
 @dataclass
 class MP3(AudioParts):
     """Process mp3 stream from CRo asynchronously."""
+
+    extension: str = "mp3"
 
     async def download(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
@@ -32,13 +34,7 @@ class MP3(AudioParts):
                 content_length = resp.headers.get("Content-Length")
                 total_length = int(content_length) if content_length else 0
 
-                if not self.audiowork_dir:
-                    raise ValueError("self.audiowork_dir is not set.")
-
-                processed_title = process_audiowork_title(
-                    self.audio_title, remove_accents=self.remove_accents
-                )
-                audio_full_path = self.audiowork_dir / f"{processed_title}.mp3"
+                audio_full_path = self.output_path
 
                 # Use external progress or create a new one
                 if progress:

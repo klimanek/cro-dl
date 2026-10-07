@@ -8,7 +8,7 @@ from rich.progress import Progress
 
 from crodl.data.attributes import Attributes, Data, Episodes
 from crodl.program.audiowork import AudioWork
-from crodl.program.content import Content
+from crodl.program.content import Content, DownloadedHook
 from crodl.settings import (
     API_SERVER,
     AUDIO_FORMATS,
@@ -127,6 +127,7 @@ class Show(Content):
         audio_format: Optional[AudioFormat],
         semaphore: asyncio.Semaphore,
         progress: Progress,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
@@ -139,13 +140,16 @@ class Show(Content):
                 remove_accents=self.remove_accents,
                 client=self.client,
             )
-            await audio_work.download(audio_format, progress=progress)
+            await audio_work.download(
+                audio_format, progress=progress, on_downloaded=on_downloaded
+            )
 
     async def download(
         self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
         await self.load()
@@ -158,7 +162,9 @@ class Show(Content):
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
         if progress:
             tasks = [
-                self._download_episode(episode, audio_format, semaphore, progress)
+                self._download_episode(
+                    episode, audio_format, semaphore, progress, on_downloaded
+                )
                 for episode in self.episodes.info
             ]
             await asyncio.gather(*tasks)
@@ -166,7 +172,11 @@ class Show(Content):
             with Progress() as internal_progress:
                 tasks = [
                     self._download_episode(
-                        episode, audio_format, semaphore, internal_progress
+                        episode,
+                        audio_format,
+                        semaphore,
+                        internal_progress,
+                        on_downloaded,
                     )
                     for episode in self.episodes.info
                 ]

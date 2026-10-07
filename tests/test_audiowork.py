@@ -8,6 +8,7 @@ from unittest import mock
 
 from crodl.settings import DOWNLOAD_PATH
 from crodl.program.audiowork import AudioWork
+from crodl.streams.mp3 import MP3
 
 
 def load(work):
@@ -453,6 +454,58 @@ class TestAudioWorkInfoAndNoIO(unittest.TestCase):
     def test_unavailable_reason_for_future_episode(self):
         audio_work = self._make_audio_work({"since": "2999-01-01T10:00:00+01:00"})
         self.assertIn("bude uvedena", audio_work.unavailable_reason)
+
+
+class TestDownloadedHook(unittest.IsolatedAsyncioTestCase):
+    """The facade stores finished downloads through this core hook."""
+
+    async def test_download_reports_the_finished_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = mock.Mock()
+            client.session = mock.Mock()
+            client.get_episode_data.return_value = {
+                "data": {
+                    "attributes": {
+                        "title": "3 - Díl",
+                        "since": "2024-08-14T18:05:00+02:00",
+                        "audioLinks": [{"variant": "mp3", "url": "u.mp3"}],
+                    }
+                }
+            }
+            audio_work = AudioWork(
+                uuid="12345", title="3 - Díl", audiowork_dir=Path(tmp), client=client
+            )
+            recorded = []
+
+            async def hook(work, path):
+                recorded.append((work, path))
+
+            with mock.patch.object(MP3, "download", new=mock.AsyncMock()):
+                await audio_work.download(on_downloaded=hook)
+
+            self.assertEqual(recorded, [(audio_work, Path(tmp) / "3 - Díl.mp3")])
+
+    async def test_download_without_a_hook_is_fine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = mock.Mock()
+            client.session = mock.Mock()
+            client.get_episode_data.return_value = {
+                "data": {
+                    "attributes": {
+                        "title": "Díl",
+                        "since": "2024-08-14T18:05:00+02:00",
+                        "audioLinks": [{"variant": "mp3", "url": "u.mp3"}],
+                    }
+                }
+            }
+            audio_work = AudioWork(
+                uuid="12345", title="Díl", audiowork_dir=Path(tmp), client=client
+            )
+
+            with mock.patch.object(MP3, "download", new=mock.AsyncMock()):
+                await audio_work.download()
+
+            self.assertTrue(audio_work.loaded)
 
 
 if __name__ == "__main__":

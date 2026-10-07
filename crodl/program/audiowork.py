@@ -5,9 +5,9 @@ from typing import Optional, Dict, Any
 
 from rich.progress import Progress
 
-from crodl.program.content import Content
+from crodl.program.content import Content, DownloadedHook
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
-from crodl.streams import DASH, HLS, MP3
+from crodl.streams import DASH, HLS, MP3, AudioParts
 from crodl.streams.utils import (
     create_dir_if_does_not_exist,
     get_preferred_audio_format,
@@ -137,6 +137,15 @@ class AudioWork(Content):
             return remove_html_tags(str(desc))
         return None
 
+    @property
+    def author(self) -> str | None:
+        """Author/interpret as reported by the API, if it provides one."""
+        for key in ("author", "interpret", "artist"):
+            value = self._attrs.get(key)
+            if value:
+                return str(value)
+        return None
+
     def info(self) -> list[dict]:
         """
         Returns the available audio variants of the work.
@@ -177,7 +186,7 @@ class AudioWork(Content):
 
     async def _download_dash(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
-    ) -> None:
+    ) -> DASH:
         """Download DASH stream."""
         mpd_url = self.audio_formats_urls.get("dash")
         if not mpd_url:
@@ -194,10 +203,11 @@ class AudioWork(Content):
             remove_accents=self.remove_accents,
         )
         await manifest.download(progress=progress, task_id=task_id)
+        return manifest
 
     async def _download_hls(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
-    ) -> None:
+    ) -> HLS:
         """Download HLS stream."""
         hls_url = self.audio_formats_urls.get("hls")
         if not hls_url:
@@ -214,10 +224,11 @@ class AudioWork(Content):
             remove_accents=self.remove_accents,
         )
         await chunklist.download(progress=progress, task_id=task_id)
+        return chunklist
 
     async def _download_mp3(
         self, progress: Optional[Progress] = None, task_id: Optional[Any] = None
-    ):
+    ) -> MP3:
         """Download MP3 file."""
         mp3_url = self.audio_formats_urls.get("mp3")
         if not mp3_url:
@@ -235,12 +246,14 @@ class AudioWork(Content):
             remove_accents=self.remove_accents,
         )
         await mp3.download(progress=progress, task_id=task_id)
+        return mp3
 
     async def download(
         self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
         """Downloads audio and handles storage."""
         await self.load()
@@ -263,16 +276,26 @@ class AudioWork(Content):
             if not self.series and not self.show:
                 create_dir_if_does_not_exist(self.audiowork_dir)
 
+            downloader: Optional[AudioParts] = None
             match selected_format:
                 case AudioFormat.DASH:
-                    await self._download_dash(progress=progress, task_id=task_id)
+                    downloader = await self._download_dash(
+                        progress=progress, task_id=task_id
+                    )
                 case AudioFormat.HLS:
-                    await self._download_hls(progress=progress, task_id=task_id)
+                    downloader = await self._download_hls(
+                        progress=progress, task_id=task_id
+                    )
                 case AudioFormat.MP3:
-                    await self._download_mp3(progress=progress, task_id=task_id)
+                    downloader = await self._download_mp3(
+                        progress=progress, task_id=task_id
+                    )
                 case None:
                     crologger.error("No valid format found for: %s", self.title)
                     return
+
+            if on_downloaded is not None and downloader is not None:
+                await on_downloaded(self, downloader.output_path)
 
             crologger.info("Done.")
 

@@ -7,6 +7,8 @@ import asyncclick as click
 from rich import print
 
 from crodl import CroDL
+from crodl.library.database import init_db
+from crodl.library.repository import SqliteLibraryRepository
 from crodl.program.audiowork import AudioWork
 from crodl.program.series import Series
 from crodl.program.show import Show
@@ -117,7 +119,8 @@ async def download_logic(
     no_accents: bool = False,
 ) -> None:
     """Internal logic for the download process."""
-    dl = CroDL()
+    await init_db()
+    dl = CroDL(library=SqliteLibraryRepository())
 
     try:
         content = await dl.get_content(

@@ -208,6 +208,6 @@ class DASH(AudioParts):
         self.rename_segments()
         self.create_list_txt()
 
-        self._merge_chunks("m4a")
+        self._merge_chunks()
         self._purge_chunks_dir()
         crologger.info("DASH download completed.")

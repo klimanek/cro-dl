@@ -8,7 +8,7 @@ from rich.progress import Progress
 
 from crodl.data.attributes import Episodes
 from crodl.program.audiowork import AudioWork
-from crodl.program.content import Content
+from crodl.program.content import Content, DownloadedHook
 from crodl.settings import (
     AUDIO_FORMATS,
     DOWNLOAD_PATH,
@@ -220,27 +220,30 @@ class Series(Content):
         audio_format: Optional[AudioFormat],
         semaphore: asyncio.Semaphore,
         progress: Progress,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
-            download_to = self.download_dir
             audio_work = AudioWork(
                 uuid=episode.get("uuid"),
                 audiowork_root=self.download_dir,
-                audiowork_dir=download_to,
+                audiowork_dir=self.download_dir,
                 title=episode.get("title", "Unknown"),
                 series=True,
                 since=episode.get("since", ""),
                 remove_accents=self.remove_accents,
                 client=self.client,
             )
-            await audio_work.download(audio_format, progress=progress)
+            await audio_work.download(
+                audio_format, progress=progress, on_downloaded=on_downloaded
+            )
 
     async def download(
         self,
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
+        on_downloaded: Optional[DownloadedHook] = None,
     ) -> None:
         """Downloads all series episodes in parallel (limited by semaphore)."""
         await self.load()
@@ -256,7 +259,9 @@ class Series(Content):
 
         if progress:
             tasks = [
-                self._download_episode(episode, audio_format, semaphore, progress)
+                self._download_episode(
+                    episode, audio_format, semaphore, progress, on_downloaded
+                )
                 for episode in episodes
             ]
             await asyncio.gather(*tasks)
@@ -264,7 +269,11 @@ class Series(Content):
             with Progress() as internal_progress:
                 tasks = [
                     self._download_episode(
-                        episode, audio_format, semaphore, internal_progress
+                        episode,
+                        audio_format,
+                        semaphore,
+                        internal_progress,
+                        on_downloaded,
                     )
                     for episode in episodes
                 ]
