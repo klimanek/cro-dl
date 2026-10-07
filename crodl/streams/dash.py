@@ -86,6 +86,8 @@ def segments_urls(manifest: "DASH") -> list[str]:
 class DASH(AudioParts):
     """Processes a DASH stream using its manifest file."""
 
+    extension: str = "m4a"
+
     @property
     def manifest_path(self) -> Path:
         """Path to the manifest file"""

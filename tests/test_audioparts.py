@@ -10,6 +10,7 @@ from unittest import mock
 from rich.progress import Progress
 
 from crodl.exceptions import DownloadError
+from crodl.streams import DASH, HLS, MP3
 from crodl.streams.audioparts import (
     OPEN_FILE_LIMIT,
     AudioParts,
@@ -212,6 +213,49 @@ class TestMergeChunks(unittest.TestCase):
         command = mock_run.call_args.args[0]
         output = next(arg for arg in command if arg.endswith(".aac"))
         self.assertTrue(output.endswith("Prilis zlutoucky kun.aac"), output)
+
+
+class TestDownloaderExtensions(unittest.TestCase):
+    """
+    Every downloader must declare the container it produces.
+
+    Regression: HLS/DASH used to inherit the empty default, so `_merge_chunks()`
+    failed with "Format '' is not supported!" only when a real download ran.
+    """
+
+    def test_declared_extensions(self):
+        self.assertEqual(MP3.extension, "mp3")
+        self.assertEqual(HLS.extension, "aac")
+        self.assertEqual(DASH.extension, "m4a")
+
+    def test_merge_chunks_writes_the_extension_of_each_downloader(self):
+        # Only HLS and DASH go through ffmpeg; MP3 is downloaded as one file
+        # (and "mp3" is deliberately not in SUPPORTED_AUDIO_FORMATS).
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            downloaders = [
+                HLS(url="https://example.com/playlist.m3u8", audio_title="Titul"),
+                DASH(url="https://example.com/manifest.mpd", audio_title="Titul"),
+            ]
+
+            for downloader in downloaders:
+                downloader.audiowork_dir = folder
+                downloader.segments_path = folder
+
+                with (
+                    mock.patch("crodl.streams.audioparts._raise_open_file_limit"),
+                    mock.patch("crodl.streams.audioparts.subprocess.run") as mock_run,
+                ):
+                    downloader._merge_chunks()
+
+                command = mock_run.call_args.args[0]
+                output = next(
+                    arg for arg in command if arg.endswith(f".{downloader.extension}")
+                )
+                self.assertTrue(
+                    output.endswith(f"Titul.{downloader.extension}"),
+                    f"{type(downloader).__name__} wrote {output}",
+                )
 
 
 if __name__ == "__main__":
