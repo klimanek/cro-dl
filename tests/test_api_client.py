@@ -1,27 +1,22 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 from requests import Session
 
 from crodl.exceptions import (
     AudioUUIDDoesNotExist,
-    PageDoesNotExist,
     DataEntryDoesNotExist,
+    PageDoesNotExist,
     PlayerWrapperDoesNotExist,
     ShowUUIDDoesNotExist,
 )
-from crodl.tools.scrap import (
-    get_attributes,
-    get_audio_link_of_preferred_format,
-    get_audio_uuid,
-    get_js_value_from_url,
-    get_series_id,
-    get_show_uuid,
-    is_series,
-    is_show,
-)
+from crodl.settings import API_SERVER
+from crodl.tools.api_client import CroAPIClient
 
 
 class TestGetAudioUUID(unittest.TestCase):
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
     @patch.object(Session, "get")
     def test_successful_retrieval(self, mock_get):
         site_url = "https://example.com"
@@ -32,7 +27,7 @@ class TestGetAudioUUID(unittest.TestCase):
         )
         mock_get.return_value = mock_response
 
-        uuid = get_audio_uuid(site_url, Session())
+        uuid = self.client.get_audio_uuid(site_url)
         self.assertEqual(uuid, "12345")
 
     @patch.object(Session, "get")
@@ -43,7 +38,7 @@ class TestGetAudioUUID(unittest.TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(PageDoesNotExist):
-            get_audio_uuid(site_url, Session())
+            self.client.get_audio_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_handle_player_wrapper_not_found(self, mock_get):
@@ -54,7 +49,7 @@ class TestGetAudioUUID(unittest.TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(PlayerWrapperDoesNotExist):
-            get_audio_uuid(site_url, Session())
+            self.client.get_audio_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_handle_uuid_not_found(self, mock_get):
@@ -67,7 +62,7 @@ class TestGetAudioUUID(unittest.TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(AudioUUIDDoesNotExist):
-            get_audio_uuid(site_url, Session())
+            self.client.get_audio_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_data_entry_not_found(self, mock_get):
@@ -77,7 +72,7 @@ class TestGetAudioUUID(unittest.TestCase):
         mock_response.text = '<section class="player-wrapper">'
         mock_get.return_value = mock_response
         with self.assertRaises(DataEntryDoesNotExist):
-            get_audio_uuid(site_url, Session())
+            self.client.get_audio_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_data_entry_is_empty_string(self, mock_get):
@@ -87,10 +82,13 @@ class TestGetAudioUUID(unittest.TestCase):
         mock_response.text = '<section class="player-wrapper" data-entry="">'
         mock_get.return_value = mock_response
         with self.assertRaises(DataEntryDoesNotExist):
-            get_audio_uuid(site_url, Session())
+            self.client.get_audio_uuid(site_url)
 
 
 class TestGetShowUUID(unittest.TestCase):
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
     @patch.object(Session, "get")
     def test_successful_retrieval(self, mock_get):
         site_url = "https://example.com"
@@ -101,7 +99,7 @@ class TestGetShowUUID(unittest.TestCase):
         )
         mock_get.return_value = mock_response
 
-        uuid = get_show_uuid(site_url, Session())
+        uuid = self.client.get_show_uuid(site_url)
         self.assertEqual(uuid, "12345")
 
     @patch.object(Session, "get")
@@ -112,7 +110,7 @@ class TestGetShowUUID(unittest.TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(PageDoesNotExist):
-            get_show_uuid(site_url, Session())
+            self.client.get_show_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_handle_uuid_not_found(self, mock_get):
@@ -125,7 +123,7 @@ class TestGetShowUUID(unittest.TestCase):
         mock_get.return_value = mock_response
 
         with self.assertRaises(ShowUUIDDoesNotExist):
-            get_show_uuid(site_url, Session())
+            self.client.get_show_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_data_entry_not_found(self, mock_get):
@@ -135,7 +133,7 @@ class TestGetShowUUID(unittest.TestCase):
         mock_response.text = '<div class="b-detail"></div>'
         mock_get.return_value = mock_response
         with self.assertRaises(DataEntryDoesNotExist):
-            get_show_uuid(site_url, Session())
+            self.client.get_show_uuid(site_url)
 
     @patch.object(Session, "get")
     def test_data_entry_is_empty_string(self, mock_get):
@@ -145,83 +143,56 @@ class TestGetShowUUID(unittest.TestCase):
         mock_response.text = '<div class="b-detail" data-entry=""></div>'
         mock_get.return_value = mock_response
         with self.assertRaises(DataEntryDoesNotExist):
-            get_show_uuid(site_url, Session())
+            self.client.get_show_uuid(site_url)
 
 
-class TestGetAttributes(unittest.TestCase):
+class TestGetEpisodeData(unittest.TestCase):
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
     @patch.object(Session, "get")
     def test_successful_retrieval(self, mock_get):
+        payload = {"data": {"id": "12345", "attributes": {}}}
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {"attributes": "test_attributes"}}
+        mock_response.json.return_value = payload
         mock_get.return_value = mock_response
 
-        attributes = get_attributes("12345", Session())
-        self.assertEqual(attributes, "test_attributes")
+        self.assertEqual(self.client.get_episode_data("12345"), payload)
+        mock_get.assert_called_once_with(f"{API_SERVER}/episodes/12345", timeout=10)
 
     @patch.object(Session, "get")
-    def test_handle_response_without_data(self, mock_get):
+    def test_empty_response_raises(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {}
         mock_get.return_value = mock_response
 
         with self.assertRaises(AttributeError):
-            get_attributes("12345", Session())
+            self.client.get_episode_data("12345")
 
     @patch.object(Session, "get")
-    def test_handle_missing_attributes_key(self, mock_get):
+    def test_response_without_data_returns_empty_dict(self, mock_get):
         mock_response = Mock()
-        mock_response.json.return_value = {"data": {}}
+        mock_response.json.return_value = {"meta": {}}
         mock_get.return_value = mock_response
 
-        result = get_attributes("12345", Session())
-        self.assertEqual(result, {})
-
-
-class TestGetAudioLinkOfPreferredFormat(unittest.TestCase):
-    @patch("crodl.tools.scrap.get_preferred_audio_format")
-    def test_preferred_format_found(self, mock_get_preferred_audio_format):
-        attrs = {
-            "audioLinks": [
-                {"variant": "mp3", "url": "audio1.mp3"},
-                {"variant": "aac", "url": "audio2.aac"},
-            ]
-        }
-        mock_format = mock_get_preferred_audio_format.return_value
-        mock_format.value = "aac"
-        result = get_audio_link_of_preferred_format(attrs)
-        self.assertEqual(result, "audio1.mp3")
-
-    @patch("crodl.tools.scrap.get_preferred_audio_format")
-    def test_no_audio_links(self, mock_get_preferred_audio_format):
-        attrs = {"audioLinks": []}
-        mock_format = mock_get_preferred_audio_format.return_value
-        mock_format.value = "aac"
-        result = get_audio_link_of_preferred_format(attrs)
-        self.assertEqual(result, None)
-
-    @patch("crodl.tools.scrap.get_preferred_audio_format")
-    def test_preferred_format_not_found(self, mock_get_preferred_audio_format):
-        attrs = {
-            "audioLinks": [
-                {"variant": "wma", "url": "audio1.wma"},
-                {"variant": "ogg", "url": "audio2.ogg"},
-            ]
-        }
-        mock_format = mock_get_preferred_audio_format.return_value
-        mock_format.value = "aac"
-        result = get_audio_link_of_preferred_format(attrs)
-        self.assertIsNone(result)
+        self.assertEqual(self.client.get_episode_data("12345"), {})
 
 
 class TestGetJsValueFromUrl(unittest.TestCase):
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
     @patch.object(Session, "get")
     def test_get_js_value_from_url_success(self, mock_get):
         response = Mock()
         response.status_code = 200
-        response.text = '<script>var dl = {"siteEntityBundle":"serial", "contentId":"1234"};</script>'
+        response.text = (
+            '<script>var dl = {"siteEntityBundle":"serial", "contentId":"1234"};'
+            "</script>"
+        )
         mock_get.return_value = response
 
-        result = get_js_value_from_url("http://example.com", "contentId", Session())
+        result = self.client.get_js_value_from_url("http://example.com", "contentId")
         self.assertEqual(result, "1234")
 
     @patch.object(Session, "get")
@@ -230,7 +201,7 @@ class TestGetJsValueFromUrl(unittest.TestCase):
         response.status_code = 404
         mock_get.return_value = response
 
-        result = get_js_value_from_url("http://example.com", "jsvar", Session())
+        result = self.client.get_js_value_from_url("http://example.com", "jsvar")
         self.assertIsNone(result)
 
     @patch.object(Session, "get")
@@ -240,54 +211,62 @@ class TestGetJsValueFromUrl(unittest.TestCase):
         response.text = '<script>var dl = {"contentId":};</script>'
         mock_get.return_value = response
 
-        result = get_js_value_from_url("http://example.com", "conte", Session())
+        result = self.client.get_js_value_from_url("http://example.com", "conte")
         self.assertIsNone(result)
 
     @patch.object(Session, "get")
     def test_get_js_value_from_url_failure_jsvar_not_in_text(self, mock_get):
         response = Mock()
         response.status_code = 200
-        response.text = '<script>var dl = {"siteEntityBundle":"serial", "contentId":"1234"};</script>'
+        response.text = (
+            '<script>var dl = {"siteEntityBundle":"serial", "contentId":"1234"};'
+            "</script>"
+        )
         mock_get.return_value = response
 
-        result = get_js_value_from_url("http://example.com", "jsvar", Session())
+        result = self.client.get_js_value_from_url("http://example.com", "jsvar")
         self.assertIsNone(result)
 
 
-class TestIsSerial(unittest.TestCase):
-    @patch("crodl.tools.scrap.get_js_value_from_url")
+class TestIsSeries(unittest.TestCase):
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
+    @patch.object(CroAPIClient, "get_js_value_from_url")
     def test_is_serial_true(self, mock_get_js_value_from_url):
         mock_get_js_value_from_url.return_value = "serial"
-        result = is_series("http://example.com", Session())
-        self.assertTrue(result)
+        self.assertTrue(self.client.is_series("http://example.com"))
 
-    @patch("crodl.tools.scrap.get_js_value_from_url")
+    @patch.object(CroAPIClient, "get_js_value_from_url")
     def test_is_serial_false(self, mock_get_js_value_from_url):
         mock_get_js_value_from_url.return_value = "movie"
-        result = is_series("http://example.com", Session())
-        self.assertFalse(result)
+        self.assertFalse(self.client.is_series("http://example.com"))
 
 
 class TestGetSeriesId(unittest.TestCase):
-    @patch("crodl.tools.scrap.get_js_value_from_url")
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
+    @patch.object(CroAPIClient, "get_js_value_from_url")
     def test_valid_series_id(self, mock_get_js_value_from_url):
         mock_get_js_value_from_url.return_value = "31415"
-        result = get_series_id("http://example.com", Session())
+        result = self.client.get_series_id("http://example.com")
         self.assertEqual(result, "31415")
 
 
 class TestIsShow(unittest.TestCase):
-    @patch("crodl.tools.scrap.get_js_value_from_url")
+    def setUp(self):
+        self.client = CroAPIClient(session=Session())
+
+    @patch.object(CroAPIClient, "get_js_value_from_url")
     def test_is_show_true(self, mock_get_js_value_from_url):
         mock_get_js_value_from_url.return_value = "show"
-        result = is_show("http://example.com", Session())
-        self.assertTrue(result)
+        self.assertTrue(self.client.is_show("http://example.com"))
 
-    @patch("crodl.tools.scrap.get_js_value_from_url")
+    @patch.object(CroAPIClient, "get_js_value_from_url")
     def test_is_show_false(self, mock_get_js_value_from_url):
         mock_get_js_value_from_url.return_value = "serial"
-        result = is_show("http://example.com", Session())
-        self.assertFalse(result)
+        self.assertFalse(self.client.is_show("http://example.com"))
 
 
 if __name__ == "__main__":

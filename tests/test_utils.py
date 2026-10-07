@@ -2,10 +2,12 @@ import os
 import unittest
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from crodl.settings import AudioFormat
 from crodl.streams.utils import (
     day_month_year,
+    get_audio_link_of_preferred_format,
     get_m4a_url,
     audio_segment_sort,
     get_preferred_audio_format,
@@ -185,6 +187,42 @@ class TestTitleWithPart(unittest.TestCase):
         part = "one"
         with self.assertRaises(ValueError):
             title_with_part(title, part)
+
+
+class TestGetAudioLinkOfPreferredFormat(unittest.TestCase):
+    @patch("crodl.streams.utils.get_preferred_audio_format")
+    def test_preferred_format_found(self, mock_get_preferred_audio_format):
+        attrs = {
+            "audioLinks": [
+                {"variant": "mp3", "url": "audio1.mp3"},
+                {"variant": "aac", "url": "audio2.aac"},
+            ]
+        }
+        mock_format = mock_get_preferred_audio_format.return_value
+        mock_format.value = "aac"
+        result = get_audio_link_of_preferred_format(attrs)
+        self.assertEqual(result, "audio1.mp3")
+
+    @patch("crodl.streams.utils.get_preferred_audio_format")
+    def test_no_audio_links(self, mock_get_preferred_audio_format):
+        attrs = {"audioLinks": []}
+        mock_format = mock_get_preferred_audio_format.return_value
+        mock_format.value = "aac"
+        result = get_audio_link_of_preferred_format(attrs)
+        self.assertIsNone(result)
+
+    @patch("crodl.streams.utils.get_preferred_audio_format")
+    def test_preferred_format_not_found(self, mock_get_preferred_audio_format):
+        attrs = {
+            "audioLinks": [
+                {"variant": "wma", "url": "audio1.wma"},
+                {"variant": "ogg", "url": "audio2.ogg"},
+            ]
+        }
+        mock_format = mock_get_preferred_audio_format.return_value
+        mock_format.value = "aac"
+        result = get_audio_link_of_preferred_format(attrs)
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

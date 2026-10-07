@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Removed the legacy `crodl/tools/scrap.py` module (module-level global
+  `cro_session`, duplicate `get_audio_link_of_preferred_format`, unused
+  wrappers); `Series` now builds its episode list via the shared
+  `extract_episode_info()`.
+- Added direct test coverage for `CroAPIClient` in `tests/test_api_client.py`.
+
 ## [1.5.2] - 2026-10-06
 
 ### Fixed

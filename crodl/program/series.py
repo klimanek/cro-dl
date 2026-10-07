@@ -6,6 +6,7 @@ from typing import Optional, Any
 
 from rich.progress import Progress
 
+from crodl.data.attributes import extract_episode_info
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import Content
 from crodl.settings import (
@@ -21,7 +22,6 @@ from crodl.streams.utils import (
     remove_html_tags,
 )
 from crodl.tools.logger import crologger
-from crodl.tools.scrap import get_audio_link_of_preferred_format
 
 
 @dataclass
@@ -152,24 +152,11 @@ class Series(Content):
         Returns:
             A list of dictionaries containing episode information.
         """
-        json_data = self.episodes_data
-
         all_parts = []
-
-        for data in json_data:
-            attrs = data.get("attributes", {})
-            episode_num = attrs.get("part")
-            audio_link = get_audio_link_of_preferred_format(attrs)
-
-            all_parts.append(
-                {
-                    "uuid": data.get("id"),
-                    "title": f"{episode_num}" + "-" + attrs.get("title", ""),
-                    "episode_num": episode_num,
-                    "url": audio_link,
-                    "since": attrs.get("since"),
-                }
-            )
+        for episode in self.episodes_data:
+            info = extract_episode_info(episode)
+            info["title"] = f"{info['part']}" + "-" + info["title"]
+            all_parts.append(info)
 
         return all_parts
 
