@@ -88,7 +88,7 @@ class CroAPIClient:
 
         crologger.info("Getting data-entry values.")
 
-        data_entry: str = str(div.get("data-entry", ""))  # type: ignore
+        data_entry: str = str(div.get("data-entry", ""))
 
         if not data_entry:
             err_msg = "Attribute data-entry not found."

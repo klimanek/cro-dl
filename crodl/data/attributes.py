@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from crodl.streams.utils import get_audio_link_of_preferred_format, title_with_part
 
 
-@dataclass
+@dataclass(frozen=True)
 class Attributes:
     title: str
     active: bool
@@ -12,7 +12,7 @@ class Attributes:
     short_description: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class Data:
     show_type: str
     uuid: str
@@ -44,6 +44,9 @@ class Episodes:
     It owns the single episode mapping used for downloading: raw API entries
     are turned into flat info dicts whose `title` already carries the
     "<part>-<title>" file name.
+
+    Deliberately not `frozen`: it holds the raw, mutable list of API entries,
+    so freezing it would only generate a `__hash__` that fails at runtime.
     """
 
     title: str = ""

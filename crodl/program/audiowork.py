@@ -109,16 +109,14 @@ class AudioWork(Content):
 
     @property
     def audio_formats(self) -> list[str] | None:
-        audio_variants = []
+        audio_variants: list[str] = []
         if self.audio_links and isinstance(self.audio_links, list):
             for link in self.audio_links:
-                if link.get("variant"):
-                    audio_variants.append(link.get("variant"))
+                variant = link.get("variant")
+                if variant:
+                    audio_variants.append(str(variant))
 
-        if audio_variants and isinstance(audio_variants, list):
-            return audio_variants
-
-        return None
+        return audio_variants or None
 
     @property
     def audio_formats_urls(self) -> dict[str | None, str | None]:

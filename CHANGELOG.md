@@ -28,6 +28,9 @@
   place and a series exposes the same `episodes` attribute as a show.
 - The downloaders own the output file name: `AudioParts.extension` and
   `AudioParts.output_path` replaced the `_merge_chunks(format)` argument.
+- Optional clean-ups: `Attributes` and `Data` are frozen value objects, the
+  three unused `type: ignore` comments are gone, and `pyright` plus `ty` now
+  both pass on the whole package.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

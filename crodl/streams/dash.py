@@ -43,7 +43,7 @@ def audio_segment_times(mpd_content: BeautifulSoup) -> list[int]:
     for s_tag in mpd_content.find_all("S"):
         duration = int(s_tag["d"])  # type: ignore
         repeat = int(s_tag.get("r", 0))  # type: ignore
-        segment_times.extend([duration] * (repeat + 1))  # type: ignore
+        segment_times.extend([duration] * (repeat + 1))
 
     return segment_times
 
@@ -58,7 +58,7 @@ def segments_info(manifest_content: str) -> tuple[list[int], str]:
     if not representation:
         raise KeyError("Block 'representation' not found.")
 
-    representation_id = representation.get("id")  # type: ignore
+    representation_id = representation.get("id")
     d_values = audio_segment_times(soup)
 
     return partial_sums(d_values), str(representation_id)
