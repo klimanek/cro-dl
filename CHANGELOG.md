@@ -31,6 +31,10 @@
 - Optional clean-ups: `Attributes` and `Data` are frozen value objects, the
   three unused `type: ignore` comments are gone, and `pyright` plus `ty` now
   both pass on the whole package.
+- The library `Episode` row now follows the content API vocabulary: it stores
+  `short_title`, `part` and `duration`, with matching `AudioWork` properties.
+  Section 7 of `WEB_LIBRARY_DESIGN.md` records which API the supplied docs
+  describe (the broadcasting one) and what still needs modelling.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

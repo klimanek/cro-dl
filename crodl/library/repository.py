@@ -27,6 +27,15 @@ class DownloadedWork(Protocol):
     def title(self) -> str: ...
 
     @property
+    def short_title(self) -> Optional[str]: ...
+
+    @property
+    def part(self) -> Optional[int]: ...
+
+    @property
+    def duration(self) -> Optional[int]: ...
+
+    @property
     def since(self) -> str: ...
 
     @property
@@ -102,8 +111,11 @@ class SqliteLibraryRepository:
         episode = Episode(
             uuid=work.uuid,
             title=work.title,
+            short_title=work.short_title,
+            part=work.part,
             author=work.author,
             description=work.description,
+            duration=work.duration,
             broadcast_at=to_naive_utc(parse_since(work.since)),
             local_path=str(path),
             audio_format=audio_format,

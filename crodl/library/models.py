@@ -6,13 +6,23 @@ from sqlmodel import Field, SQLModel
 
 
 class Episode(SQLModel, table=True):
-    """One downloaded audio work kept in the local library."""
+    """
+    One downloaded audio work kept in the local library.
+
+    Column names mirror the field names of the Czech Radio content API
+    (`api.mujrozhlas.cz`): `shortTitle`, `part`, `since`, `description`,
+    `audioLinks[].duration`. See WEB_LIBRARY_DESIGN.md for what is verified
+    against the API and what is not.
+    """
 
     # UUID from the Czech Radio API - the natural key of a work.
     uuid: str = Field(primary_key=True)
     title: str
+    short_title: Optional[str] = None
+    part: Optional[int] = None
     author: Optional[str] = None
     description: Optional[str] = None
+    duration: Optional[int] = None
     broadcast_at: Optional[datetime] = None
     local_path: str
     image_path: Optional[str] = None

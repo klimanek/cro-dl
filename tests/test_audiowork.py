@@ -508,5 +508,40 @@ class TestDownloadedHook(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(audio_work.loaded)
 
 
+class TestAudioWorkMetadataProperties(unittest.TestCase):
+    """Fields the library stores must be readable from the core."""
+
+    def _make(self, attributes):
+        client = mock.Mock()
+        client.get_episode_data.return_value = {"data": {"attributes": attributes}}
+        return load(AudioWork(uuid="12345", title="Title", client=client))
+
+    def test_short_title_part_and_duration(self):
+        audio_work = self._make(
+            {
+                "since": "2024-08-14T18:05:00+02:00",
+                "shortTitle": "Krátce",
+                "part": 3,
+                "audioLinks": [{"variant": "mp3", "url": "u.mp3", "duration": 3229}],
+            }
+        )
+
+        self.assertEqual(audio_work.short_title, "Krátce")
+        self.assertEqual(audio_work.part, 3)
+        self.assertEqual(audio_work.duration, 3229)
+
+    def test_metadata_properties_are_none_without_api_data(self):
+        audio_work = self._make({"since": "2024-08-14T18:05:00+02:00"})
+
+        self.assertIsNone(audio_work.short_title)
+        self.assertIsNone(audio_work.part)
+        self.assertIsNone(audio_work.duration)
+
+    def test_non_numeric_part_is_ignored(self):
+        audio_work = self._make({"since": "2024-08-14T18:05:00+02:00", "part": "extra"})
+
+        self.assertIsNone(audio_work.part)
+
+
 if __name__ == "__main__":
     unittest.main()

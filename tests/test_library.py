@@ -28,6 +28,9 @@ class FakeWork:
         description: Optional[str] = "Popis",
         author: Optional[str] = "Autor",
         audio_formats: Optional[list[str]] = None,
+        short_title: Optional[str] = "Krátce",
+        part: Optional[int] = 3,
+        duration: Optional[int] = 3229,
     ) -> None:
         self.uuid = uuid
         self.title = title
@@ -35,6 +38,9 @@ class FakeWork:
         self.description = description
         self.author = author
         self.audio_formats = ["mp3", "hls"] if audio_formats is None else audio_formats
+        self.short_title = short_title
+        self.part = part
+        self.duration = duration
 
 
 async def make_repo() -> SqliteLibraryRepository:
@@ -65,8 +71,11 @@ class TestSqliteLibraryRepository(unittest.IsolatedAsyncioTestCase):
         stored = downloads[0]
         self.assertEqual(stored.uuid, "u-1")
         self.assertEqual(stored.title, "Dílo")
+        self.assertEqual(stored.short_title, "Krátce")
+        self.assertEqual(stored.part, 3)
         self.assertEqual(stored.author, "Autor")
         self.assertEqual(stored.description, "Popis")
+        self.assertEqual(stored.duration, 3229)
         self.assertEqual(stored.local_path, str(path))
         self.assertEqual(stored.audio_format, "mp3")
         self.assertEqual(
@@ -131,6 +140,9 @@ class TestEpisodeModel(unittest.TestCase):
         self.assertIsNone(episode.broadcast_at)
         self.assertIsNone(episode.image_path)
         self.assertIsNone(episode.audio_format)
+        self.assertIsNone(episode.short_title)
+        self.assertIsNone(episode.part)
+        self.assertIsNone(episode.duration)
 
 
 class TestRepositoryProtocol(unittest.TestCase):

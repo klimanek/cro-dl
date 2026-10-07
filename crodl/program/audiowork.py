@@ -144,6 +144,36 @@ class AudioWork(Content):
                 return str(value)
         return None
 
+    @property
+    def short_title(self) -> str | None:
+        """The API's short title for the work, if it provides one."""
+        value = self._attrs.get("shortTitle")
+        return str(value) if value else None
+
+    @property
+    def part(self) -> int | None:
+        """Episode number inside its series/show, as reported by the API."""
+        value = self._attrs.get("part")
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def duration(self) -> int | None:
+        """Duration of the first audio variant in seconds, if the API reports it."""
+        for link in self.audio_links or []:
+            value = link.get("duration")
+            if value is None:
+                continue
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+        return None
+
     def info(self) -> list[dict]:
         """
         Returns the available audio variants of the work.
