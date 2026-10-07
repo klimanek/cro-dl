@@ -1,6 +1,7 @@
 import asyncio
 from typing import Optional, Sequence
-from sqlmodel import select
+
+from sqlmodel import col, select
 
 from crodl.persistence.models import Episode, Show, Series, Station
 from crodl.persistence.database import async_session_factory
@@ -40,7 +41,7 @@ class LibraryRepository:
     async def get_all_episodes(self) -> Sequence[Episode]:
         """Returns all downloaded episodes."""
         async with async_session_factory() as session:
-            statement = select(Episode).order_by(Episode.since.desc())
+            statement = select(Episode).order_by(col(Episode.since).desc())
             result = await session.execute(statement)
             return result.scalars().all()
 
@@ -50,7 +51,7 @@ class LibraryRepository:
             statement = (
                 select(Episode)
                 .where(Episode.show_id == show_id)
-                .order_by(Episode.since.desc())
+                .order_by(col(Episode.since).desc())
             )
             result = await session.execute(statement)
             return result.scalars().all()
@@ -61,7 +62,7 @@ class LibraryRepository:
             statement = (
                 select(Episode)
                 .where(Episode.series_id == series_id)
-                .order_by(Episode.since.desc())
+                .order_by(col(Episode.since).desc())
             )
             result = await session.execute(statement)
             return result.scalars().all()
