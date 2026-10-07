@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any
 from rich import print
 from rich.progress import Progress
 
-from crodl.data.streamlinks import StreamLinks
 from crodl.program.content import Content
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3
@@ -113,15 +112,6 @@ class AudioWork(Content):
         if self.audio_links and isinstance(self.audio_links, list):
             return {link.get("variant"): link.get("url") for link in self.audio_links}
         return {}
-
-    @property
-    def links(self):
-        audio_links = StreamLinks()
-        for key, val in self.audio_formats_urls.items():
-            if key:
-                setattr(audio_links, key, val)
-
-        return audio_links
 
     @property
     def description(self) -> str | None:

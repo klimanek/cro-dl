@@ -9,6 +9,13 @@
   `extract_episode_info()`.
 - Added direct test coverage for `CroAPIClient` in `tests/test_api_client.py`.
 
+### Removed
+- Dead modules `crodl/tools/timer.py`, `crodl/tools/image_downloader.py` and
+  `crodl/data/streamlinks.py`, plus the unused `AudioWork.links` property and a
+  commented-out pandas block in `crodl/data/attributes.py`.
+- Unused dependencies `icecream` and `yaspin`, together with their transitive
+  orphans (`asttokens`, `executing`, `termcolor`) in `uv.lock`.
+
 ### Fixed
 - `Series.already_exists()` always returned `False`: `downloaded_parts` looked
   for the `"3-"` prefix, but files are written as `"3 - Title.mp3"` (the

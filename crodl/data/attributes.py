@@ -45,9 +45,6 @@ class Episodes:
 
     def __post_init__(self):
         if not self.json_data:
-            # We should probably not fetch here, but to maintain compatibility
-            # we might need to. However, we want to remove this.
-            # For now, let's just use what's passed.
             self.data = []
             self.count = 0
             return
@@ -58,28 +55,6 @@ class Episodes:
     @property
     def info(self) -> list[dict]:
         return [extract_episode_info(_data) for _data in self.data]
-
-    # @property
-    # def df(self) -> pds.DataFrame | str:
-    #     dframe = pds.DataFrame(self.info)
-    #     dframe = dframe.sort_values(
-    #         ['since'],
-    #         ascending=[
-    #             False,
-    #         ],
-    #     )
-    #     dframe = dframe.drop(['uuid', 'url'], axis=1).reset_index(drop=True)
-    #     dframe.rename(columns={'title': 'Titul', 'since': 'Vysíláno', 'part': 'Díl'}, inplace=True)
-
-    #     # Nahrazení NaN hodnot nulou
-    #     dframe['Díl'] = dframe['Díl'].fillna(0)
-
-    #     # Převod sloupce na integer
-    #     dframe['Díl'] = dframe['Díl'].astype(int)
-    #     # dframe = dframe[["Díl", "Titul", "Vysíláno"]]
-
-    #     dframe = dframe.to_string(index=False)
-    #     return dframe
 
     def __str__(self):
         return f"<Episodes of {self.show_title}>"
