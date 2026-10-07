@@ -12,6 +12,17 @@ class Content(ABC):
     uuid: Optional[str] = None
     title: str = "Unknown"
     client: CroAPIClient = field(default_factory=CroAPIClient, repr=False)
+    loaded: bool = field(default=False, repr=False)
+
+    @abstractmethod
+    async def load(self) -> None:
+        """
+        Fetches the API data this content needs. Must be idempotent.
+
+        Constructors stay free of I/O, so anything that reads API-derived
+        fields has to call (and await) this first.
+        """
+        pass
 
     @abstractmethod
     def already_exists(self) -> bool:

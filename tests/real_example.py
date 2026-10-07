@@ -51,6 +51,7 @@ async def download_single_novel(
     """
     novel = AudioWork(url=url, audiowork_dir=TEST_DOWNLOAD_DIR)
     try:
+        await novel.load()
         print(novel.audio_formats)
         await novel.download(audio_format)
     except NovelDownloadError as e:
@@ -64,6 +65,7 @@ async def download_a_series(
 
     series = Series(url=url, download_dir=TEST_DOWNLOAD_DIR)
     try:
+        await series.load()
         await series.download(audio_format)
     except SeriesDownloadError as e:
         print(e)

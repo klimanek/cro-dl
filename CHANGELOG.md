@@ -11,6 +11,10 @@
 - The core no longer prints: `AudioWork.info()` returns the audio variants as
   data and the CLI renders them. A work without any audio link now reports the
   reason and exits with status 1 instead of failing silently.
+- Constructors no longer perform network calls: `AudioWork`, `Series` and
+  `Show` expose an explicit, idempotent `load()` (awaited by the facade and by
+  `download()`), and a series fetches its episode list once instead of on
+  every property access.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

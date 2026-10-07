@@ -2,7 +2,7 @@ import os
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from rich.progress import Progress
 
@@ -33,48 +33,71 @@ class Show(Content):
 
     download_dir: Optional[Path] = field(default=None)
     remove_accents: bool = False
+    json: Dict[str, Any] = field(default_factory=dict, repr=False)
+    data: Optional[Data] = None
+    episodes: Episodes = field(
+        default_factory=lambda: Episodes(show_title="", show_id="")
+    )
 
     def __post_init__(self):
+        self._apply_data()
+
+    def _apply_data(self) -> None:
+        """Derives the fields that depend on the (possibly injected) API data."""
+        if self.json:
+            attributes = self.json["data"]["attributes"]
+            self.data = Data(
+                show_type=str(self.json["data"]["type"]),
+                uuid=str(self.json["data"]["id"]),
+                attributes=Attributes(
+                    title=str(attributes["title"]),
+                    active=bool(attributes["active"]),
+                    aired=bool(attributes["aired"]),
+                    description=str(attributes["description"]),
+                    short_description=str(attributes["shortDescription"]),
+                ),
+            )
+
+            # Use custom title if provided, otherwise fallback to API title
+            if self.title == "Unknown" or not self.title:
+                self.title = str(attributes["title"])
+
+        # Determine download dir (only once the title is known)
+        if not self.download_dir and self.title not in ("", "Unknown"):
+            self.download_dir = DOWNLOAD_PATH / process_audiowork_title(
+                self.title, remove_accents=self.remove_accents
+            )
+
+    async def load(self) -> None:
+        """
+        Fetches the show metadata and its episode list. Safe to call repeatedly.
+
+        Construction is deliberately free of I/O, so the API-derived fields
+        are only reliable after this has been awaited.
+        """
+        if self.loaded:
+            return
+
         if not self.uuid and self.url:
             self.uuid = self.client.get_show_uuid(self.url)
 
         if not self.uuid:
             raise ValueError(f"Could not find show UUID for URL: {self.url}")
 
-        # Fetch the JSON data from Show API
-        json_data = self.client.get_show_data(self.uuid)
+        if not self.json:
+            self.json = self.client.get_show_data(self.uuid)
 
-        attributes = Attributes(
-            title=str(json_data["data"]["attributes"]["title"]),
-            active=bool(json_data["data"]["attributes"]["active"]),
-            aired=bool(json_data["data"]["attributes"]["aired"]),
-            description=str(json_data["data"]["attributes"]["description"]),
-            short_description=str(json_data["data"]["attributes"]["shortDescription"]),
-        )
+        self._apply_data()
 
-        data = Data(
-            show_type=str(json_data["data"]["type"]),
-            uuid=str(json_data["data"]["id"]),
-            attributes=attributes,
-        )
-
-        # Use custom title if provided, otherwise fallback to API title
-        if self.title == "Unknown" or not self.title:
-            self.title = str(json_data["data"]["attributes"]["title"])
-
-        self.json = json_data
-        self.data = data
-        episodes_data = self.client.get_related_data(
-            f"{API_SERVER}/shows/{self.uuid}/episodes"
-        )
-        self.episodes = Episodes(
-            show_title=self.title, show_id=self.uuid, json_data=episodes_data
-        )
-
-        if not self.download_dir:
-            self.download_dir = DOWNLOAD_PATH / process_audiowork_title(
-                self.title, remove_accents=self.remove_accents
+        if not self.episodes.count:
+            episodes_data = self.client.get_related_data(
+                f"{API_SERVER}/shows/{self.uuid}/episodes"
             )
+            self.episodes = Episodes(
+                show_title=self.title, show_id=self.uuid, json_data=episodes_data
+            )
+
+        self.loaded = True
 
     @property
     def downloaded_parts(self) -> int:
@@ -94,6 +117,8 @@ class Show(Content):
         return downloaded_parts
 
     def already_exists(self) -> bool:
+        if not self.loaded:
+            return False
         return self.downloaded_parts == self.episodes.count
 
     async def _download_episode(
@@ -126,6 +151,8 @@ class Show(Content):
         task_id: Optional[Any] = None,
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
+        await self.load()
+
         if not self.download_dir:
             raise ValueError("download_dir is not set.")
 

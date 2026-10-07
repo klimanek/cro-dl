@@ -1,3 +1,4 @@
+import asyncio
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,7 +8,7 @@ from crodl.program.series import Series
 
 
 class SeriesTestCase(unittest.TestCase):
-    """Builds a Series with a mocked API client, so no network is involved."""
+    """Builds a loaded Series with a mocked API client, so no network is involved."""
 
     total_parts = 3
 
@@ -25,11 +26,13 @@ class SeriesTestCase(unittest.TestCase):
                 }
             }
         }
-        return Series(
+        series = Series(
             url="https://example.com/series",
             download_dir=download_dir,
             client=client,
         )
+        asyncio.run(series.load())
+        return series
 
     def write_file(self, directory: Path, name: str) -> None:
         (directory / name).write_text("x", encoding="utf-8")
@@ -101,6 +104,20 @@ class TestSeriesDownloadedParts(SeriesTestCase):
             self.write_file(Path(tmp), "1 - Díl.aac")
 
             self.assertEqual(series.downloaded_parts, 1)
+
+
+class TestSeriesEpisodeCaching(SeriesTestCase):
+    def test_episodes_are_fetched_only_once(self):
+        # Regression (REFACTORING_TODO item 5): `episodes_data` used to hit the
+        # API on every access (audio_formats, list_all_series_episodes, ...).
+        with tempfile.TemporaryDirectory() as tmp:
+            series = self.make_series(Path(tmp))
+
+            series.episodes_data
+            series.episodes_data
+            series.list_all_series_episodes()
+
+            series.client.get_related_data.assert_called_once()
 
 
 if __name__ == "__main__":

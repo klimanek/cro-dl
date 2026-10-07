@@ -45,12 +45,10 @@ class AudioWork(Content):
             crologger.error(err_msg)
             raise ValueError(err_msg)
 
-        if not self.uuid:
-            self.uuid = self.client.get_audio_uuid(self.url) if self.url else None
+        self._apply_data()
 
-        if not self.json_data and self.uuid:
-            self.json_data = self.client.get_episode_data(self.uuid)
-
+    def _apply_data(self) -> None:
+        """Derives the fields that depend on the (possibly injected) API data."""
         if not self._attrs:
             try:
                 self._attrs = self.json_data.get("data", {}).get("attributes", {})
@@ -61,8 +59,8 @@ class AudioWork(Content):
         if self.title == "Unknown" or not self.title:
             self.title = str(self._attrs.get("title", "Unknown"))
 
-        # Determine download directory
-        if not self.audiowork_dir:
+        # Determine download directory (only once the title is known)
+        if not self.audiowork_dir and self.title not in ("", "Unknown"):
             self.audiowork_dir = DOWNLOAD_PATH / process_audiowork_title(
                 self.title, remove_accents=self.remove_accents
             )
@@ -72,6 +70,25 @@ class AudioWork(Content):
 
         if not self.since:
             self.since = str(self._attrs.get("since", ""))
+
+    async def load(self) -> None:
+        """
+        Fetches the episode data from the API. Safe to call repeatedly.
+
+        Construction is deliberately free of I/O, so the API-derived fields
+        are only reliable after this has been awaited.
+        """
+        if self.loaded:
+            return
+
+        if not self.uuid:
+            self.uuid = self.client.get_audio_uuid(self.url) if self.url else None
+
+        if not self.json_data and self.uuid:
+            self.json_data = self.client.get_episode_data(self.uuid)
+
+        self._apply_data()
+        self.loaded = True
 
     @property
     def audio_links(self) -> list[dict] | None:
@@ -224,8 +241,10 @@ class AudioWork(Content):
         audio_format: Optional[AudioFormat] = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
-    ) -> None:  # pragma: no cover
+    ) -> None:
         """Downloads audio and handles storage."""
+        await self.load()
+
         if not self.audio_formats:
             return
 

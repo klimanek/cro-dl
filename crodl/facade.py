@@ -52,32 +52,36 @@ class CroDL:
         # The order of checks matters
         if self.client.is_show(url):
             crologger.info("URL resolved as Show")
-            return Show(
+            content: Union[AudioWork, Series, Show] = Show(
                 url=url,
                 title=title or "Unknown",
                 download_dir=output_dir,
                 remove_accents=remove_accents,
                 client=self.client,
             )
-
-        if self.client.is_series(url):
+        elif self.client.is_series(url):
             crologger.info("URL resolved as Series")
-            return Series(
+            content = Series(
                 url=url,
                 title=title or "Unknown",
                 download_dir=output_dir,
                 remove_accents=remove_accents,
                 client=self.client,
             )
+        else:
+            crologger.info("URL resolved as AudioWork (Episode/Broadcast)")
+            content = AudioWork(
+                url=url,
+                title=title or "Unknown",
+                audiowork_dir=output_dir,
+                remove_accents=remove_accents,
+                client=self.client,
+            )
 
-        crologger.info("URL resolved as AudioWork (Episode/Broadcast)")
-        return AudioWork(
-            url=url,
-            title=title or "Unknown",
-            audiowork_dir=output_dir,
-            remove_accents=remove_accents,
-            client=self.client,
-        )
+        # Constructors are I/O free, so the API data is loaded here - exactly once.
+        await content.load()
+
+        return content
 
     async def download(
         self,

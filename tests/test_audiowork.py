@@ -1,3 +1,4 @@
+import asyncio
 import io
 import tempfile
 import unittest
@@ -7,6 +8,12 @@ from unittest import mock
 
 from crodl.settings import DOWNLOAD_PATH
 from crodl.program.audiowork import AudioWork
+
+
+def load(work):
+    """Runs the async load() from a synchronous test and returns the work."""
+    asyncio.run(work.load())
+    return work
 
 
 class TestAudioWorkInit(unittest.TestCase):
@@ -30,19 +37,36 @@ class TestAudioWorkInit(unittest.TestCase):
         with self.assertRaises(ValueError):
             AudioWork(client=self.mock_client)
 
-    def test_only_url_provided(self):
+    def test_construction_does_no_io(self):
+        # Regression (REFACTORING_TODO item 5): the constructor must stay pure.
         audio_work = AudioWork(url="https://example.com", client=self.mock_client)
+
+        self.assertEqual(audio_work.uuid, None)
+        self.assertEqual(audio_work.title, "Unknown")
+        self.assertFalse(audio_work.loaded)
+        self.mock_client.get_audio_uuid.assert_not_called()
+        self.mock_client.get_episode_data.assert_not_called()
+
+    def test_only_url_provided(self):
+        audio_work = load(AudioWork(url="https://example.com", client=self.mock_client))
         self.assertEqual(audio_work.url, "https://example.com")
         self.assertEqual(audio_work.uuid, "12345")
         self.assertEqual(audio_work.title, "Example Title")
+        self.assertTrue(audio_work.loaded)
         self.mock_client.get_audio_uuid.assert_called_once_with("https://example.com")
         self.mock_client.get_episode_data.assert_called_once_with("12345")
 
     def test_only_uuid_provided(self):
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertEqual(audio_work.uuid, "12345")
         self.assertEqual(audio_work.title, "Example Title")
         self.mock_client.get_audio_uuid.assert_not_called()
+        self.mock_client.get_episode_data.assert_called_once_with("12345")
+
+    def test_load_is_idempotent(self):
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
+        asyncio.run(audio_work.load())
+
         self.mock_client.get_episode_data.assert_called_once_with("12345")
 
     def test_title_not_provided(self):
@@ -54,7 +78,7 @@ class TestAudioWorkInit(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(url="https://example.com", client=self.mock_client)
+        audio_work = load(AudioWork(url="https://example.com", client=self.mock_client))
         self.assertEqual(audio_work.title, "Test Title")
         self.assertEqual(audio_work.audiowork_dir, DOWNLOAD_PATH / "Test Title")
 
@@ -66,8 +90,10 @@ class TestAudioWorkInit(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(
-            url="https://example.com", title="Test Title", client=self.mock_client
+        audio_work = load(
+            AudioWork(
+                url="https://example.com", title="Test Title", client=self.mock_client
+            )
         )
         self.assertEqual(audio_work.title, "Test Title")
 
@@ -80,7 +106,7 @@ class TestAudioWorkInit(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(url="https://example.com", client=self.mock_client)
+        audio_work = load(AudioWork(url="https://example.com", client=self.mock_client))
         self.assertEqual(audio_work.audiowork_dir, DOWNLOAD_PATH / "Test title")
 
     def test_audiowork_dir_provided(self):
@@ -92,10 +118,12 @@ class TestAudioWorkInit(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(
-            url="https://example.com",
-            audiowork_dir=DOWNLOAD_PATH / "TestTitle",
-            client=self.mock_client,
+        audio_work = load(
+            AudioWork(
+                url="https://example.com",
+                audiowork_dir=DOWNLOAD_PATH / "TestTitle",
+                client=self.mock_client,
+            )
         )
         self.assertEqual(audio_work.audiowork_dir, DOWNLOAD_PATH / "TestTitle")
 
@@ -107,7 +135,7 @@ class TestAudioWorkInit(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(url="https://example.com", client=self.mock_client)
+        audio_work = load(AudioWork(url="https://example.com", client=self.mock_client))
         self.assertFalse(audio_work.series)
         self.assertFalse(audio_work.show)
         self.mock_client.get_audio_uuid.assert_called_once_with(audio_work.url)
@@ -128,7 +156,7 @@ class TestAudioWorkLinks(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertEqual(audio_work.audio_links, [{"link": "test_link"}])
 
     def test_audio_links_not_present(self):
@@ -140,7 +168,7 @@ class TestAudioWorkLinks(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
 
         self.assertIsNone(audio_work.audio_formats)
 
@@ -159,7 +187,7 @@ class TestAudioVariants(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertIsNone(audio_work.audio_formats)
 
     def test_audio_links_is_empty_list(self):
@@ -171,7 +199,7 @@ class TestAudioVariants(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertIsNone(audio_work.audio_formats)
 
     def test_audio_links_has_no_variant_key(self):
@@ -183,7 +211,7 @@ class TestAudioVariants(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertIsNone(audio_work.audio_formats)
 
     def test_audio_links_has_variant_key(self):
@@ -195,7 +223,7 @@ class TestAudioVariants(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertEqual(audio_work.audio_formats, ["mp3", "aac"])
 
     def test_audio_links_is_not_a_list(self):
@@ -207,7 +235,7 @@ class TestAudioVariants(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertIsNone(audio_work.audio_formats)
 
 
@@ -229,7 +257,7 @@ class TestAudioWorkFormats(unittest.TestCase):
                 }
             }
         }
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         expected_result = {
             "aac": "https://example.com/aac.mp4",
             "m4a": "https://example.com/m4a.mp4",
@@ -246,11 +274,13 @@ class TestAudioWorkFormats(unittest.TestCase):
             }
         }
 
-        audio_work = AudioWork(uuid="12345", client=self.mock_client)
+        audio_work = load(AudioWork(uuid="12345", client=self.mock_client))
         self.assertIsNone(audio_work.audio_formats)
 
 
 class TestAudioWorkAlreadyExists(unittest.TestCase):
+    """already_exists() only inspects the disk, so no loading is required."""
+
     def _make_audio_work(self, audiowork_dir, title, remove_accents=False):
         mock_client = mock.Mock()
         mock_client.get_episode_data.return_value = {
@@ -312,7 +342,7 @@ class TestAudioWorkAlreadyExists(unittest.TestCase):
 class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
     """AudioWork must hand `remove_accents` down to every downloader."""
 
-    def _make_audio_work(self, audio_links):
+    async def _make_audio_work(self, audio_links):
         client = mock.Mock()
         client.session = mock.Mock()
         client.get_episode_data.return_value = {
@@ -324,16 +354,18 @@ class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
                 }
             }
         }
-        return AudioWork(
+        audio_work = AudioWork(
             uuid="12345",
             title="Title",
             audiowork_dir=Path("/tmp/unused"),
             remove_accents=True,
             client=client,
         )
+        await audio_work.load()
+        return audio_work
 
     async def test_mp3_receives_remove_accents(self):
-        audio_work = self._make_audio_work([{"variant": "mp3", "url": "u.mp3"}])
+        audio_work = await self._make_audio_work([{"variant": "mp3", "url": "u.mp3"}])
         with mock.patch("crodl.program.audiowork.MP3") as mock_mp3:
             mock_mp3.return_value.download = mock.AsyncMock()
             await audio_work._download_mp3()
@@ -341,7 +373,7 @@ class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(mock_mp3.call_args.kwargs["remove_accents"])
 
     async def test_hls_receives_remove_accents(self):
-        audio_work = self._make_audio_work([{"variant": "hls", "url": "u.m3u8"}])
+        audio_work = await self._make_audio_work([{"variant": "hls", "url": "u.m3u8"}])
         with mock.patch("crodl.program.audiowork.HLS") as mock_hls:
             mock_hls.return_value.download = mock.AsyncMock()
             await audio_work._download_hls()
@@ -349,7 +381,7 @@ class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(mock_hls.call_args.kwargs["remove_accents"])
 
     async def test_dash_receives_remove_accents(self):
-        audio_work = self._make_audio_work([{"variant": "dash", "url": "u.mpd"}])
+        audio_work = await self._make_audio_work([{"variant": "dash", "url": "u.mpd"}])
         with mock.patch("crodl.program.audiowork.DASH") as mock_dash:
             mock_dash.return_value.download = mock.AsyncMock()
             await audio_work._download_dash()
@@ -363,7 +395,7 @@ class TestAudioWorkInfoAndNoIO(unittest.TestCase):
     def _make_audio_work(self, attributes):
         client = mock.Mock()
         client.get_episode_data.return_value = {"data": {"attributes": attributes}}
-        return AudioWork(uuid="12345", title="Title", client=client)
+        return load(AudioWork(uuid="12345", title="Title", client=client))
 
     def test_info_returns_variant_rows(self):
         audio_work = self._make_audio_work(

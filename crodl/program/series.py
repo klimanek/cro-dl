@@ -2,7 +2,7 @@ import os
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from rich.progress import Progress
 
@@ -30,11 +30,46 @@ from crodl.tools.logger import crologger
 class Series(Content):
     download_dir: Optional[Path] = field(default=None)
     remove_accents: bool = False
+    json: Dict[str, Any] = field(default_factory=dict, repr=False)
+    _attrs: Dict[str, Any] = field(default_factory=dict, repr=False)
+    parts: int = 0
+    _episodes_data: list[dict] = field(default_factory=list, repr=False)
 
     def __post_init__(self):
+        """A method that is called after the class is initialized."""
+        self._apply_data()
+
+    def _apply_data(self) -> None:
+        """Derives the fields that depend on the (possibly injected) API data."""
+        if self.json:
+            self._attrs = self.json.get("data", {}).get("attributes", {})
+
+            # Use custom title if provided, otherwise fallback to API title
+            if self.title == "Unknown" or not self.title:
+                self.title = str(self._attrs.get("title", "Unknown"))
+
+            self.parts = int(self._attrs.get("totalParts", 0))
+
+        # Determine download dir (only once the title is known)
+        if not self.download_dir and self.title not in ("", "Unknown"):
+            self.download_dir = (
+                DOWNLOAD_PATH
+                / SERIES_DOWNLOAD_DIR
+                / process_audiowork_title(
+                    self.title, remove_accents=self.remove_accents
+                )
+            )
+
+    async def load(self) -> None:
         """
-        A method that is called after the class is initialized.
+        Fetches the series metadata and its episode list. Safe to call repeatedly.
+
+        Construction is deliberately free of I/O, so the API-derived fields
+        are only reliable after this has been awaited.
         """
+        if self.loaded:
+            return
+
         if not self.uuid and self.url:
             self.uuid = self.client.get_series_id(self.url)
 
@@ -42,19 +77,14 @@ class Series(Content):
             crologger.error("Could not find series UUID for URL: %s", self.url)
             raise ValueError(f"Could not find series UUID for URL: {self.url}")
 
-        self.json = self.client.get_series_data(self.uuid)
+        if not self.json:
+            self.json = self.client.get_series_data(self.uuid)
 
         if not self.json:
             crologger.error("Got an empty response. Series might not be available.")
             raise ValueError("Seriál není dostupný. Zkuste akci opakovat později.")
 
-        self._attrs = self.json.get("data", {}).get("attributes", {})
-
-        # Use custom title if provided, otherwise fallback to API title
-        if self.title == "Unknown" or not self.title:
-            self.title = str(self._attrs.get("title", "Unknown"))
-
-        self.parts = int(self._attrs.get("totalParts", 0))
+        self._apply_data()
 
         crologger.info("Opening series %s", self.title)
         crologger.info("Series ID : %s", self.uuid)
@@ -65,14 +95,10 @@ class Series(Content):
             crologger.error(msg)
             raise ValueError("Seriál není dostupný.")
 
-        if not self.download_dir:
-            self.download_dir = (
-                DOWNLOAD_PATH
-                / SERIES_DOWNLOAD_DIR
-                / process_audiowork_title(
-                    self.title, remove_accents=self.remove_accents
-                )
-            )
+        if not self._episodes_data:
+            self._episodes_data = self._fetch_episodes()
+
+        self.loaded = True
 
     def __str__(self) -> str:
         return f"<Series: {self.title}>"
@@ -128,10 +154,8 @@ class Series(Content):
 
     @property
     def episodes_data(self) -> list[dict]:
-        """
-        A property method that returns the episodes data as a list of dictionaries.
-        """
-        return self._fetch_episodes()
+        """The episodes fetched by `load()`, cached so the API is hit only once."""
+        return self._episodes_data
 
     @property
     def audio_formats(self) -> list[str | None]:
@@ -218,6 +242,8 @@ class Series(Content):
         task_id: Optional[Any] = None,
     ) -> None:
         """Downloads all series episodes in parallel (limited by semaphore)."""
+        await self.load()
+
         if not self.download_dir:
             raise ValueError("Download dir is not set!")
 
