@@ -17,6 +17,8 @@ class HLS(AudioParts):
     Processes a HLS stream using its chunklist.
     """
 
+    extension: str = "aac"
+
     @property
     def chunklist_path(self) -> Path:
         if not self.segments_path:
