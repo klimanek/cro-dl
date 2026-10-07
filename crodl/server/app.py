@@ -46,7 +46,7 @@ async def index(request: Request):
         series = await repo.get_all_series()
         all_episodes = await repo.get_all_episodes()
 
-        unique_collections = {}
+        unique_collections: dict[str, dict] = {}
 
         # 1. Process Series
         for sr in series:
