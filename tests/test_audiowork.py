@@ -1,5 +1,7 @@
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -353,6 +355,72 @@ class TestRemoveAccentsPropagation(unittest.IsolatedAsyncioTestCase):
             await audio_work._download_dash()
 
         self.assertTrue(mock_dash.call_args.kwargs["remove_accents"])
+
+
+class TestAudioWorkInfoAndNoIO(unittest.TestCase):
+    """The core must return data, not print (REFACTORING_TODO item 4)."""
+
+    def _make_audio_work(self, attributes):
+        client = mock.Mock()
+        client.get_episode_data.return_value = {"data": {"attributes": attributes}}
+        return AudioWork(uuid="12345", title="Title", client=client)
+
+    def test_info_returns_variant_rows(self):
+        audio_work = self._make_audio_work(
+            {
+                "since": "2024-08-14T18:05:00+02:00",
+                "audioLinks": [
+                    {
+                        "variant": "mp3",
+                        "bitrate": 128,
+                        "duration": 3600,
+                        "sizeInBytes": 1024,
+                    },
+                    {"variant": "hls", "bitrate": 128, "duration": 3600},
+                ],
+            }
+        )
+
+        self.assertEqual(
+            audio_work.info(),
+            [
+                {
+                    "variant": "mp3",
+                    "bitrate": 128,
+                    "duration_seconds": 3600,
+                    "size_bytes": 1024,
+                },
+                {
+                    "variant": "hls",
+                    "bitrate": 128,
+                    "duration_seconds": 3600,
+                    "size_bytes": None,
+                },
+            ],
+        )
+
+    def test_info_is_empty_without_links(self):
+        audio_work = self._make_audio_work({"since": "2024-08-14T18:05:00+02:00"})
+        self.assertEqual(audio_work.info(), [])
+
+    def test_missing_links_write_nothing_to_stdout(self):
+        audio_work = self._make_audio_work({"since": "2024-08-14T18:05:00+02:00"})
+        buffer = io.StringIO()
+
+        with redirect_stdout(buffer):
+            self.assertIsNone(audio_work.audio_links)
+            self.assertIsNone(audio_work.audio_formats)
+            self.assertEqual(audio_work.info(), [])
+
+        self.assertEqual(buffer.getvalue(), "")
+
+    def test_unavailable_reason_for_aired_episode(self):
+        audio_work = self._make_audio_work({"since": "2024-08-14T18:05:00+02:00"})
+        self.assertIn("14.08.2024", audio_work.unavailable_reason)
+
+    def test_unavailable_reason_for_future_episode(self):
+        audio_work = self._make_audio_work({"since": "2999-01-01T10:00:00+01:00"})
+        self.assertIn("bude uvedena", audio_work.unavailable_reason)
 
 
 if __name__ == "__main__":

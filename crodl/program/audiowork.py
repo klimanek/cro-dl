@@ -3,16 +3,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from rich import print
 from rich.progress import Progress
 
 from crodl.program.content import Content
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3
 from crodl.streams.utils import (
-    HMS,
     create_dir_if_does_not_exist,
-    file_size,
     get_preferred_audio_format,
     not_available_yet,
     process_audiowork_title,
@@ -83,15 +80,15 @@ class AudioWork(Content):
         if audio_links:
             return audio_links
 
-        print(f"❌ {self.title}")
-        err = "Link not found. This episode is not available."
         crologger.error(self.title)
-        crologger.error(err)
-
-        not_yet = not_available_yet(self)
-        print(not_yet)
+        crologger.error("Link not found. This episode is not available.")
 
         return None
+
+    @property
+    def unavailable_reason(self) -> str:
+        """Explains why a work without any audio link cannot be downloaded."""
+        return not_available_yet(self)
 
     @property
     def audio_formats(self) -> list[str] | None:
@@ -123,21 +120,23 @@ class AudioWork(Content):
             return remove_html_tags(str(desc))
         return None
 
-    def info(self):
-        """Display basic info about the audio work."""
-        attrs = self._attrs
-        audio_links = attrs.get("audioLinks", [])
+    def info(self) -> list[dict]:
+        """
+        Returns the available audio variants of the work.
 
-        print(f"\n[bold yellow]{self.title}[/bold yellow]")
-        for alink in audio_links:
-            bitrate = alink.get("bitrate")
-            duration = alink.get("duration")
-            size = alink.get("sizeInBytes", "Stream")
-            variant = alink.get("variant")
-
-            print(f"- {HMS(duration)} - {file_size(size)} - {bitrate} kbps - {variant}")
-
-        print(f"\n[blue]{self.description}[/blue]\n")
+        Formatting (duration, size) is left to the caller so that the core
+        stays free of presentation.
+        """
+        audio_links = self._attrs.get("audioLinks") or []
+        return [
+            {
+                "variant": link.get("variant"),
+                "bitrate": link.get("bitrate"),
+                "duration_seconds": link.get("duration"),
+                "size_bytes": link.get("sizeInBytes"),
+            }
+            for link in audio_links
+        ]
 
     def already_exists(self) -> bool:
         """Checks whether the audiowork already exists on disk."""
@@ -266,7 +265,5 @@ class AudioWork(Content):
                     completed=1,
                     total=1,
                 )
-            else:
-                print(f"{self.title} již existuje.")
 
             crologger.info("%s already exists.", self.title)

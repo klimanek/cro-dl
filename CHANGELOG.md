@@ -8,6 +8,9 @@
   wrappers); `Series` now builds its episode list via the shared
   `extract_episode_info()`.
 - Added direct test coverage for `CroAPIClient` in `tests/test_api_client.py`.
+- The core no longer prints: `AudioWork.info()` returns the audio variants as
+  data and the CLI renders them. A work without any audio link now reports the
+  reason and exits with status 1 instead of failing silently.
 
 ### Removed
 - Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the

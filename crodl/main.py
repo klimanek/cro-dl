@@ -7,9 +7,11 @@ import asyncclick as click
 from rich import print
 
 from crodl import CroDL
+from crodl.program.audiowork import AudioWork
 from crodl.program.series import Series
 from crodl.program.show import Show
 from crodl.settings import AudioFormat
+from crodl.streams.utils import HMS, file_size
 
 
 FORMAT_OPTIONS = {
@@ -33,6 +35,23 @@ def check_ffmpeg() -> bool:
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
         return False
+
+
+def print_audiowork_info(audio_work: AudioWork) -> None:
+    """Renders the available variants and the description of one audio work."""
+    print(f"\n[bold yellow]{audio_work.title}[/bold yellow]")
+
+    for variant in audio_work.info():
+        duration = variant["duration_seconds"]
+        size = variant["size_bytes"]
+        duration_text = HMS(duration) if duration is not None else "--:--:--"
+        size_text = file_size(size) if isinstance(size, int) else "Stream"
+        print(
+            f"- {duration_text} - {size_text} - "
+            f"{variant['bitrate']} kbps - {variant['variant']}"
+        )
+
+    print(f"\n[blue]{audio_work.description}[/blue]\n")
 
 
 @click.command()
@@ -116,7 +135,10 @@ async def download_logic(
         print(f"[bold yellow]{content.title}[/bold yellow]")
         print(f"Stažené díly: {content.downloaded_parts} / {content.parts}")
     else:
-        content.info()
+        print_audiowork_info(content)
+        if not content.audio_formats:
+            print(f"[red]{content.unavailable_reason}[/red]")
+            sys.exit(1)
 
     # Existence check
     if content.already_exists():
