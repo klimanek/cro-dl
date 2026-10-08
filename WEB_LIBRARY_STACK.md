@@ -131,13 +131,19 @@ smysl držet volné, ať si ho SQLAlchemy řídí.
 Co dělá (`crodl/server/run.py`):
 
 ```python
-uvicorn.run("crodl.server.app:app", host="127.0.0.1", port=8000, reload=True)
+uvicorn.run(
+    "crodl.server.app:app",
+    host=SERVER_HOST,
+    port=SERVER_PORT,
+    reload=True,
+)
 ```
 
 - **ASGI server:** vezme aplikaci (`crodl.server.app:app` — instance `FastAPI`), postaví kolem ní
   HTTP server a **event loop**. FastAPI samo o sobě nic neposlouchá, jen definuje aplikaci.
-- **`host="127.0.0.1"`:** server je dostupný **jen z tohoto počítače**. To je záměr — knihovna je
-  osobní (autorská práva) a nemá se vystavovat na LAN/WAN.
+- **`SERVER_HOST` / `SERVER_PORT`** (`crodl/settings.py`): server je dostupný **jen z tohoto
+  počítače**. To je záměr — knihovna je osobní (autorská práva) a nemá se vystavovat na LAN/WAN.
+  Stejné hodnoty používá i CORS politika v `server/app.py`, aby se adresa nerozešla na dvou místech.
 - **`reload=True`:** pro vývoj (při změně souboru se appka restartuje); v „produkci" na vlastním
   stroji klidně vypnout — ušetří to sledování souborů.
 
@@ -160,14 +166,22 @@ python -m crodl.server.run
   FastAPI z `response_model=Episode` vyrobí dokumentaci i serializaci.
 - **Jinja2:** HTML šablony (`server/templates/index.html`, `detail.html`) — server-rendered stránky
   bez JS buildu; do budoucna se nad stejným JSON API dá postavit SPA.
-- **Statické soubory:** stažená média se servírují přes `StaticFiles` pod `/library` (viz „Zbývá" níže).
+- **Statické soubory:** stažená média jdou přes routu `/library/{path}` (`server/app.py`), která pustí
+  jen soubory, jež knihovna zná (`LibraryService.media_file()` → allowlist z DB), a odpovídá
+  `FileResponse` s podporou Range (přehrávač tak umí posouvat).
 
 ---
 
 ## Zbývá dořešit (návaznost na `WEB_LIBRARY_DESIGN.md` §4, fáze D)
 
-- Agregace kolekcí je zatím v route handleru (`server/app.py`) → patří do `LibraryService`.
-- `StaticFiles(directory=DOWNLOAD_PATH)` vystavuje **celý** stažený strom → lepší je allowlist cest
-  podle záznamů v DB.
-- CORS je `allow_origins=["*"]` → stačí `localhost`.
-- `greenlet` si zaslouží komentář v `pyproject.toml` (viz výše).
+Fáze D je **hotová**:
+
+- ✅ Agregace kolekcí je v `LibraryService.overview()` / `detail()`; route handlery jen vykreslují.
+- ✅ `StaticFiles` je pryč: média servíruje `/library/{path}` s allowlistem cest z DB (a `..`/absolutní
+  cesty odmítá), takže `library.db`, logy ani segmentové složky nejsou přes HTTP dostupné.
+- ✅ CORS je omezené na `127.0.0.1`/`localhost` na portu serveru, metody jen `GET`.
+- ✅ `greenlet` má komentář v `pyproject.toml` (viz výše).
+- ✅ Server se binduje jen na `127.0.0.1` (`SERVER_HOST`/`SERVER_PORT` v `settings.py`).
+
+Zbývá **fáze E** (`WEB_LIBRARY_DESIGN.md` §4): dlouhé úlohy s progressem (polling/SSE) a UI pro
+ruční metadata místo dnešního `crodl/library/manual_import.py`.

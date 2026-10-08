@@ -1,6 +1,7 @@
 import uvicorn
 import asyncio
 from crodl.library.database import init_db
+from crodl.settings import SERVER_HOST, SERVER_PORT
 
 
 def start():
@@ -15,7 +16,12 @@ def start():
         asyncio.run(init_db())
 
     # uvicorn.run is synchronous and starts its own event loop for the server
-    uvicorn.run("crodl.server.app:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(
+        "crodl.server.app:app",
+        host=SERVER_HOST,
+        port=SERVER_PORT,
+        reload=True,
+    )
 
 
 if __name__ == "__main__":

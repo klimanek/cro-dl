@@ -13,7 +13,7 @@ from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
-from crodl.settings import DOWNLOAD_PATH
+from crodl.settings import DOWNLOAD_PATH, SERVER_HOST, SERVER_PORT
 
 
 def media_url(path: Optional[str]) -> Optional[str]:
@@ -68,11 +68,15 @@ app = FastAPI(
 # where the app module is imported by the worker process).
 log_readable_paths()
 
-# Enable CORS
+# Enable CORS: the UI is served from this very origin, so only the local
+# addresses the server itself runs on are ever allowed (a future SPA too).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=[
+        f"http://{SERVER_HOST}:{SERVER_PORT}",
+        f"http://localhost:{SERVER_PORT}",
+    ],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 

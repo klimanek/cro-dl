@@ -13,6 +13,11 @@ SUPPORTED_DOMAINS = ("www.mujrozhlas.cz", "mujrozhlas.cz")
 SUPPORTED_AUDIO_FORMATS = ("aac", "m4a")
 AUDIO_FORMATS = SUPPORTED_AUDIO_FORMATS + ("mp3",)
 
+# The local web library: personal use, so it listens on the loopback interface
+# only and neither the CORS policy nor the URLs ever leave the machine.
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 8000
+
 
 class AudioFormat(Enum):
     """The order determines the order of the audio downloads, if available."""
