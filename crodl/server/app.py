@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
+from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
@@ -63,6 +64,10 @@ app = FastAPI(
     description="Local library for Czech Radio downloads",
     version="1.0.0",
 )
+
+# Czech paths in the access log, not percent-escapes (also under --reload,
+# where the app module is imported by the worker process).
+log_readable_paths()
 
 # Enable CORS
 app.add_middleware(

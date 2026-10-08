@@ -14,7 +14,7 @@ crologger.setLevel(logging.DEBUG)
 
 create_log_dir()
 
-logfile = logging.FileHandler(os.path.join(LOG_PATH, "crodl.log"))
+logfile = logging.FileHandler(os.path.join(LOG_PATH, "crodl.log"), encoding="utf-8")
 fileformat = logging.Formatter("%(asctime)s - %(levelname)s - %(module)s - %(message)s")
 logfile.setFormatter(fileformat)
 crologger.addHandler(logfile)
