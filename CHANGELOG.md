@@ -50,6 +50,11 @@
   so `--sync` can adopt them again.
 - "Režim úprav": the edit forms are hidden until the switch in the top bar turns
   them on; a cookie remembers the choice across pages.
+- Watching for new parts: the server asks the content API what each work has now
+  (a moment after start, then every `UPDATE_CHECK_HOURS`, and on demand from the
+  library page via "Zkontrolovat nové díly"). Works with something new carry a
+  badge ("3 nové díly") and a button that downloads exactly those parts - by
+  their uuid, so no page URL is needed - with progress in the downloads list.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
