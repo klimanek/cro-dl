@@ -8,7 +8,9 @@
 </head>
 <body>
     <header>
-        <a href="/" class="back-link">← Zpět do knihovny</a>
+        {% set back = "/" %}
+        {% set back_label = "← Zpět do knihovny" %}
+        {% include "_top.html" %}
         <div class="work">
             {% if media_url(content.image_path) %}
                 <img src="{{ media_url(content.image_path) }}" alt="{{ content.title }}" class="work-cover">
@@ -21,6 +23,7 @@
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
                 </div>
                 <div class="description">{{ content.description }}</div>
+                {% if edit_mode %}
                 <details class="editor">
                     <summary>✏️ Upravit název a popis</summary>
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/edit">
@@ -33,6 +36,7 @@
                         <button type="submit">Uložit</button>
                     </form>
                 </details>
+                {% endif %}
             </div>
         </div>
     </header>
@@ -52,6 +56,7 @@
                 <source src="{{ media_url(ep.local_path) }}" type="audio/mpeg">
                 Tvůj prohlížeč nepodporuje přehrávání.
             </audio>
+            {% if edit_mode %}
             <details class="editor">
                 <summary>✏️ Upravit údaje dílu</summary>
                 <form method="post" action="/detail/{{ type }}/{{ content.id }}/parts/{{ ep.uuid }}/edit">
@@ -67,6 +72,7 @@
                     <button type="submit">Uložit</button>
                 </form>
             </details>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

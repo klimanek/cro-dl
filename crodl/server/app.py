@@ -69,6 +69,14 @@ def edit_mode_on(request: Request) -> bool:
     return request.cookies.get(EDIT_COOKIE) == "1"
 
 
+def local_target(url: str) -> str:
+    """Where a redirect may lead: a page on this server, nothing else."""
+    if not url.startswith("/") or url.startswith("//"):
+        return "/"
+
+    return url
+
+
 # Get the path to the current file to locate templates
 current_dir = os.path.dirname(os.path.realpath(__file__))
 template_dir = os.path.join(current_dir, "templates")
@@ -199,6 +207,22 @@ async def detail(request: Request, ctype: str, content_id: str):
         )
     except Exception as e:
         return PlainTextResponse(str(e), status_code=500)
+
+
+@app.get("/edit-mode")
+async def switch_edit_mode(request: Request, on: str = "0", next: str = "/"):
+    """
+    Show or hide the editing controls.
+
+    A link, not a form: it changes a view preference and nothing else. The choice
+    goes into a cookie so it survives the next page.
+    """
+    response = RedirectResponse(local_target(next), status_code=303)
+    response.set_cookie(
+        EDIT_COOKIE, "1" if on == "1" else "0", httponly=True, samesite="lax"
+    )
+
+    return response
 
 
 @app.post("/downloads")

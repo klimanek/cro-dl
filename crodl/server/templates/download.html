@@ -14,7 +14,9 @@
     {% set state_labels = {"running": "stahuje se", "done": "hotovo", "failed": "selhalo"} %}
 
     <header>
-        <a href="/downloads" class="back-link">← Všechna stahování</a>
+        {% set back = "/downloads" %}
+        {% set back_label = "← Všechna stahování" %}
+        {% include "_top.html" %}
         <h1>{{ job.title or "Stahování" }}</h1>
     </header>
 

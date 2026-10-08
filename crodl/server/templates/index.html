@@ -11,7 +11,12 @@
         <h1>📻 Moje Knihovna</h1>
         <div class="stats">
             {% if collections %}{{ works }} děl, {{ parts_label(parts) }} · {% endif %}
-            <a href="/downloads">Stahování</a>
+            <a href="/downloads">Stahování</a> ·
+            {% if edit_mode %}
+            <a href="/edit-mode?on=0&amp;next={{ request.url.path }}">✓ Hotovo</a>
+            {% else %}
+            <a href="/edit-mode?on=1&amp;next={{ request.url.path }}">✏️ Režim úprav</a>
+            {% endif %}
         </div>
     </header>
 

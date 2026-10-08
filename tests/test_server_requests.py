@@ -10,7 +10,7 @@ import unittest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from crodl.server.app import check_same_origin, form_fields
+from crodl.server.app import check_same_origin, edit_mode_on, form_fields, local_target
 
 
 def request_with(
@@ -18,6 +18,7 @@ def request_with(
     content_type: str = "application/x-www-form-urlencoded",
     host: str = "127.0.0.1:8000",
     origin: str | None = None,
+    cookie: str | None = None,
 ) -> Request:
     """A minimal POST request, the way Starlette hands it to a route."""
     headers = [
@@ -27,6 +28,8 @@ def request_with(
     ]
     if origin is not None:
         headers.append((b"origin", origin.encode()))
+    if cookie is not None:
+        headers.append((b"cookie", cookie.encode()))
 
     scope = {
         "type": "http",
@@ -113,6 +116,27 @@ class TestSameOriginGuard(unittest.TestCase):
     def test_a_request_addressed_elsewhere_is_refused(self):
         with self.assertRaises(HTTPException):
             check_same_origin(request_with(host="192.168.1.10:8000"))
+
+
+class TestLocalTarget(unittest.TestCase):
+    """Where the edit-mode switch may send the browser."""
+
+    def test_a_page_on_this_server_is_kept(self):
+        self.assertEqual(local_target("/detail/series/s-1"), "/detail/series/s-1")
+
+    def test_anything_else_goes_to_the_library(self):
+        # The switch takes its destination from a query string, so it must not
+        # turn into an open redirect.
+        self.assertEqual(local_target("http://evil.example/"), "/")
+        self.assertEqual(local_target("//evil.example/"), "/")
+        self.assertEqual(local_target(""), "/")
+
+
+class TestEditMode(unittest.TestCase):
+    def test_editing_is_off_unless_the_cookie_turns_it_on(self):
+        self.assertFalse(edit_mode_on(request_with()))
+        self.assertFalse(edit_mode_on(request_with(cookie="edit=0")))
+        self.assertTrue(edit_mode_on(request_with(cookie="edit=1")))
 
 
 if __name__ == "__main__":

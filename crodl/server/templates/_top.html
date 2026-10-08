@@ -1,0 +1,8 @@
+<div class="top-bar">
+    <a href="{{ back }}" class="back-link">{{ back_label }}</a>
+    {% if edit_mode %}
+    <a href="/edit-mode?on=0&amp;next={{ request.url.path }}" class="mode-link">✓ Hotovo</a>
+    {% else %}
+    <a href="/edit-mode?on=1&amp;next={{ request.url.path }}" class="mode-link">✏️ Režim úprav</a>
+    {% endif %}
+</div>
