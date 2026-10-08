@@ -44,6 +44,23 @@ class Series(SQLModel, table=True):
     episodes: List["Episode"] = Relationship(back_populates="series")
 
 
+class UpdateCheck(SQLModel, table=True):
+    """
+    What the last look for new parts found.
+
+    Kept in the database so a badge survives a page or a restart: a work whose
+    series has released something since is marked until the parts are fetched
+    (or the work is checked again).
+    """
+
+    # The work in the content API: a series' or a show's uuid.
+    collection_id: str = Field(primary_key=True)
+    collection_type: str
+    checked_at: datetime = Field(default_factory=datetime.now)
+    #: Parts the API has that the library does not.
+    missing: int = 0
+
+
 class Episode(SQLModel, table=True):
     """One downloaded audio work kept in the local library."""
 

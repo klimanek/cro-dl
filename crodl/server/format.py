@@ -67,6 +67,30 @@ def records_label(count: int) -> str:
     return czech_count(count, "záznam", "záznamy", "záznamů")
 
 
+def new_parts_label(count: int) -> str:
+    """Czech for parts a series has released since: 1 nový díl, 3 nové díly."""
+    return czech_count(count, "nový díl", "nové díly", "nových dílů")
+
+
+def check_report(param: str) -> Optional[str]:
+    """
+    What the page says after "Zkontrolovat nové díly".
+
+    The number of works that gained something comes back in the query string, so
+    the note survives the redirect after the check.
+    """
+    if not param.isdigit():
+        return None
+
+    found = int(param)
+    if not found:
+        return "Zkontrolováno: zatím nic nového."
+
+    return (
+        f"Zkontrolováno: u {czech_count(found, 'díla', 'děl', 'děl')} jsou nové díly."
+    )
+
+
 def czech_datetime(value: str | datetime) -> str:
     """A timestamp the way a Czech sentence writes it: 8. října, 2026 v 15:36."""
     moment = value if isinstance(value, datetime) else datetime.fromisoformat(value)

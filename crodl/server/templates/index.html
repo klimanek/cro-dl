@@ -23,7 +23,12 @@
     <form class="add-form" method="post" action="/downloads">
         <input type="text" name="url" placeholder="https://www.mujrozhlas.cz/…" aria-label="Odkaz na dílo">
         <button type="submit">Stáhnout</button>
+        <button type="submit" formaction="/updates/check" title="Zeptat se ČRo, jestli nevyšel nový díl">⟳ Zkontrolovat nové díly</button>
     </form>
+
+    {% if checked %}
+    <p class="note">{{ checked }}</p>
+    {% endif %}
 
     {% if deleted %}
     <p class="note">Smazáno z knihovny: {{ records_label(deleted) }}. Soubory na disku zůstaly.</p>
@@ -42,12 +47,20 @@
                     <div class="card-title">{{ coll.title }}</div>
                     <div class="card-meta">
                         {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
+                        {% if coll.missing %}
+                        <span class="badge">{{ new_parts_label(coll.missing) }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </a>
             <details class="card-menu">
                 <summary title="Akce s dílem">⋯</summary>
                 <div class="card-menu-items">
+                    {% if coll.missing %}
+                    <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/missing">
+                        <button type="submit">⬇ Stáhnout nové díly</button>
+                    </form>
+                    {% endif %}
                     {% if coll.from_api %}
                     <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/refresh">
                         <button type="submit">↻ Aktualizovat data</button>

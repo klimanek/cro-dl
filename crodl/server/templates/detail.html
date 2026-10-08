@@ -21,8 +21,21 @@
                 <h1>{{ content.title }}</h1>
                 <div class="work-meta">
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
+                    {% if content.missing %}
+                    <span class="badge">{{ new_parts_label(content.missing) }}</span>
+                    {% endif %}
                 </div>
                 <div class="description">{{ content.description }}</div>
+                {% if content.missing %}
+                <div class="actions">
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">
+                        <button type="submit">⬇ Stáhnout nové díly</button>
+                    </form>
+                    {% if content.checked_at %}
+                    <span class="job-url">Zkontrolováno {{ czech_datetime(content.checked_at) }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if report %}
                 <p class="note">{{ report }}</p>
                 {% endif %}

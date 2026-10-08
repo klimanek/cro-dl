@@ -10,8 +10,10 @@ is exactly that - the CLI's.
 """
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Optional
 from uuid import uuid4
 
@@ -19,6 +21,8 @@ from rich.progress import Progress
 
 from crodl.facade import CroDL
 from crodl.library.service import LibraryService
+from crodl.library.updates import LibraryUpdates, NewPart
+from crodl.program.content import Collection
 from crodl.tools.logger import crologger
 
 
@@ -53,6 +57,9 @@ class DownloadJob:
     message: str = ""
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: Optional[datetime] = None
+    #: Parts to fetch and how many are through (a job without one work).
+    total: int = 0
+    done: int = 0
     #: The work being downloaded, and the handle on the running task.
     content: Any = field(default=None, repr=False)
     task: Optional[asyncio.Task] = field(default=None, repr=False)
@@ -81,7 +88,8 @@ class DownloadJob:
     def _progress(self) -> tuple[int, int]:
         """Parts on disk against parts expected, read from the work on demand."""
         if self.content is None:
-            return 0, 0
+            # A job that fetches a list of parts counts them itself.
+            return self.done, self.total
 
         try:
             return _parts_downloaded(self.content), _parts_of(self.content)
@@ -116,6 +124,24 @@ class DownloadManager:
     def get(self, job_id: str) -> Optional[DownloadJob]:
         return self._jobs.get(job_id)
 
+    def start_missing(
+        self,
+        title: str,
+        parts: Sequence[NewPart],
+        *,
+        directory: Path,
+        collection: Collection,
+    ) -> DownloadJob:
+        """Queues the parts a work gained since it was downloaded."""
+        job = DownloadJob(id=uuid4().hex[:12], url="", title=f"{title} - nové díly")
+        job.total = len(parts)
+        self._remember(job)
+        job.task = asyncio.create_task(
+            self._run_missing(job, parts, directory, collection)
+        )
+
+        return job
+
     def jobs(self) -> list[DownloadJob]:
         """The jobs, newest first."""
         return list(reversed(self._jobs.values()))
@@ -141,6 +167,44 @@ class DownloadManager:
             crologger.error("Web download failed for %s: %s", job.url, error)
         finally:
             job.finished_at = datetime.now()
+
+    async def _run_missing(
+        self,
+        job: DownloadJob,
+        parts: Sequence[NewPart],
+        directory: Path,
+        collection: Collection,
+    ) -> None:
+        """Fetches the parts a work gained, one after another."""
+        facade = self._facade_factory()
+
+        try:
+            for part in parts:
+                await facade.download_part(
+                    part.uuid,
+                    part.title,
+                    part=part.part,
+                    directory=directory,
+                    collection=collection,
+                    # `rich` is the CLI's display (see `_run`).
+                    progress=Progress(disable=True),
+                )
+                job.done += 1
+
+            job.state = "done"
+            crologger.info("New parts downloaded for %s", collection.title)
+        except Exception as error:  # the UI has to show why it failed
+            job.state = "failed"
+            job.message = str(error)
+            crologger.error("New parts failed for %s: %s", collection.title, error)
+        finally:
+            job.finished_at = datetime.now()
+
+        # The badge would otherwise keep claiming parts that are here now.
+        try:
+            await LibraryUpdates().check_work(collection.type, collection.uuid)
+        except Exception as error:  # a failed re-check must not fail the job
+            crologger.warning("Could not re-check %s: %s", collection.title, error)
 
     def _remember(self, job: DownloadJob) -> None:
         """Keeps the newest jobs; the oldest fall off the end."""

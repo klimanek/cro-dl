@@ -7,6 +7,7 @@ from crodl.program.audiowork import AudioWork
 from crodl.program.content import Collection
 from crodl.program.series import Series
 from crodl.program.show import Show
+from crodl.streams.utils import title_with_part
 from crodl.tools.api_client import CroAPIClient
 from crodl.settings import SUPPORTED_DOMAINS, AudioFormat, PREFERRED_AUDIO_FORMAT
 from crodl.tools.logger import crologger
@@ -97,12 +98,15 @@ class CroDL:
         content: Union[AudioWork, Series, Show],
         audio_format: AudioFormat = PREFERRED_AUDIO_FORMAT,
         progress: Optional[Progress] = None,
+        collection: Optional[Collection] = None,
     ) -> None:
         """
         Starts the download process for the given content.
 
         Finished works are handed to the configured library (if any) through
         the `on_downloaded` hook - the core knows nothing about storage.
+        `collection` is what a part downloaded on its own needs to be filed
+        under its work; a collection downloads its parts itself.
         """
         crologger.info(
             "Starting download for: %s (Format: %s)", content.title, audio_format.value
@@ -111,7 +115,34 @@ class CroDL:
             audio_format=audio_format,
             progress=progress,
             on_downloaded=self._record_download,
+            collection=collection,
         )
+
+    async def download_part(
+        self,
+        uuid: str,
+        title: str,
+        *,
+        part: Optional[int] = None,
+        directory: Optional[Path] = None,
+        collection: Optional[Collection] = None,
+        progress: Optional[Progress] = None,
+    ) -> None:
+        """
+        Downloads one part by its Czech Radio uuid.
+
+        The parts of a series arrive one at a time, and a part fetched on its own
+        has to look like its siblings: named `<part> - <title>` (hence `part`) in
+        the same folder (hence `directory`). A page URL is not needed for this -
+        the API addresses every episode by its uuid.
+        """
+        episode = AudioWork(
+            uuid=uuid,
+            title=title_with_part(title, part) if part else title,
+            audiowork_dir=directory,
+            client=self.client,
+        )
+        await self.download(episode, progress=progress, collection=collection)
 
     async def _record_download(
         self, work: AudioWork, path: Path, collection: Optional[Collection] = None

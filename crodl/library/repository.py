@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from crodl.library.database import async_session_factory
-from crodl.library.models import Episode, Series, Show, Station
+from crodl.library.models import Episode, Series, Show, Station, UpdateCheck
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -105,6 +105,14 @@ class LibraryRepository(DownloadStore, Protocol):
 
     async def set_artwork(self, uuids: Sequence[str], image_path: Path) -> int:
         """Marks stored episodes as having this artwork; returns rows touched."""
+        ...
+
+    async def save_update_check(self, check: UpdateCheck) -> UpdateCheck:
+        """Remembers what the last look for new parts found."""
+        ...
+
+    async def get_update_checks(self) -> Sequence[UpdateCheck]:
+        """Every work's last look for new parts, keyed by the work's id."""
         ...
 
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
@@ -391,7 +399,11 @@ class SqliteLibraryRepository:
         return await self._update_row(Episode, uuid, changes)
 
     async def set_artwork(self, uuids: Sequence[str], image_path: Path) -> int:
-        """Marks stored episodes as having this artwork; returns rows touched."""
+        """
+        Marks stored episodes as having this artwork; returns rows touched.
+
+        Used by the API refresh, which stores one cover for a whole work.
+        """
         if not uuids:
             return 0
 
@@ -410,6 +422,16 @@ class SqliteLibraryRepository:
 
         crologger.info("Library: artwork set for %s rows", len(episodes))
         return len(episodes)
+
+    async def save_update_check(self, check: UpdateCheck) -> UpdateCheck:
+        """Remembers what the last look for new parts found."""
+        return await self._upsert(check)
+
+    async def get_update_checks(self) -> Sequence[UpdateCheck]:
+        """Every work's last look for new parts, keyed by the work's id."""
+        async with self._session_factory() as session:
+            result = await session.execute(select(UpdateCheck))
+            return result.scalars().all()
 
     async def delete_work(self, ctype: str, cid: str) -> int:
         """

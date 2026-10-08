@@ -5,12 +5,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
-from crodl.library.models import Episode
+from crodl.library.models import Episode, UpdateCheck
 from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
+from crodl.library.updates import LibraryUpdates, NewPart
 from crodl.settings import DOWNLOAD_PATH
 
 if TYPE_CHECKING:
@@ -35,6 +36,10 @@ class LibraryItem:
     image_path: Optional[str] = None
     #: Whether a Czech Radio id is behind it (a folder adopted from disk is not).
     from_api: bool = False
+    #: Parts the API has that the library does not (see `LibraryUpdates`).
+    missing: int = 0
+    #: When the work was last looked at for new parts.
+    checked_at: Optional[datetime] = None
 
 
 def order_episodes(episodes: Sequence[Episode]) -> list[Episode]:
@@ -76,12 +81,15 @@ class LibraryService:
         repository: Optional[SqliteLibraryRepository] = None,
         download_path: Path = DOWNLOAD_PATH,
         refresher: Optional[LibraryRefresh] = None,
+        updates: Optional[LibraryUpdates] = None,
     ) -> None:
         self.repository = repository or SqliteLibraryRepository()
         # Where the media the web layer serves live (injectable for tests).
         self.download_path = download_path
         # Asks the content API for what the library is missing (see `refresh`).
         self.refresher = refresher or LibraryRefresh(repository=self.repository)
+        # Looks for parts the Czech Radio has released since (see `check_for_new_parts`).
+        self.updates = updates or LibraryUpdates(repository=self.repository)
         # Parts of one work are downloaded in parallel and share their cover,
         # so a lock per target keeps them from writing the same file twice.
         self._artwork_locks: dict[Path, asyncio.Lock] = {}
@@ -121,6 +129,11 @@ class LibraryService:
                 grouped.setdefault(key, []).append(episode)
 
         items = []
+        checks = {
+            check.collection_id: check
+            for check in await self.repository.get_update_checks()
+        }
+
         for (ctype, cid), parts in grouped.items():
             row = shows.get(cid) if ctype == "show" else series.get(cid)
             items.append(
@@ -132,6 +145,7 @@ class LibraryService:
                     count=len(parts),
                     image_path=self._cover_of(parts),
                     from_api=api_id(cid),
+                    **check_fields(cid, checks),
                 )
             )
 
@@ -181,6 +195,10 @@ class LibraryService:
             return None, []
 
         title = getattr(row, "title", ORPHANS_TITLE)
+        checks = {
+            check.collection_id: check
+            for check in await self.repository.get_update_checks()
+        }
         item = LibraryItem(
             type=ctype,
             id=cid,
@@ -190,6 +208,7 @@ class LibraryService:
             count=len(episodes),
             image_path=self._cover_of(episodes),
             from_api=api_id(cid),
+            **check_fields(cid, checks),
         )
 
         return item, order_episodes(episodes)
@@ -247,6 +266,19 @@ class LibraryService:
         no API record to ask about.
         """
         return await self.refresher.refresh_work(ctype, cid)
+
+    async def check_for_new_parts(self) -> int:
+        """
+        Looks for parts the Czech Radio has released since; returns how many works gained one.
+
+        The answer is remembered, so the grid can show a badge until the parts
+        are fetched (or the work is looked at again).
+        """
+        return await self.updates.check_all()
+
+    async def missing_parts(self, ctype: str, cid: str) -> Optional[list[NewPart]]:
+        """The parts the API has that this work does not."""
+        return await self.updates.missing_parts(ctype, cid)
 
     async def media_file(self, relative_path: str) -> Optional[Path]:
         """
@@ -337,3 +369,13 @@ def collection_key(episode: Episode) -> Optional[tuple[str, str]]:
         return "show", episode.show_id
 
     return None
+
+
+def check_fields(cid: str, checks: Mapping[str, UpdateCheck]) -> dict[str, Any]:
+    """What the last look for new parts says about a work, for `LibraryItem`."""
+    check = checks.get(cid)
+
+    return {
+        "missing": check.missing if check else 0,
+        "checked_at": check.checked_at if check else None,
+    }

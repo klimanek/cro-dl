@@ -25,6 +25,7 @@ from crodl.library.repository import (
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
+from crodl.library.updates import LibraryUpdates
 from crodl.program.content import Collection
 
 # Engines created by `make_repo`, disposed by `InMemoryLibraryTestCase`.
@@ -990,9 +991,15 @@ class TestForgetting(InMemoryLibraryTestCase):
 class FakeApi:
     """Stands in for `CroAPIClient`: hands out the attributes a test set up."""
 
-    def __init__(self, work: dict | None = None, episode: dict | None = None) -> None:
+    def __init__(
+        self,
+        work: dict | None = None,
+        episode: dict | None = None,
+        episodes: list[dict] | None = None,
+    ) -> None:
         self.work = work or {}
         self.episode = episode or {}
+        self.episodes = episodes or []
         self.calls: list[tuple[str, str]] = []
 
     def get_series_data(self, uuid: str) -> dict:
@@ -1006,6 +1013,10 @@ class FakeApi:
     def get_episode_data(self, uuid: str) -> dict:
         self.calls.append(("episode", uuid))
         return {"data": {"attributes": self.episode}}
+
+    def get_related_data(self, url: str) -> dict:
+        self.calls.append(("episodes", url))
+        return {"data": self.episodes}
 
 
 class TestApiId(unittest.TestCase):
@@ -1121,6 +1132,94 @@ class TestRefresh(InMemoryLibraryTestCase):
             service, _ = await self._library(Path(tmp), api)
 
             self.assertIsNone(await service.refresh("series", self.uuid))
+
+
+class TestNewParts(InMemoryLibraryTestCase):
+    """Watching a series for parts the Czech Radio has released since."""
+
+    uuid = "9d0f0f0e-1111-2222-3333-444455556666"
+    stored = "aaaa0001-1111-2222-3333-444455556666"
+
+    def _api(self, parts: int = 3) -> FakeApi:
+        return FakeApi(
+            episodes=[
+                {
+                    "id": f"aaaa{number:04d}-1111-2222-3333-444455556666",
+                    "attributes": {
+                        "title": f"Díl {number}",
+                        "part": number,
+                        "asset": {"url": "https://example.com/cover.jpg"},
+                    },
+                }
+                for number in range(1, parts + 1)
+            ]
+        )
+
+    async def _library(
+        self, repo: SqliteLibraryRepository, api: FakeApi
+    ) -> LibraryService:
+        return LibraryService(
+            repository=repo,
+            updates=LibraryUpdates(repository=repo, client=api),
+        )
+
+    async def _store_one_part(self, repo: SqliteLibraryRepository) -> None:
+        await repo.save_download(
+            FakeWork(uuid=self.stored),
+            Path("/tmp/Seriály/Složka/1 - Díl.mp3"),
+            collection=Collection(uuid=self.uuid, type="series", title="Složka"),
+        )
+
+    async def test_it_finds_the_parts_the_library_does_not_have(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        service = await self._library(repo, self._api(parts=3))
+
+        missing = await service.missing_parts("series", self.uuid)
+
+        self.assertIsNotNone(missing)
+        self.assertEqual([part.part for part in missing or []], [2, 3])
+        self.assertEqual((missing or [])[0].title, "Díl 2")
+        # The image travels along, so the parts can share the work's cover.
+        self.assertEqual((missing or [])[0].asset_url, "https://example.com/cover.jpg")
+
+    async def test_a_work_the_api_cannot_know_is_left_alone(self):
+        repo = await make_repo()
+        service = await self._library(repo, self._api())
+
+        self.assertIsNone(await service.missing_parts("series", "47668695b67d4acd"))
+        self.assertIsNone(await service.missing_parts("orphans", "orphans"))
+
+    async def test_the_finding_is_remembered_for_the_grid(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        service = await self._library(repo, self._api(parts=3))
+
+        await service.check_for_new_parts()
+        items = await service.overview()
+
+        watched = [item for item in items if item.id == self.uuid][0]
+        self.assertEqual(watched.missing, 2)
+        self.assertIsNotNone(watched.checked_at)
+
+    async def test_a_complete_work_reports_nothing_new(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        service = await self._library(repo, self._api(parts=1))
+
+        self.assertEqual(await service.check_for_new_parts(), 0)
+        watched = [item for item in await service.overview() if item.id == self.uuid][0]
+        self.assertEqual(watched.missing, 0)
+
+    async def test_an_api_that_is_away_is_reported_as_nothing_new(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        api = self._api(parts=3)
+        api.get_related_data = mock.Mock(side_effect=OSError("no network"))  # type: ignore[method-assign]
+        service = await self._library(repo, api)
+
+        self.assertIsNone(await service.missing_parts("series", self.uuid))
+        self.assertEqual(await service.check_for_new_parts(), 0)
 
 
 if __name__ == "__main__":

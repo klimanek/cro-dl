@@ -5,9 +5,11 @@ import unittest
 from crodl.server.format import (
     added_line,
     changed_line,
+    check_report,
     czech_count,
     czech_datetime,
     media_url,
+    new_parts_label,
     parts_label,
     records_label,
     refresh_report,
@@ -95,6 +97,28 @@ class TestRefreshReport(unittest.TestCase):
     def test_anything_else_says_nothing(self):
         self.assertIsNone(refresh_report(""))
         self.assertIsNone(refresh_report("nonsense"))
+
+
+class TestCheckReport(unittest.TestCase):
+    """The note the library shows after "Zkontrolovat nové díly"."""
+
+    def test_something_new(self):
+        self.assertEqual(check_report("2"), "Zkontrolováno: u 2 děl jsou nové díly.")
+        self.assertEqual(check_report("1"), "Zkontrolováno: u 1 díla jsou nové díly.")
+
+    def test_nothing_new(self):
+        self.assertEqual(check_report("0"), "Zkontrolováno: zatím nic nového.")
+
+    def test_without_a_check_nothing_is_said(self):
+        self.assertIsNone(check_report(""))
+        self.assertIsNone(check_report("nonsense"))
+
+
+class TestNewPartsLabel(unittest.TestCase):
+    def test_czech_plurals(self):
+        self.assertEqual(new_parts_label(1), "1 nový díl")
+        self.assertEqual(new_parts_label(3), "3 nové díly")
+        self.assertEqual(new_parts_label(14), "14 nových dílů")
 
 
 class TestMediaUrl(unittest.TestCase):

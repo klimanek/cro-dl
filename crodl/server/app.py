@@ -1,5 +1,8 @@
+import asyncio
 import os
 import traceback
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -13,22 +16,32 @@ from fastapi.responses import (
     RedirectResponse,
 )
 
+from crodl.library.database import init_db
+from crodl.library.repository import SqliteLibraryRepository
+from crodl.library.service import LibraryService
+from crodl.library.updates import LibraryUpdates
+from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
 from crodl.server.downloads import downloads
 from crodl.server.format import (
     added_line,
     changed_line,
+    check_report,
     czech_count,
     czech_datetime,
     media_url,
+    new_parts_label,
     parts_label,
     records_label,
     refresh_report,
 )
-from crodl.library.repository import SqliteLibraryRepository
-from crodl.library.service import LibraryService
-from crodl.settings import SERVER_HOST, SERVER_PORT
+from crodl.settings import (
+    SERVER_HOST,
+    SERVER_PORT,
+    UPDATE_CHECK_HOURS,
+)
+from crodl.tools.logger import crologger
 
 # The addresses the server itself runs on: the only origins that may talk to it.
 LOCAL_ORIGINS = [
@@ -53,6 +66,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "media_url": media_url,
         "parts_label": parts_label,
         "records_label": records_label,
+        "new_parts_label": new_parts_label,
         "type_labels": TYPE_LABELS,
         "czech_datetime": czech_datetime,
         "czech_count": czech_count,
@@ -86,10 +100,50 @@ template_dir = os.path.join(current_dir, "templates")
 templates = Jinja2Templates(directory=template_dir)
 templates.context_processors.append(template_helpers)
 
+#: How long to wait after start before the first look for new parts, so that the
+#: server is answering before anything reaches out to the network.
+UPDATE_CHECK_DELAY = 20
+
+
+async def watch_for_new_parts() -> None:
+    """
+    Looks for new parts shortly after start, then every `UPDATE_CHECK_HOURS`.
+
+    Seeing a new episode of a series without asking is the point; a check that
+    fails (the network is away, the API has a bad day) must never take the server
+    down, so it is only logged.
+    """
+    if not UPDATE_CHECK_HOURS:
+        return  # switched off in settings
+
+    await asyncio.sleep(UPDATE_CHECK_DELAY)
+
+    while True:
+        try:
+            await LibraryUpdates().check_all()
+        except Exception as error:
+            crologger.error("The new-parts check failed: %s", error)
+
+        await asyncio.sleep(UPDATE_CHECK_HOURS * 3600)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Make sure the library exists, then watch it for new parts."""
+    await init_db()
+    watcher = asyncio.create_task(watch_for_new_parts())
+
+    try:
+        yield
+    finally:
+        watcher.cancel()
+
+
 app = FastAPI(
     title="CRo-DL Library",
     description="Local library for Czech Radio downloads",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Czech paths in the access log, not percent-escapes (also under --reload,
@@ -189,6 +243,7 @@ async def index(request: Request):
                 "works": len(collections),
                 "parts": sum(item.count for item in collections),
                 "deleted": int(deleted) if deleted.isdigit() else 0,
+                "checked": check_report(request.query_params.get("zkontrolovano", "")),
             },
         )
     except Exception as e:
@@ -233,6 +288,48 @@ async def switch_edit_mode(request: Request, on: str = "0", next: str = "/"):
     )
 
     return response
+
+
+@app.post("/updates/check")
+async def check_new_parts(request: Request):
+    """Look for parts the Czech Radio released since (the watcher does this too)."""
+    check_same_origin(request)
+    found = await library_service().check_for_new_parts()
+
+    return RedirectResponse(f"/?zkontrolovano={found}", status_code=303)
+
+
+@app.post("/detail/{ctype}/{content_id}/missing")
+async def download_new_parts(request: Request, ctype: str, content_id: str):
+    """Queue the parts a work gained since it was downloaded."""
+    check_same_origin(request)
+    service = library_service()
+    parts = await service.missing_parts(ctype, content_id)
+    content, episodes = await service.detail(ctype, content_id)
+
+    if not parts or content is None or not episodes:
+        # Nothing new (or nothing to hang the parts on) - just show the work.
+        return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+
+    job = downloads.start_missing(
+        content.title,
+        parts,
+        # The parts land next to their siblings and belong to the same work.
+        directory=Path(episodes[0].local_path).parent,
+        collection=Collection(
+            uuid=content_id,
+            type=ctype,
+            title=content.title,
+            description=content.description,
+            # The parts share the work's image; without this each would fetch
+            # its own copy next to itself instead of reusing its cover.
+            shared_asset_url=next(
+                (part.asset_url for part in parts if part.asset_url), None
+            ),
+        ),
+    )
+
+    return RedirectResponse(f"/downloads/{job.id}", status_code=303)
 
 
 @app.post("/downloads")
