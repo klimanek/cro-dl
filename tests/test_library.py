@@ -790,5 +790,123 @@ class TestLibraryMedia(InMemoryLibraryTestCase):
         self.assertIsNone(await service.media_file("Seriály/Seriál/3 - Díl.mp3"))
 
 
+class TestCuration(InMemoryLibraryTestCase):
+    """Hand-edited metadata: a work named after its folder gets a real name."""
+
+    async def _service(self) -> tuple[LibraryService, SqliteLibraryRepository]:
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="part-1"),
+            Path("/tmp/Seriály/Složka/1 - Díl.mp3"),
+            collection=Collection(uuid="series-1", type="series", title="Složka"),
+        )
+        return LibraryService(repository=repo), repo
+
+    async def test_a_work_gets_the_name_a_person_gave_it(self):
+        service, repo = await self._service()
+
+        renamed = await service.curate_work(
+            "series",
+            "series-1",
+            {"title": "Bohumil Hrabal: Obsluhoval jsem anglického krále"},
+        )
+
+        self.assertTrue(renamed)
+        row = await repo.get_series("series-1")
+        self.assertEqual(
+            row.title,  # type: ignore[union-attr]
+            "Bohumil Hrabal: Obsluhoval jsem anglického krále",
+        )
+
+    async def test_a_blank_title_leaves_the_work_alone(self):
+        service, repo = await self._service()
+
+        handled = await service.curate_work(
+            "series", "series-1", {"title": "   ", "description": "Popis"}
+        )
+
+        self.assertTrue(handled)
+        row = await repo.get_series("series-1")
+        self.assertEqual(row.title, "Složka")  # type: ignore[union-attr]
+        self.assertEqual(row.description, "Popis")  # type: ignore[union-attr]
+
+    async def test_a_form_without_changes_is_still_a_known_work(self):
+        # The UI posts every field; "nothing changed" must not read as "no such
+        # work" (which the route answers with a 404).
+        service, _ = await self._service()
+
+        self.assertTrue(await service.curate_work("series", "series-1", {}))
+
+    async def test_a_blank_description_clears_it(self):
+        service, repo = await self._service()
+        await service.curate_work(
+            "series", "series-1", {"title": "Název", "description": "Popis"}
+        )
+
+        await service.curate_work(
+            "series", "series-1", {"title": "Název", "description": "   "}
+        )
+
+        row = await repo.get_series("series-1")
+        self.assertIsNone(row.description)  # type: ignore[union-attr]
+
+    async def test_the_grid_shows_the_new_name(self):
+        service, _ = await self._service()
+
+        await service.curate_work("series", "series-1", {"title": "Přejmenovaný"})
+        items = await service.overview()
+
+        self.assertEqual([item.title for item in items], ["Přejmenovaný"])
+
+    async def test_an_unknown_work_is_not_curated(self):
+        service, _ = await self._service()
+
+        self.assertFalse(await service.curate_work("series", "nope", {"title": "X"}))
+        self.assertFalse(
+            await service.curate_work("nonsense", "series-1", {"title": "X"})
+        )
+
+    async def test_a_part_of_a_work_can_be_edited_too(self):
+        service, repo = await self._service()
+
+        edited = await service.curate_part(
+            "part-1",
+            {
+                "title": "Díl první",
+                "author": "Bohumil Hrabal",
+                "description": "Popis dílu",
+            },
+        )
+
+        self.assertTrue(edited)
+        row = await repo.get_episode("part-1")
+        self.assertEqual(row.title, "Díl první")  # type: ignore[union-attr]
+        self.assertEqual(row.author, "Bohumil Hrabal")  # type: ignore[union-attr]
+        self.assertEqual(row.description, "Popis dílu")  # type: ignore[union-attr]
+
+    async def test_editing_keeps_the_rest_of_the_row(self):
+        # `save_download()` would blank these: it builds a whole row and merge()
+        # writes every column, which is why curation updates in place.
+        service, repo = await self._service()
+
+        await service.curate_part("part-1", {"title": "Díl první"})
+
+        row = await repo.get_episode("part-1")
+        self.assertEqual(row.local_path, "/tmp/Seriály/Složka/1 - Díl.mp3")  # type: ignore[union-attr]
+        self.assertEqual(row.series_id, "series-1")  # type: ignore[union-attr]
+        self.assertEqual(row.meta["variants"], ["mp3", "hls"])  # type: ignore[union-attr]
+
+    async def test_only_curated_columns_may_be_written(self):
+        _, repo = await self._service()
+
+        with self.assertRaises(ValueError):
+            await repo.update_episode("part-1", {"local_path": "/tmp/elsewhere.mp3"})
+
+    async def test_editing_an_unknown_part_reports_nothing_happened(self):
+        service, _ = await self._service()
+
+        self.assertFalse(await service.curate_part("nope", {"title": "Díl"}))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 """Library service: connects the core's download hook to storage and artwork."""
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -186,6 +186,41 @@ class LibraryService:
 
         return item, order_episodes(episodes)
 
+    async def curate_work(
+        self, ctype: str, cid: str, fields: Mapping[str, str]
+    ) -> bool:
+        """
+        Applies hand-edited metadata to a work (title, description).
+
+        A work that was adopted from disk is named after its folder; this is how
+        it gets the name a person would give it. A blank title leaves the work as
+        it is - an unnamed work cannot be shown - while a blank description
+        clears what was there. Returns False only when there is no such work.
+        """
+        changes = _changes(fields, ("title", "description"))
+
+        if ctype == "show":
+            row = await self.repository.update_show(cid, changes)
+        elif ctype == "series":
+            row = await self.repository.update_series(cid, changes)
+        else:
+            return False
+
+        return row is not None
+
+    async def curate_part(self, uuid: str, fields: Mapping[str, str]) -> bool:
+        """
+        Applies hand-edited metadata to one part of a work.
+
+        Returns False only when there is no such part.
+        """
+        return (
+            await self.repository.update_episode(
+                uuid, _changes(fields, ("title", "author", "description"))
+            )
+            is not None
+        )
+
     async def media_file(self, relative_path: str) -> Optional[Path]:
         """
         The file the library keeps at `relative_path`, ready to be served.
@@ -239,6 +274,32 @@ class LibraryService:
                 return episode.image_path
 
         return None
+
+
+def _changes(
+    fields: Mapping[str, str], editable: tuple[str, ...]
+) -> dict[str, Optional[str]]:
+    """
+    The columns a form actually changes.
+
+    Values are trimmed and an empty one means "nothing": a blank title is no edit
+    at all (an unnamed work cannot be shown), while a blank author or description
+    clears that column.
+    """
+    changes: dict[str, Optional[str]] = {}
+
+    for field in editable:
+        value = fields.get(field)
+        if value is None:
+            continue
+
+        text = value.strip()
+        if text:
+            changes[field] = text
+        elif field != "title":
+            changes[field] = None
+
+    return changes
 
 
 def collection_key(episode: Episode) -> Optional[tuple[str, str]]:

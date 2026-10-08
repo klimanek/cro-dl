@@ -83,6 +83,22 @@ class LibraryRepository(DownloadStore, Protocol):
         """True when this local file is part of the library and may be served."""
         ...
 
+    async def update_show(self, uuid: str, changes: dict[str, Any]) -> Optional[Show]:
+        """Applies the given columns to a stored show, leaving the rest alone."""
+        ...
+
+    async def update_series(
+        self, uuid: str, changes: dict[str, Any]
+    ) -> Optional[Series]:
+        """Applies the given columns to a stored series, leaving the rest alone."""
+        ...
+
+    async def update_episode(
+        self, uuid: str, changes: dict[str, Any]
+    ) -> Optional[Episode]:
+        """Applies the given columns to a stored episode, leaving the rest alone."""
+        ...
+
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
         """The stored row for a file on disk, whatever key it was saved under."""
         ...
@@ -120,6 +136,10 @@ class SqliteLibraryRepository:
     The session factory is injectable so tests can run against an in-memory
     database instead of the real `~/Z Rozhlasu/library.db`.
     """
+
+    # The only columns hand curation may rewrite: everything else (paths, keys,
+    # durations) comes from the API or from disk.
+    CURATED_FIELDS = frozenset({"title", "author", "description"})
 
     def __init__(
         self,
@@ -329,6 +349,54 @@ class SqliteLibraryRepository:
     async def get_series(self, series_id: str) -> Optional[Series]:
         async with self._session_factory() as session:
             return await session.get(Series, series_id)
+
+    async def update_show(self, uuid: str, changes: dict[str, Any]) -> Optional[Show]:
+        """Applies the given columns to a stored show, leaving the rest alone."""
+        return await self._update_row(Show, uuid, changes)
+
+    async def update_series(
+        self, uuid: str, changes: dict[str, Any]
+    ) -> Optional[Series]:
+        """Applies the given columns to a stored series, leaving the rest alone."""
+        return await self._update_row(Series, uuid, changes)
+
+    async def update_episode(
+        self, uuid: str, changes: dict[str, Any]
+    ) -> Optional[Episode]:
+        """
+        Applies the given columns to a stored episode, leaving the rest alone.
+
+        `save_download()` cannot do this: it builds a whole row from a finished
+        download and `merge()` would blank whatever the caller left out.
+        """
+        return await self._update_row(Episode, uuid, changes)
+
+    async def _update_row(
+        self, model: type[Any], uuid: str, changes: dict[str, Any]
+    ) -> Optional[Any]:
+        """Writes hand-curated columns onto one row; None if it does not exist."""
+        unknown = set(changes) - self.CURATED_FIELDS
+        if unknown:
+            raise ValueError(f"Cannot curate: {', '.join(sorted(unknown))}")
+
+        async with self._lock:
+            async with self._session_factory() as session:
+                row = await session.get(model, uuid)
+
+                if row is None:
+                    return None
+
+                for field, value in changes.items():
+                    setattr(row, field, value)
+
+                if changes:
+                    session.add(row)
+                    await session.commit()
+
+        if changes:
+            crologger.info("Library: curated %s", uuid)
+
+        return row
 
     async def _upsert(self, row: Any) -> Any:
         async with self._lock:

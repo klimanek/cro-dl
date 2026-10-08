@@ -74,6 +74,45 @@
         .episode-title { font-weight: bold; }
         .episode-meta { font-size: 0.8em; color: var(--text-secondary); }
         .episode-player { width: 100%; margin-top: 5px; }
+        .editor {
+            margin-top: 15px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 10px 15px;
+        }
+        .editor summary { cursor: pointer; color: var(--accent); font-size: 0.85em; }
+        .editor form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .editor label {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .editor input, .editor textarea {
+            background-color: var(--bg-color);
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: var(--text-primary);
+            font: inherit;
+            padding: 8px;
+        }
+        .editor button {
+            align-self: flex-start;
+            background-color: var(--accent);
+            border: 0;
+            border-radius: 6px;
+            color: #06210f;
+            cursor: pointer;
+            font: inherit;
+            font-weight: bold;
+            padding: 8px 16px;
+        }
     </style>
 </head>
 <body>
@@ -91,6 +130,18 @@
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
                 </div>
                 <div class="description">{{ content.description }}</div>
+                <details class="editor">
+                    <summary>✏️ Upravit název a popis</summary>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/edit">
+                        <label>Název
+                            <input type="text" name="title" value="{{ content.title }}">
+                        </label>
+                        <label>Popis
+                            <textarea name="description" rows="3">{{ content.description or '' }}</textarea>
+                        </label>
+                        <button type="submit">Uložit</button>
+                    </form>
+                </details>
             </div>
         </div>
     </header>
@@ -110,6 +161,21 @@
                 <source src="{{ media_url(ep.local_path) }}" type="audio/mpeg">
                 Tvůj prohlížeč nepodporuje přehrávání.
             </audio>
+            <details class="editor">
+                <summary>✏️ Upravit údaje dílu</summary>
+                <form method="post" action="/detail/{{ type }}/{{ content.id }}/parts/{{ ep.uuid }}/edit">
+                    <label>Název
+                        <input type="text" name="title" value="{{ ep.title }}">
+                    </label>
+                    <label>Autor
+                        <input type="text" name="author" value="{{ ep.author or '' }}">
+                    </label>
+                    <label>Popis
+                        <textarea name="description" rows="2">{{ ep.description or '' }}</textarea>
+                    </label>
+                    <button type="submit">Uložit</button>
+                </form>
+            </details>
         </div>
         {% endfor %}
     </div>
