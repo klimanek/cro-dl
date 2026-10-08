@@ -16,6 +16,7 @@ from fastapi.responses import (
 
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
+from crodl.server.downloads import downloads
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
 from crodl.settings import DOWNLOAD_PATH, SERVER_HOST, SERVER_PORT
@@ -197,6 +198,45 @@ async def detail(request: Request, ctype: str, content_id: str):
         )
     except Exception as e:
         return PlainTextResponse(str(e), status_code=500)
+
+
+@app.post("/downloads")
+async def start_download(request: Request):
+    """Queue a download and send the browser to its page."""
+    check_same_origin(request)
+    url = (await form_fields(request)).get("url", "").strip()
+
+    if not url:
+        return RedirectResponse("/downloads", status_code=303)
+
+    job = downloads.start(url)
+
+    return RedirectResponse(f"/downloads/{job.id}", status_code=303)
+
+
+@app.get("/downloads", response_class=HTMLResponse)
+async def download_list(request: Request):
+    """The downloads started from here, newest first."""
+    return templates.TemplateResponse(
+        request=request,
+        name="downloads.html",
+        context={"jobs": [job.as_dict() for job in downloads.jobs()]},
+    )
+
+
+@app.get("/downloads/{job_id}", response_class=HTMLResponse)
+async def download_detail(request: Request, job_id: str):
+    """One download; the page refreshes itself while it runs."""
+    job = downloads.get(job_id)
+
+    if job is None:
+        return PlainTextResponse("Not found", status_code=404)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="download.html",
+        context={"job": job.as_dict()},
+    )
 
 
 @app.post("/detail/{ctype}/{content_id}/edit")

@@ -1,0 +1,161 @@
+<style>
+    :root {
+        --bg-color: #121212;
+        --card-bg: #1e1e1e;
+        --text-primary: #ffffff;
+        --text-secondary: #b3b3b3;
+        --accent: #1db954;
+        --danger: #e05555;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        margin: 0;
+        padding: 20px;
+    }
+    h1 { margin: 0; color: var(--accent); font-size: 1.6em; }
+    a { color: var(--accent); }
+    .page-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 20px;
+        margin-bottom: 40px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 20px;
+    }
+    .stats { color: var(--text-secondary); font-size: 0.9em; }
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 25px;
+    }
+    .card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+    }
+    .card:hover { transform: scale(1.03); }
+    .card-img {
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        background-color: #333;
+    }
+    .card-img--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3em;
+    }
+    .card-content { padding: 15px; }
+    .card-title { font-weight: bold; margin-bottom: 5px; }
+    .card-meta { font-size: 0.8em; color: var(--text-secondary); }
+    .work {
+        display: flex;
+        gap: 25px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    .work-cover {
+        width: 220px;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        border-radius: 8px;
+        background-color: #333;
+    }
+    .work-cover--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4em;
+    }
+    .work-info { flex: 1; min-width: 260px; }
+    .work-meta { color: var(--text-secondary); font-size: 0.85em; margin-bottom: 15px; }
+    .description {
+        font-size: 0.9em;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        max-width: 800px;
+        margin-bottom: 15px;
+    }
+    .episode-list, .jobs {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    .episode-item, .job {
+        background-color: var(--card-bg);
+        padding: 15px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .episode-head { display: flex; gap: 12px; align-items: baseline; }
+    .episode-part { color: var(--accent); font-weight: bold; }
+    .episode-title { font-weight: bold; }
+    .episode-meta { font-size: 0.8em; color: var(--text-secondary); }
+    .episode-player { width: 100%; margin-top: 5px; }
+    .job-title { font-weight: bold; }
+    .job-url {
+        color: var(--text-secondary);
+        font-size: 0.8em;
+        word-break: break-all;
+    }
+    .job-state { font-size: 0.85em; }
+    .job-state--failed { color: var(--danger); }
+    .job-state--done { color: var(--accent); }
+    progress {
+        width: 100%;
+        height: 12px;
+        accent-color: var(--accent);
+    }
+    .add-form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+    input[type="text"], input[type="url"], textarea {
+        background-color: var(--bg-color);
+        border: 1px solid #333;
+        border-radius: 6px;
+        color: var(--text-primary);
+        font: inherit;
+        padding: 8px;
+    }
+    .add-form input { flex: 1; min-width: 260px; }
+    button {
+        background-color: var(--accent);
+        border: 0;
+        border-radius: 6px;
+        color: #06210f;
+        cursor: pointer;
+        font: inherit;
+        font-weight: bold;
+        padding: 8px 16px;
+    }
+    .editor {
+        margin-top: 15px;
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        padding: 10px 15px;
+    }
+    .editor summary { cursor: pointer; color: var(--accent); font-size: 0.85em; }
+    .editor form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+    }
+    .editor label {
+        font-size: 0.8em;
+        color: var(--text-secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .editor button { align-self: flex-start; }
+</style>

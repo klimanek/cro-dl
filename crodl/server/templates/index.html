@@ -4,72 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRo-DL Library</title>
-    <style>
-        :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --text-primary: #ffffff;
-            --text-secondary: #b3b3b3;
-            --accent: #1db954; 
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 20px;
-            margin-bottom: 40px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 20px;
-        }
-        h1 { margin: 0; color: var(--accent); font-size: 1.6em; }
-        .stats { color: var(--text-secondary); font-size: 0.9em; }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 25px;
-        }
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            overflow: hidden;
-            transition: transform 0.2s;
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-        }
-        .card:hover { transform: scale(1.03); }
-        .card-img {
-            width: 100%;
-            aspect-ratio: 1/1;
-            object-fit: cover;
-            background-color: #333;
-        }
-        .card-img--placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3em;
-        }
-        .card-content { padding: 15px; }
-        .card-title { font-weight: bold; margin-bottom: 5px; }
-        .card-meta { font-size: 0.8em; color: var(--text-secondary); }
-    </style>
+    {% include "_style.html" %}
 </head>
 <body>
-    <header>
+    <header class="page-head">
         <h1>📻 Moje Knihovna</h1>
-        {% if collections %}
-        <div class="stats">{{ works }} děl, {{ parts_label(parts) }}</div>
-        {% endif %}
+        <div class="stats">
+            {% if collections %}{{ works }} děl, {{ parts_label(parts) }} · {% endif %}
+            <a href="/downloads">Stahování</a>
+        </div>
     </header>
+
+    <form class="add-form" method="post" action="/downloads">
+        <input type="text" name="url" placeholder="https://www.mujrozhlas.cz/…" aria-label="Odkaz na dílo">
+        <button type="submit">Stáhnout</button>
+    </form>
 
     <div class="grid">
         {% for coll in collections %}

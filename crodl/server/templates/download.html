@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ job.title or 'Stahování' }} - CRo-DL</title>
+    {% include "_style.html" %}
+    {% if job.state == "running" %}
+    <!-- A download takes minutes; keep the page honest without any JavaScript. -->
+    <meta http-equiv="refresh" content="3">
+    {% endif %}
+</head>
+<body>
+    {% set state_labels = {"running": "stahuje se", "done": "hotovo", "failed": "selhalo"} %}
+
+    <header>
+        <a href="/downloads" class="back-link">← Všechna stahování</a>
+        <h1>{{ job.title or "Stahování" }}</h1>
+    </header>
+
+    <div class="job">
+        <div class="job-url">{{ job.url }}</div>
+        <div class="job-state job-state--{{ job.state }}">
+            {{ state_labels.get(job.state, job.state) }}
+            {% if job.state == "running" %} · {{ job.done }} / {{ job.total }} dílů{% endif %}
+            {% if job.message %} · {{ job.message }}{% endif %}
+        </div>
+        {% if job.state == "running" %}
+        <progress value="{{ job.done }}" max="{{ job.total or 1 }}"></progress>
+        {% endif %}
+        <div class="job-url">Začato {{ job.started_at }}{% if job.finished_at %} · dokončeno {{ job.finished_at }}{% endif %}</div>
+    </div>
+
+    <p>
+        <a href="/">← Do knihovny</a>
+    </p>
+</body>
+</html>

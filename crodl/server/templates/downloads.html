@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stahování - CRo-DL</title>
+    {% include "_style.html" %}
+</head>
+<body>
+    {% set state_labels = {"running": "stahuje se", "done": "hotovo", "failed": "selhalo"} %}
+
+    <header>
+        <a href="/" class="back-link">← Zpět do knihovny</a>
+        <h1>Stahování</h1>
+    </header>
+
+    <form class="add-form" method="post" action="/downloads">
+        <input type="text" name="url" placeholder="https://www.mujrozhlas.cz/…" aria-label="Odkaz na dílo">
+        <button type="submit">Stáhnout</button>
+    </form>
+
+    {% if jobs %}
+    <div class="jobs">
+        {% for job in jobs %}
+        <div class="job">
+            <a class="job-title" href="/downloads/{{ job.id }}">
+                {{ job.title or job.url }}
+            </a>
+            {% if job.title %}<div class="job-url">{{ job.url }}</div>{% endif %}
+            <div class="job-state job-state--{{ job.state }}">
+                {{ state_labels.get(job.state, job.state) }}
+                {% if job.state == "running" %}
+                    · {{ job.done }} / {{ job.total }} dílů
+                {% endif %}
+                {% if job.message %} · {{ job.message }}{% endif %}
+            </div>
+            {% if job.state == "running" %}
+            <progress value="{{ job.done }}" max="{{ job.total or 1 }}"></progress>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align:center; color: var(--text-secondary);">Zatím se nic nestahuje.</p>
+    {% endif %}
+</body>
+</html>
