@@ -1,8 +1,7 @@
 import os
 import traceback
-from pathlib import Path
-from typing import Any, Optional
-from urllib.parse import parse_qs, quote, urlsplit
+from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,9 +16,17 @@ from fastapi.responses import (
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
 from crodl.server.downloads import downloads
+from crodl.server.format import (
+    added_line,
+    changed_line,
+    czech_count,
+    czech_datetime,
+    media_url,
+    parts_label,
+)
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
-from crodl.settings import DOWNLOAD_PATH, SERVER_HOST, SERVER_PORT
+from crodl.settings import SERVER_HOST, SERVER_PORT
 
 # The addresses the server itself runs on: the only origins that may talk to it.
 LOCAL_ORIGINS = [
@@ -31,41 +38,35 @@ LOCAL_ORIGINS = [
 # interface; a form post has no CORS to stop it (see `check_same_origin`).
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
-
-def media_url(path: Optional[str]) -> Optional[str]:
-    """URL of a file under the download directory, as served on /library."""
-    if not path:
-        return None
-
-    try:
-        relative = Path(os.path.relpath(path, DOWNLOAD_PATH)).as_posix()
-    except ValueError:  # a file on another drive (Windows) has no relative path
-        return None
-
-    return "/library/" + quote(relative)
-
-
-def parts_label(count: int) -> str:
-    """Czech plural of "díl": 1 díl, 3 díly, 12 dílů."""
-    if count == 1:
-        return "1 díl"
-    if 2 <= count <= 4:
-        return f"{count} díly"
-
-    return f"{count} dílů"
-
-
 # Czech names of the kinds of work the library knows.
 TYPE_LABELS = {"show": "Pořad", "series": "Seriál", "orphans": "Bez metadat"}
 
+# The cookie that remembers whether the edit controls are shown.
+EDIT_COOKIE = "edit"
+
 
 def template_helpers(request: Request) -> dict[str, Any]:
-    """What every template can use: media URLs, Czech labels, part counts."""
+    """What every template can use: labels, formatting, the editing mode."""
     return {
         "media_url": media_url,
         "parts_label": parts_label,
         "type_labels": TYPE_LABELS,
+        "czech_datetime": czech_datetime,
+        "czech_count": czech_count,
+        "added_line": added_line,
+        "changed_line": changed_line,
+        "edit_mode": edit_mode_on(request),
     }
+
+
+def edit_mode_on(request: Request) -> bool:
+    """
+    Whether the page should show its editing controls.
+
+    Off by default: the edit forms are there to be reached, not to be looked at
+    on every visit (see the "Režim úprav" switch in the top bar).
+    """
+    return request.cookies.get(EDIT_COOKIE) == "1"
 
 
 # Get the path to the current file to locate templates

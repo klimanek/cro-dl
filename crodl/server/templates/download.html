@@ -28,7 +28,7 @@
         {% if job.state == "running" %}
         <progress value="{{ job.done }}" max="{{ job.total or 1 }}"></progress>
         {% endif %}
-        <div class="job-url">Začato {{ job.started_at }}{% if job.finished_at %} · dokončeno {{ job.finished_at }}{% endif %}</div>
+        <div class="job-url">{{ added_line(job) }}</div>
     </div>
 
     <p>
