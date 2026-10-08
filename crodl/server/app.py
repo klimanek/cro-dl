@@ -1,5 +1,9 @@
 import os
 import traceback
+from pathlib import Path
+from typing import Any, Optional
+from urllib.parse import quote
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,12 +12,51 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from crodl.server.api import router as api_router
 from crodl.library.repository import SqliteLibraryRepository
+from crodl.library.service import LibraryService
 from crodl.settings import DOWNLOAD_PATH
+
+
+def media_url(path: Optional[str]) -> Optional[str]:
+    """URL of a file under the download directory, as served on /library."""
+    if not path:
+        return None
+
+    try:
+        relative = Path(os.path.relpath(path, DOWNLOAD_PATH)).as_posix()
+    except ValueError:  # a file on another drive (Windows) has no relative path
+        return None
+
+    return "/library/" + quote(relative)
+
+
+def parts_label(count: int) -> str:
+    """Czech plural of "díl": 1 díl, 3 díly, 12 dílů."""
+    if count == 1:
+        return "1 díl"
+    if 2 <= count <= 4:
+        return f"{count} díly"
+
+    return f"{count} dílů"
+
+
+# Czech names of the kinds of work the library knows.
+TYPE_LABELS = {"show": "Pořad", "series": "Seriál", "orphans": "Bez metadat"}
+
+
+def template_helpers(request: Request) -> dict[str, Any]:
+    """What every template can use: media URLs, Czech labels, part counts."""
+    return {
+        "media_url": media_url,
+        "parts_label": parts_label,
+        "type_labels": TYPE_LABELS,
+    }
+
 
 # Get the path to the current file to locate templates
 current_dir = os.path.dirname(os.path.realpath(__file__))
 template_dir = os.path.join(current_dir, "templates")
 templates = Jinja2Templates(directory=template_dir)
+templates.context_processors.append(template_helpers)
 
 app = FastAPI(
     title="CRo-DL Library",
@@ -37,125 +80,44 @@ if os.path.exists(DOWNLOAD_PATH):
 app.include_router(api_router, prefix="/api")
 
 
+def library_service() -> LibraryService:
+    """The one place the routes reach the library through."""
+    return LibraryService(repository=SqliteLibraryRepository())
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Render the main library web interface showing unique shows and series."""
+    """Render the library: one card per work, each with its artwork."""
     try:
-        repo = SqliteLibraryRepository()
-        shows = await repo.get_all_shows()
-        series = await repo.get_all_series()
-        all_episodes = await repo.get_all_episodes()
-
-        unique_collections: dict[str, dict] = {}
-
-        # 1. Process Series
-        for sr in series:
-            episodes = await repo.get_episodes_by_series(sr.uuid)
-            if not episodes:
-                continue
-
-            thumb_url = None
-            if episodes[0].image_path:
-                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
-                thumb_url = f"/library/{rel_img}"
-
-            unique_collections[sr.title] = {
-                "type": "series",
-                "id": sr.uuid,
-                "title": sr.title,
-                "thumb_url": thumb_url,
-                "count": len(episodes),
-            }
-
-        # 2. Process Shows
-        for s in shows:
-            if s.title in unique_collections:
-                episodes = await repo.get_episodes_by_show(s.uuid)
-                unique_collections[s.title]["count"] = max(
-                    unique_collections[s.title]["count"], len(episodes)
-                )
-                continue
-
-            episodes = await repo.get_episodes_by_show(s.uuid)
-            if not episodes:
-                continue
-
-            thumb_url = None
-            if episodes[0].image_path:
-                rel_img = os.path.relpath(episodes[0].image_path, DOWNLOAD_PATH)
-                thumb_url = f"/library/{rel_img}"
-
-            unique_collections[s.title] = {
-                "type": "show",
-                "id": s.uuid,
-                "title": s.title,
-                "thumb_url": thumb_url,
-                "count": len(episodes),
-            }
-
-        # 3. Process Orphaned Episodes (Manual Imports)
-        orphans = [e for e in all_episodes if not e.show_id and not e.series_id]
-        if orphans:
-            unique_collections["_orphans"] = {
-                "type": "orphans",
-                "id": "orphans",
-                "title": "Místní soubory",
-                "thumb_url": None,
-                "count": len(orphans),
-            }
+        collections = await library_service().overview()
 
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"collections": list(unique_collections.values())},
+            context={
+                "collections": collections,
+                "works": len(collections),
+                "parts": sum(item.count for item in collections),
+            },
         )
     except Exception as e:
         error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
         return PlainTextResponse(error_msg, status_code=500)
 
 
-@app.get("/detail/{ctype}/{id}", response_class=HTMLResponse)
-async def detail(request: Request, ctype: str, id: str):
-    """Render the detail page for a show, series or orphaned episodes."""
+@app.get("/detail/{ctype}/{content_id}", response_class=HTMLResponse)
+async def detail(request: Request, ctype: str, content_id: str):
+    """Render one work with its parts, ready to play."""
     try:
-        repo = SqliteLibraryRepository()
+        content, episodes = await library_service().detail(ctype, content_id)
 
-        if ctype == "show":
-            content = await repo.get_show(id)
-            episodes = await repo.get_episodes_by_show(id)
-        elif ctype == "series":
-            content = await repo.get_series(id)
-            episodes = await repo.get_episodes_by_series(id)
-        else:
-            # Handle orphaned episodes
-            content = type(
-                "obj",
-                (object,),
-                {
-                    "title": "Místní soubory",
-                    "description": "Soubory importované bez metadat.",
-                },
-            )
-            all_episodes = await repo.get_all_episodes()
-            episodes = [e for e in all_episodes if not e.show_id and not e.series_id]
-
-        if not content:
+        if content is None:
             return PlainTextResponse("Not found", status_code=404)
-
-        processed_episodes = []
-        for ep in episodes:
-            ep_dict = ep.model_dump()
-            try:
-                rel_audio = os.path.relpath(ep.local_path, DOWNLOAD_PATH)
-                ep_dict["audio_url"] = f"/library/{rel_audio}"
-            except Exception:
-                ep_dict["audio_url"] = "#"
-            processed_episodes.append(ep_dict)
 
         return templates.TemplateResponse(
             request=request,
             name="detail.html",
-            context={"content": content, "episodes": processed_episodes, "type": ctype},
+            context={"content": content, "episodes": episodes, "type": ctype},
         )
     except Exception as e:
         return PlainTextResponse(str(e), status_code=500)

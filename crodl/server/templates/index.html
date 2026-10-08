@@ -22,12 +22,14 @@
         header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: baseline;
+            gap: 20px;
             margin-bottom: 40px;
             border-bottom: 1px solid #333;
             padding-bottom: 20px;
         }
-        h1 { margin: 0; color: var(--accent); }
+        h1 { margin: 0; color: var(--accent); font-size: 1.6em; }
+        .stats { color: var(--text-secondary); font-size: 0.9em; }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -50,6 +52,12 @@
             object-fit: cover;
             background-color: #333;
         }
+        .card-img--placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+        }
         .card-content { padding: 15px; }
         .card-title { font-weight: bold; margin-bottom: 5px; }
         .card-meta { font-size: 0.8em; color: var(--text-secondary); }
@@ -58,19 +66,24 @@
 <body>
     <header>
         <h1>📻 Moje Knihovna</h1>
+        {% if collections %}
+        <div class="stats">{{ works }} děl, {{ parts_label(parts) }}</div>
+        {% endif %}
     </header>
 
     <div class="grid">
         {% for coll in collections %}
         <a href="/detail/{{ coll.type }}/{{ coll.id }}" class="card">
-            {% if coll.thumb_url %}
-                <img src="{{ coll.thumb_url }}" alt="{{ coll.title }}" class="card-img">
+            {% if media_url(coll.image_path) %}
+                <img src="{{ media_url(coll.image_path) }}" alt="{{ coll.title }}" class="card-img">
             {% else %}
-                <div class="card-img" style="display:flex; align-items:center; justify-content:center; font-size: 3em;">🎙️</div>
+                <div class="card-img card-img--placeholder">🎙️</div>
             {% endif %}
             <div class="card-content">
                 <div class="card-title">{{ coll.title }}</div>
-                <div class="card-meta">{{ coll.count }} dílů</div>
+                <div class="card-meta">
+                    {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
+                </div>
             </div>
         </a>
         {% endfor %}
