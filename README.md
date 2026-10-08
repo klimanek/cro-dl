@@ -71,8 +71,10 @@ library in `~/Z Rozhlasu/library.db`:
 3. Open <http://127.0.0.1:8000>.
 
 The server listens on `127.0.0.1` only and is meant for personal, local use. It lists shows and
-series with their covers and plays the stored files. See `WEB_LIBRARY_STACK.md` for how the stack
-fits together (SQLModel, SQLAlchemy, uvicorn).
+series with their covers and plays the stored files. `--sync` groups the files it finds into works
+by their folder (the folder name is the work's title), so a download that predates the library shows
+up as a single entry with its parts. See `WEB_LIBRARY_STACK.md` for how the stack fits together
+(SQLModel, SQLAlchemy, uvicorn).
 
 
 <hr />
@@ -168,6 +170,7 @@ knihovnou v `~/Z Rozhlasu/library.db`:
 3. Otevřete <http://127.0.0.1:8000>.
 
 Server poslouchá jen na `127.0.0.1`, tedy pouze na vašem počítači — je určený pro osobní použití.
-Zobrazuje pořady a seriály včetně obalů a umí přehrát uložené soubory. Jak spolu technologicky
-souvisí SQLModel, SQLAlchemy a uvicorn (a proč je v závislostech `greenlet`) popisuje
-`WEB_LIBRARY_STACK.md`.
+Zobrazuje pořady a seriály včetně obalů a umí přehrát uložené soubory. `--sync` seskupí soubory,
+které najde, do děl podle složek (název složky je název díla), takže i stažení starší než knihovna
+se zobrazí jako jeden celek s díly. Jak spolu technologicky souvisí SQLModel, SQLAlchemy a uvicorn
+(a proč je v závislostech `greenlet`) popisuje `WEB_LIBRARY_STACK.md`.

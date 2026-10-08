@@ -14,6 +14,20 @@
   scan (`library/scan.py`), artwork fetching (`library/artwork.py`) and a
   `LibraryService` used by both the hook and the CLI's `--sync` flag.
 - `crodl/server/` (FastAPI + Jinja2) serves the library from `crodl/library/`.
+- A `Collection` value object (`crodl/program/content.py`): a downloaded part now
+  carries the show/series it belongs to, so the library can link the episode and
+  store one cover for a multi-part work instead of one image per part.
+- The disk scan derives works from the download layout: each folder under
+  `~/Z Rozhlasu` becomes a `Show`/`Series` (title = folder name, a series when
+  it sits under `Seriály/`) and its files are linked to it, so `cro-dl --sync`
+  adopts a library that predates the database (existing artwork next to the
+  audio is picked up as well).
+- The web library shows a grid of works - artwork, title, kind and part count -
+  and a detail page with a work's parts, each playable, next to its cover and
+  description. `LibraryService.overview()`/`detail()` own that aggregation and
+  the Czech labels; the routes only render.
+- `crodl/server/access_log.py`: a log filter that prints request paths as text
+  instead of percent-escapes (`Seriály` instead of `Seri%C3%A1ly`).
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -61,6 +75,22 @@
 - `--no-accents` now also applies to the downloaded file name, not just the
   folder: the flag is propagated from `AudioWork` into the MP3/HLS/DASH
   downloaders, so accent-free files are named and found consistently.
+- Artwork downloads failed with an `InvalidURL` even though the image was on the
+  server: the content API nests the image in an `asset` object, and
+  `AudioWork.asset_url` returned `str()` of that dictionary. The URL is now
+  taken from `asset["url"]`.
+- The same image was downloaded once per episode. A work whose parts report one
+  image now stores a single `cover.jpg` (fetched once, reused by every part and
+  on re-runs); parts that bring their own image keep one each, and a single-part
+  work keeps its image next to the audio file.
+- The web library showed only "Místní soubory": episodes were stored without
+  `show_id`/`series_id` and no `Show`/`Series` row was ever created, so every
+  work counted as an orphan. Downloads now store and link their collection, and
+  `--sync` derives collections for files that were already on disk.
+- The server's access log printed percent-escaped paths
+  (`/library/Seri%C3%A1ly/…`); the path is decoded for the terminal now.
+- `crodl.log` is written as UTF-8 instead of the locale codec, which mangled
+  Czech titles on Windows (cp1250).
 
 ## [1.5.2] - 2026-10-06
 
