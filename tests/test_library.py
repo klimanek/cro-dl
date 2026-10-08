@@ -24,6 +24,7 @@ from crodl.library.repository import (
 )
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
+from crodl.library.refresh import LibraryRefresh, api_id
 from crodl.program.content import Collection
 
 # Engines created by `make_repo`, disposed by `InMemoryLibraryTestCase`.
@@ -984,6 +985,142 @@ class TestForgetting(InMemoryLibraryTestCase):
         self.assertEqual(await service.forget("series", "nope"), 0)
         self.assertEqual(await service.forget("nonsense", "nope"), 0)
         self.assertEqual(len(await repo.get_all_episodes()), 2)
+
+
+class FakeApi:
+    """Stands in for `CroAPIClient`: hands out the attributes a test set up."""
+
+    def __init__(self, work: dict | None = None, episode: dict | None = None) -> None:
+        self.work = work or {}
+        self.episode = episode or {}
+        self.calls: list[tuple[str, str]] = []
+
+    def get_series_data(self, uuid: str) -> dict:
+        self.calls.append(("series", uuid))
+        return {"data": {"attributes": self.work}}
+
+    def get_show_data(self, uuid: str) -> dict:
+        self.calls.append(("show", uuid))
+        return {"data": {"attributes": self.work}}
+
+    def get_episode_data(self, uuid: str) -> dict:
+        self.calls.append(("episode", uuid))
+        return {"data": {"attributes": self.episode}}
+
+
+class TestApiId(unittest.TestCase):
+    """A work adopted from disk is keyed by a hash the API has never heard of."""
+
+    def test_a_czech_radio_uuid(self):
+        self.assertTrue(api_id("9d0f0f0e-1111-2222-3333-444455556666"))
+
+    def test_a_scan_hash_and_nothing(self):
+        self.assertFalse(api_id("47668695b67d4acd"))
+        self.assertFalse(api_id(""))
+        self.assertFalse(api_id(None))
+
+
+class TestRefresh(InMemoryLibraryTestCase):
+    """Filling in what the library is missing, from the content API."""
+
+    uuid = "9d0f0f0e-1111-2222-3333-444455556666"
+    part_uuid = "aaaa0001-1111-2222-3333-444455556666"
+
+    async def _library(
+        self, download: Path, api: FakeApi, *, with_image: bool = False
+    ) -> tuple[LibraryService, SqliteLibraryRepository]:
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid=self.part_uuid, author=None, description=None, duration=None),
+            download / "1 - Díl.mp3",
+            image_path=download / "own.jpg" if with_image else None,
+            collection=Collection(uuid=self.uuid, type="series", title="Složka"),
+        )
+        service = LibraryService(
+            repository=repo,
+            download_path=download,
+            refresher=LibraryRefresh(repository=repo, client=api),
+        )
+
+        return service, repo
+
+    async def test_it_fills_what_the_records_have_never_had(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            api = FakeApi(
+                work={"title": "Skutečný název", "description": "<p>Popis seriálu</p>"},
+                episode={
+                    "author": "Bohumil Hrabal",
+                    "description": "Popis dílu",
+                    "duration": 1800,
+                },
+            )
+            service, repo = await self._library(download, api)
+
+            filled = await service.refresh("series", self.uuid)
+
+        self.assertIsNotNone(filled)
+        self.assertEqual(filled.images, 0)  # type: ignore[union-attr]
+        work = await repo.get_series(self.uuid)
+        # The name somebody chose stays; only the empty description is filled in.
+        self.assertEqual(work.title, "Složka")  # type: ignore[union-attr]
+        self.assertEqual(work.description, "Popis seriálu")  # type: ignore[union-attr]
+        episode = await repo.get_episode(self.part_uuid)
+        self.assertEqual(episode.author, "Bohumil Hrabal")  # type: ignore[union-attr]
+        self.assertEqual(episode.description, "Popis dílu")  # type: ignore[union-attr]
+        self.assertEqual(episode.duration, 1800)  # type: ignore[union-attr]
+
+    async def test_the_work_cover_reaches_the_parts_that_have_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            cover = download / "cover.jpg"
+            cover.write_bytes(b"image")
+            api = FakeApi(
+                work={"asset": {"url": "https://example.com/cover.jpg"}},
+                episode={},
+            )
+            service, repo = await self._library(download, api)
+
+            with mock.patch(
+                "crodl.library.refresh.fetch_cover",
+                new=mock.AsyncMock(return_value=cover),
+            ) as fetch:
+                filled = await service.refresh("series", self.uuid)
+
+        self.assertEqual(filled.images, 1)  # type: ignore[union-attr]
+        fetch.assert_not_awaited()  # the file was already there: no download
+        episode = await repo.get_episode(self.part_uuid)
+        self.assertEqual(episode.image_path, str(cover))  # type: ignore[union-attr]
+
+    async def test_a_part_that_has_artwork_keeps_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            api = FakeApi(work={"asset": {"url": "https://example.com/cover.jpg"}})
+            service, repo = await self._library(download, api, with_image=True)
+
+            filled = await service.refresh("series", self.uuid)
+
+        self.assertEqual(filled.images, 0)  # type: ignore[union-attr]
+
+    async def test_nothing_to_ask_about(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            api = FakeApi()
+            service, _ = await self._library(Path(tmp), api)
+
+            # A hash is not a Czech Radio uuid.
+            self.assertIsNone(await service.refresh("series", "47668695b67d4acd"))
+            # And the files without a work have no record either.
+            self.assertIsNone(await service.refresh("orphans", "orphans"))
+
+        self.assertEqual(api.calls, [])
+
+    async def test_an_api_that_is_away_does_not_break_the_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            api = FakeApi()
+            api.get_series_data = mock.Mock(side_effect=OSError("no network"))  # type: ignore[method-assign]
+            service, _ = await self._library(Path(tmp), api)
+
+            self.assertIsNone(await service.refresh("series", self.uuid))
 
 
 if __name__ == "__main__":

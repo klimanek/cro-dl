@@ -23,7 +23,16 @@
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
                 </div>
                 <div class="description">{{ content.description }}</div>
+                {% if report %}
+                <p class="note">{{ report }}</p>
+                {% endif %}
                 {% if edit_mode %}
+                <div class="actions">
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/refresh">
+                        <button type="submit">↻ Aktualizovat data</button>
+                    </form>
+                    <a class="mode-link" href="/detail/{{ type }}/{{ content.id }}/delete">🗑 Smazat z knihovny</a>
+                </div>
                 <details class="editor">
                     <summary>✏️ Upravit název a popis</summary>
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/edit">

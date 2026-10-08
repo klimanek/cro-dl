@@ -24,6 +24,7 @@ from crodl.server.format import (
     media_url,
     parts_label,
     records_label,
+    refresh_report,
 )
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
@@ -207,7 +208,12 @@ async def detail(request: Request, ctype: str, content_id: str):
         return templates.TemplateResponse(
             request=request,
             name="detail.html",
-            context={"content": content, "episodes": episodes, "type": ctype},
+            context={
+                "content": content,
+                "episodes": episodes,
+                "type": ctype,
+                "report": refresh_report(request.query_params.get("obnoveno", "")),
+            },
         )
     except Exception as e:
         return PlainTextResponse(str(e), status_code=500)
@@ -290,6 +296,23 @@ async def curate_part(request: Request, ctype: str, content_id: str, part_id: st
         return PlainTextResponse("Not found", status_code=404)
 
     return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+
+
+@app.post("/detail/{ctype}/{content_id}/refresh")
+async def refresh_work(request: Request, ctype: str, content_id: str):
+    """Ask the content API for what the library is missing about a work."""
+    check_same_origin(request)
+    filled = await library_service().refresh(ctype, content_id)
+
+    if filled is None:
+        return RedirectResponse(
+            f"/detail/{ctype}/{content_id}?obnoveno=none", status_code=303
+        )
+
+    return RedirectResponse(
+        f"/detail/{ctype}/{content_id}?obnoveno={filled.fields}-{filled.images}",
+        status_code=303,
+    )
 
 
 @app.get("/detail/{ctype}/{content_id}/delete", response_class=HTMLResponse)

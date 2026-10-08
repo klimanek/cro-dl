@@ -48,6 +48,11 @@
             <details class="card-menu">
                 <summary title="Akce s dílem">⋯</summary>
                 <div class="card-menu-items">
+                    {% if coll.from_api %}
+                    <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/refresh">
+                        <button type="submit">↻ Aktualizovat data</button>
+                    </form>
+                    {% endif %}
                     <a href="/detail/{{ coll.type }}/{{ coll.id }}/delete">🗑 Smazat z knihovny</a>
                 </div>
             </details>

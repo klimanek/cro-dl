@@ -10,6 +10,7 @@ from crodl.server.format import (
     media_url,
     parts_label,
     records_label,
+    refresh_report,
 )
 from crodl.settings import DOWNLOAD_PATH
 
@@ -74,6 +75,26 @@ class TestChangedLine(unittest.TestCase):
 
     def test_nothing_was_missing(self):
         self.assertIn("Nic k doplnění", changed_line(0, 0))
+
+
+class TestRefreshReport(unittest.TestCase):
+    """The note the detail page shows after "Aktualizovat data"."""
+
+    def test_what_was_filled_in(self):
+        self.assertEqual(refresh_report("2-1"), "Doplněno z API: 2 údaje, 1 obrázek.")
+        self.assertEqual(
+            refresh_report("0-0"), "Nic k doplnění - údaje i obrázek už knihovna má."
+        )
+
+    def test_a_record_the_api_has_never_heard_of(self):
+        report = refresh_report("none")
+
+        self.assertIsNotNone(report)
+        self.assertIn("nemá v API protějšek", report or "")
+
+    def test_anything_else_says_nothing(self):
+        self.assertIsNone(refresh_report(""))
+        self.assertIsNone(refresh_report("nonsense"))
 
 
 class TestMediaUrl(unittest.TestCase):

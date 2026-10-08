@@ -1,0 +1,232 @@
+"""Filling in what the library is missing, from the content API."""
+
+import asyncio
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Mapping, Optional
+
+from crodl.data.attributes import extract_asset_url
+from crodl.library.artwork import cover_path, fetch_cover
+from crodl.library.models import Episode
+from crodl.library.repository import (
+    SqliteLibraryRepository,
+    parse_since,
+    to_naive_utc,
+)
+from crodl.streams.utils import remove_html_tags
+from crodl.tools.api_client import CroAPIClient
+from crodl.tools.logger import crologger
+
+#: What a refresh may take from the API, per episode.
+EPISODE_FIELDS = ("author", "description", "short_title", "duration", "part")
+
+
+@dataclass
+class Refresh:
+    """What asking the API for a work's data changed."""
+
+    fields: int = 0
+    images: int = 0
+
+    @property
+    def changed(self) -> bool:
+        return bool(self.fields or self.images)
+
+
+def api_id(value: Optional[str]) -> bool:
+    """
+    Whether an id could be a Czech Radio uuid.
+
+    A work adopted from disk is keyed by a hash of its path, which the content
+    API has never heard of; those records have nothing to refresh.
+    """
+    return bool(value) and len(value or "") == 36 and (value or "").count("-") == 4
+
+
+class LibraryRefresh:
+    """
+    Asks the content API for what one work is still missing.
+
+    Only *missing* values are written: a title or description somebody edited by
+    hand stays as it is, and an episode that already has artwork keeps it. The
+    API client is synchronous, so its calls are handed to a thread - the server
+    keeps serving the rest of the library while a work is refreshed.
+    """
+
+    def __init__(
+        self,
+        repository: Optional[SqliteLibraryRepository] = None,
+        client: Optional[CroAPIClient] = None,
+    ) -> None:
+        self.repository = repository or SqliteLibraryRepository()
+        self.client = client or CroAPIClient()
+
+    async def refresh_work(self, ctype: str, cid: str) -> Optional[Refresh]:
+        """
+        Fills a work and its parts in from the API; None if there is nothing to ask.
+
+        Returns what was filled in, so the page can say so.
+        """
+        if ctype not in ("show", "series") or not api_id(cid):
+            return None
+
+        work = (
+            await self.repository.get_series(cid)
+            if ctype == "series"
+            else await self.repository.get_show(cid)
+        )
+
+        if work is None:
+            return None
+
+        attributes = await self._attributes(ctype, cid)
+        if attributes is None:
+            return None
+
+        result = Refresh()
+        result.fields += await self._fill_work(ctype, cid, work, attributes)
+
+        episodes = await self._episodes(ctype, cid)
+        result.fields += await self._fill_episodes(episodes)
+        result.images += await self._store_cover(episodes, attributes)
+
+        crologger.info(
+            "Library: refreshed %s (%s fields, %s images)",
+            cid,
+            result.fields,
+            result.images,
+        )
+
+        return result
+
+    async def _attributes(self, ctype: str, cid: str) -> Optional[Mapping[str, Any]]:
+        """The work's attributes, fetched off the event loop."""
+        fetch = (
+            self.client.get_series_data
+            if ctype == "series"
+            else self.client.get_show_data
+        )
+
+        try:
+            data = await asyncio.to_thread(fetch, cid)
+        except Exception as error:  # the API is the network: it may be away
+            crologger.error("Refresh failed for %s: %s", cid, error)
+            return None
+
+        attributes = (data or {}).get("data", {}).get("attributes")
+
+        return attributes if isinstance(attributes, Mapping) else None
+
+    async def _fill_work(
+        self,
+        ctype: str,
+        cid: str,
+        work: Any,
+        attributes: Mapping[str, Any],
+    ) -> int:
+        """Fills the work's own missing title/description."""
+        changes = _missing(work, attributes, ("title", "description"))
+
+        if changes:
+            if ctype == "series":
+                await self.repository.update_series(cid, changes)
+            else:
+                await self.repository.update_show(cid, changes)
+
+        return len(changes)
+
+    async def _fill_episodes(self, episodes: list[Episode]) -> int:
+        """Fills what each part is missing, one API call per part that needs one."""
+        filled = 0
+
+        for episode in episodes:
+            if not api_id(episode.uuid) or not _part_needs_data(episode):
+                continue
+
+            try:
+                data = await asyncio.to_thread(
+                    self.client.get_episode_data, episode.uuid
+                )
+            except Exception as error:
+                crologger.error("Refresh failed for part %s: %s", episode.uuid, error)
+                continue
+
+            attributes = (data or {}).get("data", {}).get("attributes") or {}
+            changes = _missing(episode, attributes, EPISODE_FIELDS)
+
+            if attributes.get("since") and not episode.broadcast_at:
+                changes["broadcast_at"] = to_naive_utc(parse_since(attributes["since"]))
+
+            if changes:
+                await self.repository.update_episode(episode.uuid, changes)
+                filled += len(changes)
+
+        return filled
+
+    async def _store_cover(
+        self, episodes: list[Episode], attributes: Mapping[str, Any]
+    ) -> int:
+        """
+        Stores the work's own cover for the parts that have none.
+
+        One file per work, like the download does: the parts of a work share the
+        image the API reports for it.
+        """
+        url = extract_asset_url(dict(attributes))
+        missing = [episode for episode in episodes if not episode.image_path]
+
+        if not url or not missing:
+            return 0
+
+        folder = Path(episodes[0].local_path).parent
+        target = cover_path(url, folder)
+        cover = target if target.exists() else await fetch_cover(url, folder)
+
+        if cover is None:
+            return 0
+
+        await self.repository.set_artwork([episode.uuid for episode in missing], cover)
+
+        return 1
+
+    async def _episodes(self, ctype: str, cid: str) -> list[Episode]:
+        """The stored parts of a work, in the order the library keeps them."""
+        if ctype == "series":
+            return list(await self.repository.get_episodes_by_series(cid))
+
+        return list(await self.repository.get_episodes_by_show(cid))
+
+
+def _missing(
+    row: Any, attributes: Mapping[str, Any], fields: tuple[str, ...]
+) -> dict[str, Any]:
+    """The fields the row does not have yet but the API can provide."""
+    changes: dict[str, Any] = {}
+
+    for field in fields:
+        if getattr(row, field, None):
+            continue
+
+        value = attributes.get(_api_key(field))
+        if value in (None, ""):
+            continue
+
+        if field == "description":
+            value = remove_html_tags(str(value))
+
+        changes[field] = value
+
+    return changes
+
+
+def _part_needs_data(episode: Episode) -> bool:
+    """Whether asking the API about this part could add anything."""
+    return not (episode.author and episode.description and episode.duration)
+
+
+#: The API's name for the columns we fill in.
+API_KEYS = {"short_title": "shortTitle"}
+
+
+def _api_key(field: str) -> str:
+    return API_KEYS.get(field, field)

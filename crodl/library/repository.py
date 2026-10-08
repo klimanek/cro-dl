@@ -103,6 +103,10 @@ class LibraryRepository(DownloadStore, Protocol):
         """Removes a work (and its parts) from the library; returns rows deleted."""
         ...
 
+    async def set_artwork(self, uuids: Sequence[str], image_path: Path) -> int:
+        """Marks stored episodes as having this artwork; returns rows touched."""
+        ...
+
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
         """The stored row for a file on disk, whatever key it was saved under."""
         ...
@@ -141,9 +145,20 @@ class SqliteLibraryRepository:
     database instead of the real `~/Z Rozhlasu/library.db`.
     """
 
-    # The only columns hand curation may rewrite: everything else (paths, keys,
-    # durations) comes from the API or from disk.
-    CURATED_FIELDS = frozenset({"title", "author", "description"})
+    # The columns hand curation and an API refresh may write: everything else
+    # (paths, ids, formats) comes from the download or from disk and is not
+    # anybody's to edit.
+    EDITABLE_FIELDS = frozenset(
+        {
+            "title",
+            "author",
+            "description",
+            "short_title",
+            "duration",
+            "part",
+            "broadcast_at",
+        }
+    )
 
     def __init__(
         self,
@@ -375,6 +390,27 @@ class SqliteLibraryRepository:
         """
         return await self._update_row(Episode, uuid, changes)
 
+    async def set_artwork(self, uuids: Sequence[str], image_path: Path) -> int:
+        """Marks stored episodes as having this artwork; returns rows touched."""
+        if not uuids:
+            return 0
+
+        async with self._lock:
+            async with self._session_factory() as session:
+                result = await session.execute(
+                    select(Episode).where(col(Episode.uuid).in_(list(uuids)))
+                )
+                episodes = result.scalars().all()
+
+                for episode in episodes:
+                    episode.image_path = str(image_path)
+                    session.add(episode)
+
+                await session.commit()
+
+        crologger.info("Library: artwork set for %s rows", len(episodes))
+        return len(episodes)
+
     async def delete_work(self, ctype: str, cid: str) -> int:
         """
         Removes a work and its parts from the library; returns the rows deleted.
@@ -434,7 +470,7 @@ class SqliteLibraryRepository:
         self, model: type[Any], uuid: str, changes: dict[str, Any]
     ) -> Optional[Any]:
         """Writes hand-curated columns onto one row; None if it does not exist."""
-        unknown = set(changes) - self.CURATED_FIELDS
+        unknown = set(changes) - self.EDITABLE_FIELDS
         if unknown:
             raise ValueError(f"Cannot curate: {', '.join(sorted(unknown))}")
 

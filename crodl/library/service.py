@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
 from crodl.library.models import Episode
+from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
 from crodl.settings import DOWNLOAD_PATH
 
@@ -32,6 +33,8 @@ class LibraryItem:
     count: int = 0
     # Artwork of the work, on disk; the web layer turns it into a URL.
     image_path: Optional[str] = None
+    #: Whether a Czech Radio id is behind it (a folder adopted from disk is not).
+    from_api: bool = False
 
 
 def order_episodes(episodes: Sequence[Episode]) -> list[Episode]:
@@ -72,10 +75,13 @@ class LibraryService:
         self,
         repository: Optional[SqliteLibraryRepository] = None,
         download_path: Path = DOWNLOAD_PATH,
+        refresher: Optional[LibraryRefresh] = None,
     ) -> None:
         self.repository = repository or SqliteLibraryRepository()
         # Where the media the web layer serves live (injectable for tests).
         self.download_path = download_path
+        # Asks the content API for what the library is missing (see `refresh`).
+        self.refresher = refresher or LibraryRefresh(repository=self.repository)
         # Parts of one work are downloaded in parallel and share their cover,
         # so a lock per target keeps them from writing the same file twice.
         self._artwork_locks: dict[Path, asyncio.Lock] = {}
@@ -125,6 +131,7 @@ class LibraryService:
                     description=row.description if row else None,
                     count=len(parts),
                     image_path=self._cover_of(parts),
+                    from_api=api_id(cid),
                 )
             )
 
@@ -182,6 +189,7 @@ class LibraryService:
             or ("Soubory bez metadat." if ctype == ORPHANS else None),
             count=len(episodes),
             image_path=self._cover_of(episodes),
+            from_api=api_id(cid),
         )
 
         return item, order_episodes(episodes)
@@ -229,6 +237,16 @@ class LibraryService:
         `--sync` adopts them again. Returns how many rows were removed.
         """
         return await self.repository.delete_work(ctype, cid)
+
+    async def refresh(self, ctype: str, cid: str) -> Optional[Refresh]:
+        """
+        Asks the content API what this work still has for us.
+
+        Fills in what the library is missing (metadata that a scan could not
+        know, and the artwork whose download failed earlier); None when there is
+        no API record to ask about.
+        """
+        return await self.refresher.refresh_work(ctype, cid)
 
     async def media_file(self, relative_path: str) -> Optional[Path]:
         """

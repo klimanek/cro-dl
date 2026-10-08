@@ -89,14 +89,29 @@
         max-width: 260px;
         padding: 6px;
     }
-    .card-menu-items a {
+    .card-menu-items a,
+    .card-menu-items button {
+        background: none;
+        border: 0;
+        color: var(--accent);
+        cursor: pointer;
         display: block;
+        font: inherit;
         font-size: 0.85em;
         padding: 8px;
+        text-align: left;
         text-decoration: none;
         white-space: nowrap;
+        width: 100%;
     }
-    .card-menu-items a:hover { background-color: #2a2a2a; border-radius: 4px; }
+    .card-menu-items a:hover,
+    .card-menu-items button:hover { background-color: #2a2a2a; border-radius: 4px; }
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 15px;
+    }
     .card-img {
         width: 100%;
         aspect-ratio: 1/1;

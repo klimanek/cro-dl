@@ -103,3 +103,20 @@ def changed_line(fields: int, images: int) -> str:
         parts.append(czech_count(images, "obrázek", "obrázky", "obrázků"))
 
     return "Doplněno z API: " + ", ".join(parts) + "."
+
+
+def refresh_report(param: str) -> Optional[str]:
+    """
+    What the page says after "Aktualizovat data".
+
+    The route hands the outcome over in the query string ("3-1", or "none" for a
+    work the API has never heard of), so the message survives the redirect.
+    """
+    if param == "none":
+        return "Tenhle záznam nemá v API protějšek - nic k doplnění."
+
+    fields, separator, images = param.partition("-")
+    if separator and fields.isdigit() and images.isdigit():
+        return changed_line(int(fields), int(images))
+
+    return None
