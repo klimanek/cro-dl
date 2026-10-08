@@ -28,6 +28,12 @@
   the Czech labels; the routes only render.
 - `crodl/server/access_log.py`: a log filter that prints request paths as text
   instead of percent-escapes (`Seriály` instead of `Seri%C3%A1ly`).
+- An end-to-end test (`tests/test_download_end_to_end.py`): a real
+  `AudioWork.download()` for MP3, HLS and DASH with only the network and ffmpeg
+  stubbed. It checks the file the library is handed (name, container, content),
+  the order the segments were merged in and that the temporary segment folder is
+  gone - the wiring a downloader without a declared container used to slip
+  through.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -54,6 +60,10 @@
   `short_title`, `part` and `duration`, with matching `AudioWork` properties.
   Section 7 of `WEB_LIBRARY_DESIGN.md` records which API the supplied docs
   describe (the broadcasting one) and what still needs modelling.
+- The web library no longer mounts the download directory: media goes through
+  `GET /library/{path}`, which serves only files the library stored. CORS allows
+  just the local addresses the server runs on (`SERVER_HOST`/`SERVER_PORT` in
+  `settings.py`, which `server/run.py` binds to as well), methods `GET` only.
 
 ### Removed
 - `crodl/persistence/` and `crodl/tools/sync.py`, superseded by the single
@@ -91,6 +101,10 @@
   (`/library/Seri%C3%A1ly/…`); the path is decoded for the terminal now.
 - `crodl.log` is written as UTF-8 instead of the locale codec, which mangled
   Czech titles on Windows (cp1250).
+- `library.db`, the log and the segment folders were one URL away: the old
+  `StaticFiles(directory=DOWNLOAD_PATH)` mount published the whole download
+  directory. They answer 404 now, and a path that tries to leave the directory
+  (`..`, an absolute path) is refused.
 
 ## [1.5.2] - 2026-10-06
 
