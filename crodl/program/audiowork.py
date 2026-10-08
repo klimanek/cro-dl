@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 from rich.progress import Progress
 
 from crodl.data.attributes import extract_asset_url
-from crodl.program.content import Content, DownloadedHook
+from crodl.program.content import Collection, Content, DownloadedHook
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3, AudioParts
 from crodl.streams.utils import (
@@ -288,6 +288,7 @@ class AudioWork(Content):
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
         on_downloaded: Optional[DownloadedHook] = None,
+        collection: Optional[Collection] = None,
     ) -> None:
         """Downloads audio and handles storage."""
         await self.load()
@@ -329,7 +330,7 @@ class AudioWork(Content):
                     return
 
             if on_downloaded is not None and downloader is not None:
-                await on_downloaded(self, downloader.output_path)
+                await on_downloaded(self, downloader.output_path, collection)
 
             crologger.info("Done.")
 

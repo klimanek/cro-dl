@@ -8,6 +8,7 @@ from unittest import mock
 
 from crodl.settings import DOWNLOAD_PATH
 from crodl.program.audiowork import AudioWork
+from crodl.program.content import Collection
 from crodl.streams.mp3 import MP3
 
 
@@ -477,13 +478,46 @@ class TestDownloadedHook(unittest.IsolatedAsyncioTestCase):
             )
             recorded = []
 
-            async def hook(work, path):
-                recorded.append((work, path))
+            async def hook(work, path, collection=None):
+                recorded.append((work, path, collection))
 
             with mock.patch.object(MP3, "download", new=mock.AsyncMock()):
                 await audio_work.download(on_downloaded=hook)
 
-            self.assertEqual(recorded, [(audio_work, Path(tmp) / "3 - Díl.mp3")])
+            self.assertEqual(recorded, [(audio_work, Path(tmp) / "3 - Díl.mp3", None)])
+
+    async def test_download_hands_the_collection_to_the_hook(self):
+        """A part of a series must tell the library which series it belongs to."""
+        with tempfile.TemporaryDirectory() as tmp:
+            client = mock.Mock()
+            client.session = mock.Mock()
+            client.get_episode_data.return_value = {
+                "data": {
+                    "attributes": {
+                        "title": "3 - Díl",
+                        "since": "2024-08-14T18:05:00+02:00",
+                        "audioLinks": [{"variant": "mp3", "url": "u.mp3"}],
+                    }
+                }
+            }
+            audio_work = AudioWork(
+                uuid="12345", title="3 - Díl", audiowork_dir=Path(tmp), client=client
+            )
+            collection = Collection(
+                uuid="series-1",
+                type="series",
+                title="Seriál",
+                shared_asset_url="https://example.com/cover.jpg",
+            )
+            recorded = []
+
+            async def hook(work, path, received=None):
+                recorded.append(received)
+
+            with mock.patch.object(MP3, "download", new=mock.AsyncMock()):
+                await audio_work.download(on_downloaded=hook, collection=collection)
+
+            self.assertEqual(recorded, [collection])
 
     async def test_download_without_a_hook_is_fine(self):
         with tempfile.TemporaryDirectory() as tmp:

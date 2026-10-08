@@ -6,9 +6,14 @@ from typing import Optional, Any, Dict
 
 from rich.progress import Progress
 
-from crodl.data.attributes import Attributes, Data, Episodes
+from crodl.data.attributes import Attributes, Data, Episodes, extract_asset_url
 from crodl.program.audiowork import AudioWork
-from crodl.program.content import Content, DownloadedHook
+from crodl.program.content import (
+    Collection,
+    Content,
+    DownloadedHook,
+    shared_artwork_url,
+)
 from crodl.settings import (
     API_SERVER,
     AUDIO_FORMATS,
@@ -19,6 +24,7 @@ from crodl.settings import (
 from crodl.streams.utils import (
     create_dir_if_does_not_exist,
     process_audiowork_title,
+    remove_html_tags,
 )
 from crodl.tools.logger import crologger
 
@@ -100,6 +106,30 @@ class Show(Content):
         self.loaded = True
 
     @property
+    def description(self) -> str | None:
+        """The show's description, with any HTML markup stripped."""
+        if not self.data:
+            return None
+        return remove_html_tags(self.data.attributes.description)
+
+    @property
+    def asset_url(self) -> str | None:
+        """URL of the show's own artwork, if the API provides one."""
+        value = self.json.get("data", {}).get("attributes", {}) if self.json else {}
+        return extract_asset_url(value)
+
+    @property
+    def collection(self) -> Collection:
+        """The show as the library stores it (and the parts link to)."""
+        return Collection(
+            uuid=self.uuid or "",
+            type="show",
+            title=self.title,
+            description=self.description,
+            shared_asset_url=shared_artwork_url(self.episodes.data),
+        )
+
+    @property
     def downloaded_parts(self) -> int:
         crologger.info("Checking whether the show has been already downloaded...")
         if not self.download_dir or not os.path.isdir(self.download_dir):
@@ -128,6 +158,7 @@ class Show(Content):
         semaphore: asyncio.Semaphore,
         progress: Progress,
         on_downloaded: Optional[DownloadedHook] = None,
+        collection: Optional[Collection] = None,
     ) -> None:
         """Helper to download a single episode with semaphore control."""
         async with semaphore:
@@ -141,7 +172,10 @@ class Show(Content):
                 client=self.client,
             )
             await audio_work.download(
-                audio_format, progress=progress, on_downloaded=on_downloaded
+                audio_format,
+                progress=progress,
+                on_downloaded=on_downloaded,
+                collection=collection,
             )
 
     async def download(
@@ -150,6 +184,7 @@ class Show(Content):
         progress: Optional[Progress] = None,
         task_id: Optional[Any] = None,
         on_downloaded: Optional[DownloadedHook] = None,
+        collection: Optional[Collection] = None,
     ) -> None:
         """Downloads all episodes of the show in parallel (limited by semaphore)."""
         await self.load()
@@ -159,11 +194,18 @@ class Show(Content):
 
         create_dir_if_does_not_exist(self.download_dir)
 
+        # The library needs the show itself, not just the single episode.
+        collection = collection or self.collection
         semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent downloads
         if progress:
             tasks = [
                 self._download_episode(
-                    episode, audio_format, semaphore, progress, on_downloaded
+                    episode,
+                    audio_format,
+                    semaphore,
+                    progress,
+                    on_downloaded,
+                    collection,
                 )
                 for episode in self.episodes.info
             ]
@@ -177,6 +219,7 @@ class Show(Content):
                         semaphore,
                         internal_progress,
                         on_downloaded,
+                        collection,
                     )
                     for episode in self.episodes.info
                 ]

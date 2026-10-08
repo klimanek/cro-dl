@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from rich.progress import Progress
 
 from crodl.program.audiowork import AudioWork
+from crodl.program.content import Collection
 from crodl.program.series import Series
 from crodl.program.show import Show
 from crodl.tools.api_client import CroAPIClient
@@ -112,11 +113,16 @@ class CroDL:
             on_downloaded=self._record_download,
         )
 
-    async def _record_download(self, work: AudioWork, path: Path) -> None:
+    async def _record_download(
+        self, work: AudioWork, path: Path, collection: Optional[Collection] = None
+    ) -> None:
         """Hook that stores a finished download in the local library."""
         if self.library is None:
             return
 
         await self.library.save_download(
-            work, path, audio_format=path.suffix.lstrip(".")
+            work,
+            path,
+            audio_format=path.suffix.lstrip("."),
+            collection=collection,
         )
