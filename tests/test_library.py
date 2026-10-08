@@ -326,7 +326,125 @@ class TestLibraryScan(InMemoryLibraryTestCase):
         self.assertEqual(len(episodes), 1)
 
 
-class TestLibraryService(unittest.IsolatedAsyncioTestCase):
+class TestLibraryScanCollections(InMemoryLibraryTestCase):
+    """The scan adopts files that are already on disk, one folder per work."""
+
+    def _series_folder(self, download: Path, name: str = "Seriál") -> Path:
+        # The literal folder cro-dl writes series into (settings.SERIES_DOWNLOAD_DIR).
+        directory = download / "Seriály" / name
+        directory.mkdir(parents=True)
+        for part in (1, 2):
+            (directory / f"{part} - Díl {part}.mp3").write_bytes(b"x")
+        return directory
+
+    def _work_folder(self, download: Path, name: str = "Samostatné dílo") -> Path:
+        directory = download / name
+        directory.mkdir()
+        (directory / f"{name}.mp3").write_bytes(b"x")
+        return directory
+
+    async def test_a_series_folder_becomes_a_series(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            self._series_folder(download)
+
+            results = await LibraryScan(
+                repository=repo, download_path=download
+            ).sync_all()
+
+        self.assertEqual(results, {"success": 2, "failed": 0})
+        works = await repo.get_all_series()
+        self.assertEqual([work.title for work in works], ["Seriál"])
+        self.assertEqual(await repo.get_all_shows(), [])
+        episodes = await repo.get_episodes_by_series(works[0].uuid)
+        self.assertEqual(len(episodes), 2)
+        self.assertTrue(all(episode.is_manual for episode in episodes))
+
+    async def test_a_work_folder_becomes_a_show(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            self._work_folder(download)
+
+            await LibraryScan(repository=repo, download_path=download).sync_all()
+
+        works = await repo.get_all_shows()
+        self.assertEqual([work.title for work in works], ["Samostatné dílo"])
+        self.assertEqual(await repo.get_all_series(), [])
+        episodes = await repo.get_episodes_by_show(works[0].uuid)
+        self.assertEqual([episode.title for episode in episodes], ["Samostatné dílo"])
+
+    async def test_loose_files_in_the_download_root_stay_orphans(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            (download / "Samostatné dílo.aac").write_bytes(b"x")
+
+            await LibraryScan(repository=repo, download_path=download).sync_all()
+
+        self.assertEqual(await repo.get_all_shows(), [])
+        self.assertEqual(await repo.get_all_series(), [])
+        self.assertEqual(len(await repo.get_all_episodes()), 1)
+
+    async def test_a_download_already_in_the_library_is_not_filed_twice(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            folder = self._series_folder(download)
+            path = folder / "1 - Díl 1.mp3"
+            # The same file, already stored under its Czech Radio uuid.
+            await repo.save_download(FakeWork(uuid="cro-uuid", title="Díl"), path)
+
+            await LibraryScan(repository=repo, download_path=download).sync_all()
+
+        episodes = await repo.get_all_episodes()
+        self.assertEqual(len(episodes), 2)
+        stored = await repo.find_episode_by_path(path)
+        self.assertEqual(stored.uuid, "cro-uuid")  # type: ignore[union-attr]
+        self.assertEqual(stored.title, "Díl")  # type: ignore[union-attr]
+        self.assertIsNotNone(stored.series_id)  # type: ignore[union-attr]
+
+    async def test_a_download_that_has_a_work_keeps_it(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            folder = self._series_folder(download)
+            path = folder / "1 - Díl 1.mp3"
+            await repo.save_download(
+                FakeWork(uuid="cro-uuid"), path, series_id="cro-series"
+            )
+
+            await LibraryScan(repository=repo, download_path=download).sync_all()
+
+        stored = await repo.find_episode_by_path(path)
+        self.assertEqual(stored.series_id, "cro-series")  # type: ignore[union-attr]
+        # The folder is adopted as a work of its own for the other part, but
+        # the already linked episode must not move into it.
+        for work in await repo.get_all_series():
+            episodes = await repo.get_episodes_by_series(work.uuid)
+            self.assertNotIn("cro-uuid", [episode.uuid for episode in episodes])
+
+    async def test_artwork_next_to_the_files_is_picked_up(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            download = Path(tmp)
+            folder = self._series_folder(download)
+            cover = folder / "cover.jpg"
+            cover.write_bytes(b"image")
+            single = self._work_folder(download)
+            own_image = single / "Samostatné dílo.jpg"
+            own_image.write_bytes(b"image")
+
+            await LibraryScan(repository=repo, download_path=download).sync_all()
+
+        episodes = {episode.title: episode for episode in await repo.get_all_episodes()}
+        self.assertEqual(str(episodes["Díl 1"].image_path), str(cover))
+        self.assertEqual(str(episodes["Díl 2"].image_path), str(cover))
+        self.assertEqual(str(episodes["Samostatné dílo"].image_path), str(own_image))
+
+
+class TestLibraryService(InMemoryLibraryTestCase):
     async def test_artwork_is_fetched_and_its_path_stored(self):
         repo = await make_repo()
         service = LibraryService(repository=repo)
