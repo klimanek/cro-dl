@@ -43,6 +43,13 @@
   `/downloads` lists them with progress and `/downloads/{id}` refreshes itself
   while one runs. The same is available as JSON through `POST /api/downloads`,
   `GET /api/downloads` and `GET /api/downloads/{id}`.
+- Actions on a work in the grid, behind a ⋯ button that appears on hover:
+  "Aktualizovat data" asks the content API for what the library is missing
+  (metadata, and the artwork whose download failed earlier) and "Smazat
+  z knihovny" removes the records - it asks first and leaves the files on disk,
+  so `--sync` can adopt them again.
+- "Režim úprav": the edit forms are hidden until the switch in the top bar turns
+  them on; a cookie remembers the choice across pages.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -75,6 +82,8 @@
   `settings.py`, which `server/run.py` binds to as well), methods `GET` only.
 - The pages share one stylesheet (`server/templates/_style.html`) instead of
   each carrying its own copy.
+- Timestamps in the UI are written as Czech writes them ("Přidáno 8. října, 2026
+  v 15:36") rather than as ISO strings.
 
 ### Removed
 - `crodl/persistence/` and `crodl/tools/sync.py`, superseded by the single
