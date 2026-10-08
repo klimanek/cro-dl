@@ -25,21 +25,33 @@
         <button type="submit">Stáhnout</button>
     </form>
 
+    {% if deleted %}
+    <p class="note">Smazáno z knihovny: {{ records_label(deleted) }}. Soubory na disku zůstaly.</p>
+    {% endif %}
+
     <div class="grid">
         {% for coll in collections %}
-        <a href="/detail/{{ coll.type }}/{{ coll.id }}" class="card">
-            {% if media_url(coll.image_path) %}
-                <img src="{{ media_url(coll.image_path) }}" alt="{{ coll.title }}" class="card-img">
-            {% else %}
-                <div class="card-img card-img--placeholder">🎙️</div>
-            {% endif %}
-            <div class="card-content">
-                <div class="card-title">{{ coll.title }}</div>
-                <div class="card-meta">
-                    {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
+        <div class="card">
+            <a href="/detail/{{ coll.type }}/{{ coll.id }}" class="card-link">
+                {% if media_url(coll.image_path) %}
+                    <img src="{{ media_url(coll.image_path) }}" alt="{{ coll.title }}" class="card-img">
+                {% else %}
+                    <div class="card-img card-img--placeholder">🎙️</div>
+                {% endif %}
+                <div class="card-content">
+                    <div class="card-title">{{ coll.title }}</div>
+                    <div class="card-meta">
+                        {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
+                    </div>
                 </div>
-            </div>
-        </a>
+            </a>
+            <details class="card-menu">
+                <summary title="Akce s dílem">⋯</summary>
+                <div class="card-menu-items">
+                    <a href="/detail/{{ coll.type }}/{{ coll.id }}/delete">🗑 Smazat z knihovny</a>
+                </div>
+            </details>
+        </div>
         {% endfor %}
     </div>
 

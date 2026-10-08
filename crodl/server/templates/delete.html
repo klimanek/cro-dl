@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smazat z knihovny - CRo-DL</title>
+    {% include "_style.html" %}
+</head>
+<body>
+    <header>
+        {% set back = "/detail/" ~ type ~ "/" ~ content.id %}
+        {% set back_label = "← Zpět na dílo" %}
+        {% include "_top.html" %}
+        <h1>Smazat z knihovny</h1>
+    </header>
+
+    <div class="job">
+        <div class="job-title">{{ content.title }}</div>
+        <div class="job-url">
+            Z knihovny zmizí {{ parts_label(parts) }}.
+            Soubory na disku zůstanou - kdybys je chtěl zpátky, stačí spustit
+            <code>cro-dl --sync</code>.
+        </div>
+        <form class="add-form" method="post" action="/detail/{{ type }}/{{ content.id }}/delete">
+            <button type="submit" class="danger">🗑 Smazat z knihovny</button>
+            <a class="mode-link" href="/detail/{{ type }}/{{ content.id }}">Zrušit</a>
+        </form>
+    </div>
+</body>
+</html>

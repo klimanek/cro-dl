@@ -221,6 +221,15 @@ class LibraryService:
             is not None
         )
 
+    async def forget(self, ctype: str, cid: str) -> int:
+        """
+        Removes a work (or the files that belong to no work) from the library.
+
+        Only the records go: the audio and the covers stay on disk, so a
+        `--sync` adopts them again. Returns how many rows were removed.
+        """
+        return await self.repository.delete_work(ctype, cid)
+
     async def media_file(self, relative_path: str) -> Optional[Path]:
         """
         The file the library keeps at `relative_path`, ready to be served.

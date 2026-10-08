@@ -23,6 +23,7 @@ from crodl.server.format import (
     czech_datetime,
     media_url,
     parts_label,
+    records_label,
 )
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
@@ -50,6 +51,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
     return {
         "media_url": media_url,
         "parts_label": parts_label,
+        "records_label": records_label,
         "type_labels": TYPE_LABELS,
         "czech_datetime": czech_datetime,
         "czech_count": czech_count,
@@ -176,6 +178,7 @@ async def index(request: Request):
     """Render the library: one card per work, each with its artwork."""
     try:
         collections = await library_service().overview()
+        deleted = request.query_params.get("smazano", "")
 
         return templates.TemplateResponse(
             request=request,
@@ -184,6 +187,7 @@ async def index(request: Request):
                 "collections": collections,
                 "works": len(collections),
                 "parts": sum(item.count for item in collections),
+                "deleted": int(deleted) if deleted.isdigit() else 0,
             },
         )
     except Exception as e:
@@ -286,3 +290,27 @@ async def curate_part(request: Request, ctype: str, content_id: str, part_id: st
         return PlainTextResponse("Not found", status_code=404)
 
     return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+
+
+@app.get("/detail/{ctype}/{content_id}/delete", response_class=HTMLResponse)
+async def confirm_delete(request: Request, ctype: str, content_id: str):
+    """Ask before a work leaves the library."""
+    content, episodes = await library_service().detail(ctype, content_id)
+
+    if content is None:
+        return PlainTextResponse("Not found", status_code=404)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="delete.html",
+        context={"content": content, "type": ctype, "parts": len(episodes)},
+    )
+
+
+@app.post("/detail/{ctype}/{content_id}/delete")
+async def delete_work(request: Request, ctype: str, content_id: str):
+    """Remove a work from the library; the files on disk stay where they are."""
+    check_same_origin(request)
+    removed = await library_service().forget(ctype, content_id)
+
+    return RedirectResponse(f"/?smazano={removed}", status_code=303)

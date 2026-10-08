@@ -99,6 +99,10 @@ class LibraryRepository(DownloadStore, Protocol):
         """Applies the given columns to a stored episode, leaving the rest alone."""
         ...
 
+    async def delete_work(self, ctype: str, cid: str) -> int:
+        """Removes a work (and its parts) from the library; returns rows deleted."""
+        ...
+
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
         """The stored row for a file on disk, whatever key it was saved under."""
         ...
@@ -370,6 +374,61 @@ class SqliteLibraryRepository:
         download and `merge()` would blank whatever the caller left out.
         """
         return await self._update_row(Episode, uuid, changes)
+
+    async def delete_work(self, ctype: str, cid: str) -> int:
+        """
+        Removes a work and its parts from the library; returns the rows deleted.
+
+        Only the library's records go - the audio and the covers stay on disk, so
+        a `--sync` would adopt them again. `ctype` is "show", "series", or
+        "orphans" for the files that belong to no work.
+        """
+        if ctype not in ("show", "series", "orphans"):
+            return 0
+
+        async with self._lock:
+            async with self._session_factory() as session:
+                row: Any = None
+                if ctype == "show":
+                    row = await session.get(Show, cid)
+                elif ctype == "series":
+                    row = await session.get(Series, cid)
+
+                if ctype != "orphans" and row is None:
+                    return 0
+
+                episodes = await self._episodes_of(session, ctype, cid)
+
+                for episode in episodes:
+                    await session.delete(episode)
+                if row is not None:
+                    await session.delete(row)
+
+                await session.commit()
+
+        deleted = len(episodes) + (1 if row is not None else 0)
+        crologger.info("Library: removed %s (%s rows)", cid, deleted)
+
+        return deleted
+
+    async def _episodes_of(
+        self, session: AsyncSession, ctype: str, cid: str
+    ) -> Sequence[Episode]:
+        """The parts of a work, or the files that belong to no work at all."""
+        if ctype == "orphans":
+            # `col()` for the same reason as in the ordering above: on the class
+            # the attribute reads as a value, not as a column to compare.
+            condition = col(Episode.show_id).is_(None) & col(Episode.series_id).is_(
+                None
+            )
+        elif ctype == "series":
+            condition = Episode.series_id == cid
+        else:
+            condition = Episode.show_id == cid
+
+        result = await session.execute(select(Episode).where(condition))
+
+        return result.scalars().all()
 
     async def _update_row(
         self, model: type[Any], uuid: str, changes: dict[str, Any]

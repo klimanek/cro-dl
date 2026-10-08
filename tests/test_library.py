@@ -908,5 +908,83 @@ class TestCuration(InMemoryLibraryTestCase):
         self.assertFalse(await service.curate_part("nope", {"title": "Díl"}))
 
 
+class TestForgetting(InMemoryLibraryTestCase):
+    """Deleting a record from the library - the files stay on disk."""
+
+    async def _seed(self, repo: SqliteLibraryRepository) -> Path:
+        audio = Path("/tmp/Seriály/Seriál/1 - Díl.mp3")
+        await repo.save_download(
+            FakeWork(uuid="part-1"),
+            audio,
+            collection=Collection(uuid="series-1", type="series", title="Seriál"),
+        )
+        await repo.save_download(FakeWork(uuid="part-2"), Path("/tmp/Volný.mp3"))
+        return audio
+
+    async def test_a_work_leaves_the_library_with_its_parts(self):
+        repo = await make_repo()
+        await self._seed(repo)
+        service = LibraryService(repository=repo)
+
+        removed = await service.forget("series", "series-1")
+
+        self.assertEqual(removed, 2)  # the work and its one part
+        self.assertIsNone(await repo.get_series("series-1"))
+        self.assertEqual(
+            [episode.uuid for episode in await repo.get_all_episodes()], ["part-2"]
+        )
+
+    async def test_the_other_works_are_left_alone(self):
+        repo = await make_repo()
+        await self._seed(repo)
+        await repo.save_download(
+            FakeWork(uuid="other"),
+            Path("/tmp/Jiný/1 - Díl.mp3"),
+            collection=Collection(uuid="series-2", type="series", title="Jiný"),
+        )
+        service = LibraryService(repository=repo)
+
+        await service.forget("series", "series-1")
+
+        self.assertEqual(
+            [e.uuid for e in await repo.get_episodes_by_series("series-2")], ["other"]
+        )
+
+    async def test_the_files_on_disk_are_not_touched(self):
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            audio = Path(tmp) / "1 - Díl.mp3"
+            audio.write_bytes(b"audio")
+            await repo.save_download(
+                FakeWork(uuid="part-1"),
+                audio,
+                collection=Collection(uuid="series-1", type="series", title="Seriál"),
+            )
+            service = LibraryService(repository=repo)
+
+            await service.forget("series", "series-1")
+
+            self.assertTrue(audio.exists())
+
+    async def test_the_files_without_a_work_can_be_removed(self):
+        repo = await make_repo()
+        await self._seed(repo)
+        service = LibraryService(repository=repo)
+
+        removed = await service.forget("orphans", "orphans")
+
+        self.assertEqual(removed, 1)
+        self.assertEqual([e.uuid for e in await repo.get_all_episodes()], ["part-1"])
+
+    async def test_an_unknown_work_removes_nothing(self):
+        repo = await make_repo()
+        await self._seed(repo)
+        service = LibraryService(repository=repo)
+
+        self.assertEqual(await service.forget("series", "nope"), 0)
+        self.assertEqual(await service.forget("nonsense", "nope"), 0)
+        self.assertEqual(len(await repo.get_all_episodes()), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

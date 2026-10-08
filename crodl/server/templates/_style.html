@@ -36,6 +36,15 @@
     .back-link { text-decoration: none; color: var(--accent); font-size: 0.9em; }
     .mode-link { font-size: 0.85em; text-decoration: none; }
     .mode-link:hover { text-decoration: underline; }
+    .note {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        color: var(--text-secondary);
+        font-size: 0.9em;
+        margin-bottom: 25px;
+        padding: 12px 15px;
+    }
+    .danger { background-color: var(--danger); color: #fff; }
     .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -46,12 +55,48 @@
         border-radius: 8px;
         overflow: hidden;
         transition: transform 0.2s;
-        text-decoration: none;
-        color: inherit;
         display: flex;
         flex-direction: column;
+        position: relative;
     }
     .card:hover { transform: scale(1.03); }
+    .card-link { text-decoration: none; color: inherit; display: block; }
+    /* The actions stay out of sight until the pointer is on the card. */
+    .card-menu {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        visibility: hidden;
+    }
+    .card:hover .card-menu, .card-menu[open] { visibility: visible; }
+    .card-menu summary {
+        background-color: rgba(0, 0, 0, 0.65);
+        border-radius: 50%;
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 1.1em;
+        line-height: 1;
+        list-style: none;
+        padding: 6px 10px;
+    }
+    .card-menu summary::-webkit-details-marker { display: none; }
+    .card-menu-items {
+        background-color: var(--card-bg);
+        border: 1px solid #333;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        margin-top: 6px;
+        max-width: 260px;
+        padding: 6px;
+    }
+    .card-menu-items a {
+        display: block;
+        font-size: 0.85em;
+        padding: 8px;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .card-menu-items a:hover { background-color: #2a2a2a; border-radius: 4px; }
     .card-img {
         width: 100%;
         aspect-ratio: 1/1;
