@@ -543,5 +543,41 @@ class TestAudioWorkMetadataProperties(unittest.TestCase):
         self.assertIsNone(audio_work.part)
 
 
+class TestAudioWorkAssetUrl(unittest.TestCase):
+    """The episode's artwork URL, as the log from the real library showed it."""
+
+    def _make(self, attributes):
+        client = mock.Mock()
+        client.get_episode_data.return_value = {"data": {"attributes": attributes}}
+        return load(AudioWork(uuid="12345", title="Title", client=client))
+
+    def test_nested_asset_object_yields_its_url(self):
+        # Regression: str() of the asset dict used to be handed to the
+        # downloader, which failed with an "InvalidURL" on every episode.
+        audio_work = self._make(
+            {
+                "since": "2024-08-14T18:05:00+02:00",
+                "asset": {
+                    "id": "4a588db5-ced8-3baa-87e3-041acdc45483",
+                    "url": "https://portal.rozhlas.cz/images/02fd4cae.jpg",
+                    "width": 3620,
+                    "height": 2277,
+                    "focal_point": "55,92",
+                    "credit": {"source": "Prodimedia"},
+                    "inherited": True,
+                },
+            }
+        )
+
+        self.assertEqual(
+            audio_work.asset_url, "https://portal.rozhlas.cz/images/02fd4cae.jpg"
+        )
+
+    def test_asset_url_is_none_without_api_data(self):
+        audio_work = self._make({"since": "2024-08-14T18:05:00+02:00"})
+
+        self.assertIsNone(audio_work.asset_url)
+
+
 if __name__ == "__main__":
     unittest.main()

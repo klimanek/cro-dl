@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 
 from rich.progress import Progress
 
+from crodl.data.attributes import extract_asset_url
 from crodl.program.content import Content, DownloadedHook
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3, AudioParts
@@ -147,8 +148,7 @@ class AudioWork(Content):
     @property
     def asset_url(self) -> str | None:
         """URL of the work's artwork (thumbnail), if the API provides one."""
-        value = self._attrs.get("asset")
-        return str(value) if value else None
+        return extract_asset_url(self._attrs)
 
     @property
     def short_title(self) -> str | None:
