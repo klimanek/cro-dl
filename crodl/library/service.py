@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Optional
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
 from crodl.library.models import Episode
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
+from crodl.settings import DOWNLOAD_PATH
 
 if TYPE_CHECKING:
     from crodl.program.content import Collection
@@ -67,8 +68,14 @@ class LibraryService:
     library shows, so the route handlers stay free of domain logic.
     """
 
-    def __init__(self, repository: Optional[SqliteLibraryRepository] = None) -> None:
+    def __init__(
+        self,
+        repository: Optional[SqliteLibraryRepository] = None,
+        download_path: Path = DOWNLOAD_PATH,
+    ) -> None:
         self.repository = repository or SqliteLibraryRepository()
+        # Where the media the web layer serves live (injectable for tests).
+        self.download_path = download_path
         # Parts of one work are downloaded in parallel and share their cover,
         # so a lock per target keeps them from writing the same file twice.
         self._artwork_locks: dict[Path, asyncio.Lock] = {}
@@ -178,6 +185,26 @@ class LibraryService:
         )
 
         return item, order_episodes(episodes)
+
+    async def media_file(self, relative_path: str) -> Optional[Path]:
+        """
+        The file the library keeps at `relative_path`, ready to be served.
+
+        Only what the library stored is handed out - the download directory also
+        holds the segment folders, the log and the database itself, none of which
+        belong in a URL. A path that tries to leave that directory is refused.
+        """
+        parts = Path(relative_path).parts
+
+        if Path(relative_path).is_absolute() or ".." in parts:
+            return None
+
+        target = self.download_path.joinpath(*parts)
+
+        if not target.is_file() or not await self.repository.knows_file(target):
+            return None
+
+        return target
 
     async def _artwork(
         self,

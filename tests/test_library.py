@@ -728,5 +728,67 @@ class TestLibraryDetail(InMemoryLibraryTestCase):
         self.assertEqual([episode.uuid for episode in episodes], ["a"])
 
 
+class TestLibraryMedia(InMemoryLibraryTestCase):
+    """What the web layer may hand out: the files the library stored, no more."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.download = Path(self._tmp.name)
+        self.folder = self.download / "Seriály" / "Seriál"
+        self.folder.mkdir(parents=True)
+        self.audio = self.folder / "3 - Díl.mp3"
+        self.audio.write_bytes(b"audio")
+        self.cover = self.folder / "cover.jpg"
+        self.cover.write_bytes(b"image")
+        # Things that live in the same directory without being the library's.
+        (self.download / "library.db").write_bytes(b"database")
+        (self.download / "logs").mkdir()
+        (self.download / "logs" / "crodl.log").write_bytes(b"log")
+
+    async def _service(self) -> LibraryService:
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="part-3"),
+            self.audio,
+            image_path=self.cover,
+            collection=Collection(uuid="series-1", type="series", title="Seriál"),
+        )
+        return LibraryService(repository=repo, download_path=self.download)
+
+    async def test_a_stored_audio_file_is_served(self):
+        service = await self._service()
+
+        self.assertEqual(
+            await service.media_file("Seriály/Seriál/3 - Díl.mp3"), self.audio
+        )
+
+    async def test_the_artwork_of_a_stored_work_is_served(self):
+        service = await self._service()
+
+        self.assertEqual(
+            await service.media_file("Seriály/Seriál/cover.jpg"), self.cover
+        )
+
+    async def test_a_file_the_library_does_not_know_is_not_served(self):
+        service = await self._service()
+
+        self.assertIsNone(await service.media_file("library.db"))
+        self.assertIsNone(await service.media_file("logs/crodl.log"))
+
+    async def test_a_path_outside_the_download_directory_is_refused(self):
+        service = await self._service()
+
+        self.assertIsNone(await service.media_file("../library.db"))
+        self.assertIsNone(await service.media_file("Seriály/../../library.db"))
+        self.assertIsNone(await service.media_file("/etc/passwd"))
+
+    async def test_a_stored_file_that_is_gone_from_disk_is_not_served(self):
+        service = await self._service()
+        self.audio.unlink()
+
+        self.assertIsNone(await service.media_file("Seriály/Seriál/3 - Díl.mp3"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -79,6 +79,10 @@ class LibraryRepository(DownloadStore, Protocol):
         """Returns every work kept in the library."""
         ...
 
+    async def knows_file(self, path: Path) -> bool:
+        """True when this local file is part of the library and may be served."""
+        ...
+
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
         """The stored row for a file on disk, whatever key it was saved under."""
         ...
@@ -192,6 +196,25 @@ class SqliteLibraryRepository:
                 select(Episode).where(Episode.local_path == str(path))
             )
             return result.scalars().first()
+
+    async def knows_file(self, path: Path) -> bool:
+        """
+        True when this local file is part of the library, so it may be served.
+
+        Audio is stored as `local_path`, artwork as `image_path`. Everything
+        else in the download directory - the segment folders, the log, the
+        database itself - is not in here and stays out of reach.
+        """
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(Episode)
+                .where(
+                    (Episode.local_path == str(path))
+                    | (Episode.image_path == str(path))
+                )
+                .limit(1)
+            )
+            return result.scalars().first() is not None
 
     async def link_episode(self, uuid: str, collection: Optional["Collection"]) -> None:
         """

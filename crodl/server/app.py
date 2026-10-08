@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
@@ -77,10 +76,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve downloaded files
-if os.path.exists(DOWNLOAD_PATH):
-    app.mount("/library", StaticFiles(directory=str(DOWNLOAD_PATH)), name="library")
-
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
@@ -88,6 +83,24 @@ app.include_router(api_router, prefix="/api")
 def library_service() -> LibraryService:
     """The one place the routes reach the library through."""
     return LibraryService(repository=SqliteLibraryRepository())
+
+
+@app.get("/library/{path:path}")
+async def media(path: str):
+    """
+    Serve one downloaded file.
+
+    The download directory is not mounted as a whole: it also holds the segment
+    folders, the log and `library.db`, and those have no business being URLs.
+    Only files the library stored - and files inside the directory - get through.
+    """
+    target = await library_service().media_file(path)
+
+    if target is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # FileResponse answers Range requests, so the player can seek.
+    return FileResponse(target)
 
 
 @app.get("/", response_class=HTMLResponse)
