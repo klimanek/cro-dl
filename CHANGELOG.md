@@ -34,6 +34,15 @@
   the order the segments were merged in and that the temporary segment folder is
   gone - the wiring a downloader without a declared container used to slip
   through.
+- Editing metadata by hand: a work's title and description, and each part's
+  title, author and description, are editable on the detail page (a work adopted
+  from disk is named after its folder until then). Curation writes in place and
+  only the columns a person may touch.
+- Downloading from the web library: a field on the home page takes a
+  mujrozhlas.cz link, the download runs in the background (up to 20 jobs kept),
+  `/downloads` lists them with progress and `/downloads/{id}` refreshes itself
+  while one runs. The same is available as JSON through `POST /api/downloads`,
+  `GET /api/downloads` and `GET /api/downloads/{id}`.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -64,6 +73,8 @@
   `GET /library/{path}`, which serves only files the library stored. CORS allows
   just the local addresses the server runs on (`SERVER_HOST`/`SERVER_PORT` in
   `settings.py`, which `server/run.py` binds to as well), methods `GET` only.
+- The pages share one stylesheet (`server/templates/_style.html`) instead of
+  each carrying its own copy.
 
 ### Removed
 - `crodl/persistence/` and `crodl/tools/sync.py`, superseded by the single
