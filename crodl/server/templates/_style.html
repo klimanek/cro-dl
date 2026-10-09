@@ -298,13 +298,14 @@
     .card-content { padding: 15px; }
     .card-title { font-weight: bold; margin-bottom: 5px; }
     .card-meta { font-size: 0.8em; color: var(--text-secondary); }
-    /* The detail page: the work (its cover, description and actions) on the left,
-       its parts on the right; one column again when the window is narrow. */
+    /* The detail page: the work - its cover, description and the editing forms -
+       takes most of the page, with the parts in a column of their own beside it;
+       one column again when the window is narrow. */
     .work-layout {
         align-items: start;
         display: grid;
         gap: 24px;
-        grid-template-columns: minmax(240px, 320px) 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
     }
     @media (max-width: 820px) {
         .work-layout { grid-template-columns: 1fr; }
@@ -323,6 +324,7 @@
     }
     .work-cover {
         width: 100%;
+        max-width: 360px;
         aspect-ratio: 1/1;
         object-fit: cover;
         border-radius: 8px;

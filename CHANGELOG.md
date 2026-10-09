@@ -95,12 +95,13 @@
   there are more than a few the rest fold into a dropdown.
 
 ### Changed
-- The detail page is laid out as two columns: the cover, the description and the
-  actions on the left, the parts on the right. A part is one line on a wide
-  window - its name, then when it aired and how long it runs, then the play icon -
-  and on a narrow one the three go under each other again, the way they used to.
-  The play control is a small plain triangle (22×20px, no box or colour around
-  it, the accent only on hover) instead of a green circle.
+- The detail page is laid out as two columns: the work - its cover, description and
+  the editing forms - takes most of the width, with the parts in a column beside
+  it (320-420px, the cover capped at 360px). A part is one line on a wide window -
+  its name, then when it aired and how long it runs, then the play icon - and on a
+  narrow one the three go under each other again, the way they used to. The play
+  control is a small plain triangle (22×20px, no box or colour around it, the
+  accent only on hover) instead of a green circle.
 - An image dropped into a work's folder (`cover.jpg`) was not picked up by the
   library: the refresh only ever asked the content API, and for a work the API
   cannot describe (a folder adopted from disk) it did not look at the disk at all
