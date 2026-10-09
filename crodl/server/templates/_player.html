@@ -1,0 +1,15 @@
+{# The player that stays at the bottom of every page (see static/player.js). #}
+<div class="player-bar" id="player-bar" hidden>
+    <button type="button" id="player-prev" class="player-button" aria-label="Předchozí díl">⏮</button>
+    <button type="button" id="player-play" class="player-button player-button--main" aria-label="Přehrát">▶</button>
+    <button type="button" id="player-next" class="player-button" aria-label="Další díl">⏭</button>
+    <div class="player-text">
+        <div class="player-title" id="player-title"></div>
+        <div class="player-work" id="player-work"></div>
+    </div>
+    <input type="range" id="player-seek" class="player-seek" min="0" max="100" value="0" aria-label="Posun v nahrávce">
+    <span class="player-count" id="player-count"></span>
+    <button type="button" id="player-clear" class="player-button" aria-label="Vyprázdnit frontu">✕</button>
+    <audio id="player-audio" preload="none"></audio>
+</div>
+<script src="/static/player.js" defer></script>

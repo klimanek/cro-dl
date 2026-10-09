@@ -68,6 +68,7 @@
             <details class="card-menu">
                 <summary title="Akce s dílem">⋯</summary>
                 <div class="card-menu-items">
+                    <button type="button" class="queue-add" data-queue="/detail/{{ coll.type }}/{{ coll.id }}/queue">➕ Přidat do fronty</button>
                     {% if coll.available %}
                     <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/missing">
                         <button type="submit">⬇ Stáhnout nové díly</button>
@@ -88,5 +89,6 @@
     {% if not collections %}
     <p style="text-align:center; color: var(--text-secondary);">Knihovna je zatím prázdná.</p>
     {% endif %}
+{% include "_player.html" %}
 </body>
 </html>

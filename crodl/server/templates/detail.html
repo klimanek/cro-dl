@@ -101,10 +101,17 @@
                 {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
                 {% if ep.duration %} | {{ ep.duration // 60 }} min {% endif %}
             </div>
-            <audio controls class="episode-player" preload="none">
-                <source src="{{ media_url(ep.local_path) }}" type="audio/mpeg">
-                Tvůj prohlížeč nepodporuje přehrávání.
-            </audio>
+            <button type="button" class="play-button js-only" data-play
+                    data-src="{{ media_url(ep.local_path) }}"
+                    data-title="{{ (ep.part ~ '. ') if ep.part else '' }}{{ ep.title }}"
+                    data-work="{{ content.title }}"
+                    aria-label="Přehrát {{ ep.title }}">▶</button>
+            <noscript>
+                <audio controls class="episode-player" preload="none">
+                    <source src="{{ media_url(ep.local_path) }}" type="audio/mpeg">
+                    Tvůj prohlížeč nepodporuje přehrávání.
+                </audio>
+            </noscript>
             {% if edit_mode %}
             <details class="editor">
                 <summary>✏️ Upravit údaje dílu</summary>

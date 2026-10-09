@@ -55,6 +55,78 @@
     .badge--new { background-color: var(--accent); color: #06210f; }
     .badge--upcoming { background-color: #3a3a3a; color: var(--text-secondary); }
     .badge--expired { background-color: var(--warning); color: #241300; }
+    /* The play buttons only mean something once the player script is there. */
+    .js-only { display: none; }
+    html.js .js-only { display: inline-flex; }
+    .play-button {
+        align-items: center;
+        background-color: var(--accent);
+        border: 0;
+        border-radius: 50%;
+        color: #06210f;
+        cursor: pointer;
+        font: inherit;
+        height: 28px;
+        justify-content: center;
+        width: 28px;
+    }
+    .queue-add {
+        background: none;
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        padding: 4px 8px;
+        text-align: left;
+        width: 100%;
+    }
+    .queue-add:hover { color: var(--accent); }
+    /* The player stays at the bottom of every page (see static/player.js). */
+    body { padding-bottom: 72px; }
+    .player-bar {
+        align-items: center;
+        background-color: #161616;
+        border-top: 1px solid #2c2c2c;
+        bottom: 0;
+        display: flex;
+        gap: 10px;
+        left: 0;
+        padding: 8px 14px;
+        position: fixed;
+        right: 0;
+        z-index: 20;
+    }
+    .player-bar[hidden] { display: none; }
+    .player-button {
+        background: none;
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+        font-size: 1em;
+        padding: 4px 6px;
+    }
+    .player-button--main {
+        background-color: var(--accent);
+        border-radius: 50%;
+        color: #06210f;
+        height: 34px;
+        width: 34px;
+    }
+    .player-text { flex: 1; min-width: 0; }
+    .player-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .player-work {
+        color: var(--text-secondary);
+        font-size: 0.75em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .player-seek { accent-color: var(--accent); flex: 2; min-width: 90px; }
+    .player-count { color: var(--text-secondary); font-size: 0.8em; }
     .inline-form { display: inline; }
     .check-link {
         background: none;

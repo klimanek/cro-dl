@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import (
     FileResponse,
@@ -20,6 +21,7 @@ from crodl.library.database import init_db
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
 from crodl.library.tags import read_tags_now
+from crodl.server.queue import queue_items
 from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
@@ -163,6 +165,10 @@ app = FastAPI(
 # Czech paths in the access log, not percent-escapes (also under --reload,
 # where the app module is imported by the worker process).
 log_readable_paths()
+
+# The player's script and whatever else belongs to the pages: our own files, not
+# the user's library (which is served through /library, one known file at a time).
+app.mount("/static", StaticFiles(directory=Path(current_dir) / "static"), name="static")
 
 # Enable CORS: the UI is served from this very origin, so only the local
 # addresses the server itself runs on are ever allowed (a future SPA too).
@@ -431,6 +437,17 @@ async def set_source_url(request: Request, ctype: str, content_id: str):
         f"/detail/{ctype}/{content_id}?odkaz={'ok' if saved else 'ne'}",
         status_code=303,
     )
+
+
+@app.get("/detail/{ctype}/{content_id}/queue")
+async def work_queue(ctype: str, content_id: str) -> dict[str, Any]:
+    """The work's parts as queue entries (the player appends them in the browser)."""
+    content, episodes = await library_service().detail(ctype, content_id)
+
+    if content is None:
+        raise HTTPException(status_code=404, detail="Unknown work")
+
+    return {"items": queue_items(content, episodes)}
 
 
 @app.post("/detail/{ctype}/{content_id}/tags")

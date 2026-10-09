@@ -71,6 +71,14 @@
   each part has its own form showing what its file says - an empty field leaves
   that tag alone. Raw AAC (ADTS, the Czech Radio HLS format) takes an ID3 chunk,
   which is what players read there; only a file that cannot be tagged is skipped.
+- The library plays: every part carries a small play button and a player sits at
+  the foot of every page (play/pause, previous/next, a seek bar, the queue). The
+  queue lives in the browser, so browsing the library - or reloading it - leaves
+  the part you were in where you left it, and one click carries on. A work's menu
+  has "Přidat do fronty" (its parts in playing order, no duplicates). Playback
+  itself pauses when a page changes: a new document means a new `<audio>`, and a
+  browser only starts audio after a click - hence the bar staying and the place
+  being kept. Without JavaScript the per-part player is still there (`<noscript>`).
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
