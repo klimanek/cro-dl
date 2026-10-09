@@ -17,11 +17,6 @@
     {# The work on the left, its parts on the right (one column when narrow). #}
     <div class="work-layout">
     <header class="work">
-            {% if media_url(content.image_path) %}
-                <img src="{{ media_url(content.image_path) }}" alt="{{ content.title }}" class="work-cover">
-            {% else %}
-                <div class="work-cover work-cover--placeholder">🎙️</div>
-            {% endif %}
             <div class="work-info">
                 <h1>{{ content.title }}</h1>
                 <div class="work-meta">
@@ -40,9 +35,14 @@
                     <span class="badge badge--expired">{{ expired_parts_label(content.expired) }}</span>
                     {% endif %}
                 </div>
-                {% if content.description %}
-                <div class="description">{{ content.description }}</div>
-                {% endif %}
+                <div class="description{% if not content.description %} description--plain{% endif %}">
+                    {% if media_url(content.image_path) %}
+                    <img src="{{ media_url(content.image_path) }}" alt="{{ content.title }}" class="work-cover">
+                    {% else %}
+                    <div class="work-cover work-cover--placeholder">🎙️</div>
+                    {% endif %}
+                    {{ content.description or '' }}
+                </div>
                 {% if content.available %}
                 <div class="actions">
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">

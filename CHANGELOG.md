@@ -95,6 +95,10 @@
   there are more than a few the rest fold into a dropdown.
 
 ### Changed
+- A work's page puts the title and its meta line above the cover, and the cover
+  floats so the description flows around it; the actions and the editing forms sit
+  under both. Description fields have a minimum height now (7em, ~108px) - they
+  were two rows tall, which their tightened editors made worse.
 - The detail page is laid out as two columns: the work - its cover, description and
   the editing forms - takes most of the width, with the parts in a column beside
   it (320-420px, the cover capped at 360px). A part is one line on a wide window -

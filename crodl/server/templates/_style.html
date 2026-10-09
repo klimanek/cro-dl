@@ -322,7 +322,11 @@
         flex-direction: column;
         gap: 14px;
     }
+    /* The cover floats so the description flows around it; the actions and the
+       editors below start under the whole block (flow-root keeps the float in). */
     .work-cover {
+        float: left;
+        margin: 0 20px 12px 0;
         width: 100%;
         max-width: 360px;
         aspect-ratio: 1/1;
@@ -330,6 +334,8 @@
         border-radius: 8px;
         background-color: #333;
     }
+    /* A work with no description has no text to flow: the cover is a block. */
+    .description--plain .work-cover { float: none; margin: 0 0 12px; }
     .work-cover--placeholder {
         display: flex;
         align-items: center;
@@ -339,6 +345,7 @@
     .work-info { flex: 1; min-width: 260px; }
     .work-meta { color: var(--text-secondary); font-size: 0.85em; margin-bottom: 15px; }
     .description {
+        display: flow-root;
         font-size: 0.9em;
         color: var(--text-secondary);
         line-height: 1.5;
@@ -397,6 +404,9 @@
         padding: 8px;
     }
     .add-form input { flex: 1; min-width: 260px; }
+    /* A description is a paragraph, not a line: give the fields room to be read
+       and written (they were two rows tall). */
+    textarea { min-height: 7em; resize: vertical; }
     button {
         align-items: center;
         background-color: var(--accent);
