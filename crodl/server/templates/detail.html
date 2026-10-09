@@ -10,11 +10,13 @@
     {% endif %}
 </head>
 <body>
-    <header>
-        {% set back = "/" %}
-        {% set back_label = "← Zpět do knihovny" %}
-        {% include "_top.html" %}
-        <div class="work">
+    {% set back = "/" %}
+    {% set back_label = "← Zpět do knihovny" %}
+    {% include "_top.html" %}
+
+    {# The work on the left, its parts on the right (one column when narrow). #}
+    <div class="work-layout">
+    <header class="work">
             {% if media_url(content.image_path) %}
                 <img src="{{ media_url(content.image_path) }}" alt="{{ content.title }}" class="work-cover">
             {% else %}
@@ -99,27 +101,31 @@
                 </details>
                 {% endif %}
             </div>
-        </div>
-    </header>
+        </header>
 
     <div class="episode-list">
         {% for ep in episodes %}
         <div class="episode-item">
-            <div class="episode-head">
+            {% set source = media_url(ep.local_path) %}
+            <div class="episode-row">
                 {% if ep.part %}<span class="episode-part">{{ ep.part }}.</span>{% endif %}
                 <span class="episode-title">{{ ep.title }}</span>
+                {% if ep.broadcast_at or ep.duration %}
+                <span class="episode-meta">
+                    {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
+                    {% if ep.broadcast_at and ep.duration %} · {% endif %}
+                    {% if ep.duration %}{{ ep.duration // 60 }} min{% endif %}
+                </span>
+                {% endif %}
+                {% if source %}
+                <button type="button" class="play-button js-only" data-play
+                        data-src="{{ source }}"
+                        data-title="{{ (ep.part ~ '. ') if ep.part else '' }}{{ ep.title }}"
+                        data-work="{{ content.title }}"
+                        title="Přehrát" aria-label="Přehrát {{ ep.title }}">▶</button>
+                {% endif %}
             </div>
-            <div class="episode-meta">
-                {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
-                {% if ep.duration %} | {{ ep.duration // 60 }} min {% endif %}
-            </div>
-            {% set source = media_url(ep.local_path) %}
             {% if source %}
-            <button type="button" class="play-button js-only" data-play
-                    data-src="{{ source }}"
-                    data-title="{{ (ep.part ~ '. ') if ep.part else '' }}{{ ep.title }}"
-                    data-work="{{ content.title }}"
-                    aria-label="Přehrát {{ ep.title }}">▶</button>
             <noscript>
                 <audio controls class="episode-player" preload="none">
                     <source src="{{ source }}" type="audio/mpeg">
@@ -177,5 +183,6 @@
         </div>
         {% endfor %}
     </div>
+    </div>{# /work-layout #}
 </body>
 </html>

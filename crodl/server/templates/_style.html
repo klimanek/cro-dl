@@ -121,16 +121,19 @@
     html.js .js-only { display: inline-flex; }
     .play-button {
         align-items: center;
-        background-color: var(--accent);
+        background: none;
         border: 0;
-        border-radius: 50%;
-        color: #06210f;
+        color: var(--text-secondary);
         cursor: pointer;
+        display: inline-flex;
         font: inherit;
-        height: 28px;
         justify-content: center;
-        width: 28px;
+        /* A small, plain triangle (the way an icon font draws play), with no box
+           or colour around it until it is pointed at. */
+        line-height: 1;
+        padding: 2px 4px;
     }
+    .play-button:hover { color: var(--accent); }
     .queue-add {
         background: none;
         border: 0;
@@ -295,14 +298,31 @@
     .card-content { padding: 15px; }
     .card-title { font-weight: bold; margin-bottom: 5px; }
     .card-meta { font-size: 0.8em; color: var(--text-secondary); }
+    /* The detail page: the work (its cover, description and actions) on the left,
+       its parts on the right; one column again when the window is narrow. */
+    .work-layout {
+        align-items: start;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(240px, 320px) 1fr;
+    }
+    @media (max-width: 820px) {
+        .work-layout { grid-template-columns: 1fr; }
+        /* Narrow: the name, then when it aired and how long it runs, then the
+           play icon - under each other, the way this page used to stack them. */
+        .episode-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 6px;
+        }
+    }
     .work {
         display: flex;
-        gap: 25px;
-        align-items: flex-start;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 14px;
     }
     .work-cover {
-        width: 220px;
+        width: 100%;
         aspect-ratio: 1/1;
         object-fit: cover;
         border-radius: 8px;
@@ -336,10 +356,20 @@
         flex-direction: column;
         gap: 10px;
     }
-    .episode-head { display: flex; gap: 12px; align-items: baseline; }
+    /* One part: its name, when it aired and how long it runs, and the play icon -
+       in one line, or wrapped under each other on a narrow window. */
+    .episode-row {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+    }
     .episode-part { color: var(--accent); font-weight: bold; }
-    .episode-title { font-weight: bold; }
-    .episode-meta { font-size: 0.8em; color: var(--text-secondary); }
+    .episode-title { flex: 1; font-weight: bold; min-width: 0; }
+    .episode-meta {
+        color: var(--text-secondary);
+        font-size: 0.8em;
+        white-space: nowrap;
+    }
     .episode-player { width: 100%; margin-top: 5px; }
     .job-title { font-weight: bold; }
     .job-url {
