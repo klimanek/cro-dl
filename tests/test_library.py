@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from unittest import mock
@@ -25,7 +25,13 @@ from crodl.library.repository import (
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
-from crodl.library.updates import LibraryUpdates
+from crodl.library.updates import (
+    AVAILABLE,
+    EXPIRED,
+    UPCOMING,
+    LibraryUpdates,
+    part_state,
+)
 from crodl.program.content import Collection
 
 # Engines created by `make_repo`, disposed by `InMemoryLibraryTestCase`.
@@ -1140,7 +1146,17 @@ class TestNewParts(InMemoryLibraryTestCase):
     uuid = "9d0f0f0e-1111-2222-3333-444455556666"
     stored = "aaaa0001-1111-2222-3333-444455556666"
 
-    def _api(self, parts: int = 3) -> FakeApi:
+    def _api(self, parts: int = 3, *, state: str = AVAILABLE) -> FakeApi:
+        """Episodes as the API reports them, in the given availability."""
+        availability = {
+            AVAILABLE: {
+                "since": "2024-01-01T10:00:00+01:00",
+                "audioLinks": [{"variant": "mp3", "url": "u.mp3"}],
+            },
+            UPCOMING: {"since": "2999-01-01T10:00:00+01:00", "audioLinks": []},
+            EXPIRED: {"since": "2024-01-01T10:00:00+01:00", "audioLinks": []},
+        }[state]
+
         return FakeApi(
             episodes=[
                 {
@@ -1149,6 +1165,7 @@ class TestNewParts(InMemoryLibraryTestCase):
                         "title": f"Díl {number}",
                         "part": number,
                         "asset": {"url": "https://example.com/cover.jpg"},
+                        **availability,
                     },
                 }
                 for number in range(1, parts + 1)
@@ -1182,6 +1199,30 @@ class TestNewParts(InMemoryLibraryTestCase):
         self.assertEqual((missing or [])[0].title, "Díl 2")
         # The image travels along, so the parts can share the work's cover.
         self.assertEqual((missing or [])[0].asset_url, "https://example.com/cover.jpg")
+        self.assertTrue(all(part.fetchable for part in missing or []))
+
+    async def test_a_part_whose_stream_expired_is_not_news(self):
+        # The reported bug: two parts the API still lists, with no streams left,
+        # were announced as "2 nové díly".
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        service = await self._library(repo, self._api(parts=3, state=EXPIRED))
+
+        missing = await service.missing_parts("series", self.uuid)
+        check = await service.check_work("series", self.uuid)
+
+        self.assertEqual([part.state for part in missing or []], [EXPIRED, EXPIRED])
+        self.assertFalse(any(part.fetchable for part in missing or []))
+        self.assertEqual((check.available, check.expired), (0, 2))  # type: ignore[union-attr]
+
+    async def test_a_part_that_has_not_aired_yet(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        service = await self._library(repo, self._api(parts=3, state=UPCOMING))
+
+        check = await service.check_work("series", self.uuid)
+
+        self.assertEqual((check.available, check.upcoming), (0, 2))  # type: ignore[union-attr]
 
     async def test_a_work_the_api_cannot_know_is_left_alone(self):
         repo = await make_repo()
@@ -1199,7 +1240,7 @@ class TestNewParts(InMemoryLibraryTestCase):
         items = await service.overview()
 
         watched = [item for item in items if item.id == self.uuid][0]
-        self.assertEqual(watched.missing, 2)
+        self.assertEqual(watched.available, 2)
         self.assertIsNotNone(watched.checked_at)
 
     async def test_a_complete_work_reports_nothing_new(self):
@@ -1209,7 +1250,7 @@ class TestNewParts(InMemoryLibraryTestCase):
 
         self.assertEqual(await service.check_for_new_parts(), 0)
         watched = [item for item in await service.overview() if item.id == self.uuid][0]
-        self.assertEqual(watched.missing, 0)
+        self.assertEqual(watched.available, 0)
 
     async def test_an_api_that_is_away_is_reported_as_nothing_new(self):
         repo = await make_repo()
@@ -1220,6 +1261,54 @@ class TestNewParts(InMemoryLibraryTestCase):
 
         self.assertIsNone(await service.missing_parts("series", self.uuid))
         self.assertEqual(await service.check_for_new_parts(), 0)
+
+
+class TestPartState(unittest.TestCase):
+    """What a part the library lacks actually is (the reported bug)."""
+
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    links = [{"variant": "hls", "url": "u.m3u8"}]
+
+    def test_a_part_that_is_there_to_fetch(self):
+        self.assertEqual(
+            part_state(
+                {"since": "2026-10-01T18:30:00+02:00", "audioLinks": self.links},
+                self.now,
+            ),
+            AVAILABLE,
+        )
+
+    def test_a_part_the_radio_has_not_aired_yet(self):
+        self.assertEqual(
+            part_state(
+                {"since": "2026-11-01T18:30:00+02:00", "audioLinks": self.links},
+                self.now,
+            ),
+            UPCOMING,
+        )
+
+    def test_a_part_whose_stream_is_gone(self):
+        self.assertEqual(
+            part_state(
+                {"since": "2026-09-01T18:30:00+02:00", "audioLinks": []}, self.now
+            ),
+            EXPIRED,
+        )
+
+    def test_an_old_broadcast_end_does_not_make_a_part_gone(self):
+        # The Kondora case: parts 4-15 carry a `till` weeks in the past while
+        # their streams are alive; `till` is the broadcast, not the stream.
+        self.assertEqual(
+            part_state(
+                {
+                    "since": "2026-08-12T18:30:00+02:00",
+                    "till": "2026-08-12T19:30:00+02:00",
+                    "audioLinks": self.links,
+                },
+                self.now,
+            ),
+            AVAILABLE,
+        )
 
 
 if __name__ == "__main__":

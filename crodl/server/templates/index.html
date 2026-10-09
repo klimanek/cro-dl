@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRo-DL Library</title>
     {% include "_style.html" %}
+    {% if check.running %}
+    <!-- The check runs in the background; keep the spinner honest. -->
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
 </head>
 <body>
     <header class="page-head">
@@ -12,6 +16,7 @@
         <div class="stats">
             {% if collections %}{{ works }} děl, {{ parts_label(parts) }} · {% endif %}
             <a href="/downloads">Stahování</a> ·
+            {% include "_check.html" %} ·
             {% if edit_mode %}
             <a href="/edit-mode?on=0&amp;next={{ request.url.path }}">✓ Hotovo</a>
             {% else %}
@@ -23,11 +28,12 @@
     <form class="add-form" method="post" action="/downloads">
         <input type="text" name="url" placeholder="https://www.mujrozhlas.cz/…" aria-label="Odkaz na dílo">
         <button type="submit">Stáhnout</button>
-        <button type="submit" formaction="/updates/check" title="Zeptat se ČRo, jestli nevyšel nový díl">⟳ Zkontrolovat nové díly</button>
     </form>
 
-    {% if checked %}
-    <p class="note">{{ checked }}</p>
+    {% if check.state == "done" %}
+    <p class="note">{{ check_report(check.found | string) }}</p>
+    {% elif check.state == "failed" %}
+    <p class="note">Kontrola nových dílů selhala: {{ check.message }}</p>
     {% endif %}
 
     {% if deleted %}
@@ -47,8 +53,14 @@
                     <div class="card-title">{{ coll.title }}</div>
                     <div class="card-meta">
                         {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
-                        {% if coll.missing %}
-                        <span class="badge">{{ new_parts_label(coll.missing) }}</span>
+                        {% if coll.available %}
+                        <span class="badge badge--new">{{ new_parts_label(coll.available) }}</span>
+                        {% endif %}
+                        {% if coll.upcoming %}
+                        <span class="badge badge--upcoming">{{ upcoming_parts_label(coll.upcoming) }}</span>
+                        {% endif %}
+                        {% if coll.expired %}
+                        <span class="badge badge--expired">{{ expired_parts_label(coll.expired) }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -56,7 +68,7 @@
             <details class="card-menu">
                 <summary title="Akce s dílem">⋯</summary>
                 <div class="card-menu-items">
-                    {% if coll.missing %}
+                    {% if coll.available %}
                     <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/missing">
                         <button type="submit">⬇ Stáhnout nové díly</button>
                     </form>

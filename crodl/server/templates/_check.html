@@ -1,0 +1,20 @@
+{# The look for new parts: a spinner while it runs, then a tick or a cross. #}
+{% if check.running %}
+<span class="check-state"><span class="spinner" role="status" aria-label="Kontroluji"></span> Kontroluji…</span>
+{% elif check.state == "done" %}
+<span class="check-state">
+    <form method="post" action="/updates/check" class="inline-form">
+        <button type="submit" class="check-link" title="Zkontrolovat znovu">✓ Zkontrolováno</button>
+    </form>
+</span>
+{% elif check.state == "failed" %}
+<span class="check-state">
+    <form method="post" action="/updates/check" class="inline-form">
+        <button type="submit" class="check-link check-link--failed" title="{{ check.message }}">✗ Kontrola selhala</button>
+    </form>
+</span>
+{% else %}
+<form method="post" action="/updates/check" class="inline-form">
+    <button type="submit" class="check-link">⟳ Zkontrolovat nové díly</button>
+</form>
+{% endif %}

@@ -7,7 +7,9 @@ next page - the check itself is one request per work.
 """
 
 import asyncio
+from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from crodl.data.attributes import extract_asset_url
@@ -17,6 +19,11 @@ from crodl.library.repository import SqliteLibraryRepository
 from crodl.settings import API_SERVER
 from crodl.tools.api_client import CroAPIClient
 from crodl.tools.logger import crologger
+
+#: A part the library lacks is in one of three situations.
+AVAILABLE = "available"  # aired and still streamable: fetch it
+UPCOMING = "upcoming"  # announced, not aired yet: nothing to fetch
+EXPIRED = "expired"  # aired, but the stream is gone for good
 
 
 @dataclass(frozen=True)
@@ -28,6 +35,53 @@ class NewPart:
     part: Optional[int] = None
     #: The image the API reports for this part (a work's parts share one).
     asset_url: Optional[str] = None
+    #: What kind of "missing" this is (see `part_state`).
+    state: str = AVAILABLE
+
+    @property
+    def fetchable(self) -> bool:
+        return self.state == AVAILABLE
+
+
+def part_state(attributes: Mapping[str, Any], now: Optional[datetime] = None) -> str:
+    """
+    Whether a part the library lacks can still be fetched, or when it will be.
+
+    The API hands out `since` (when the part airs) and `till`, but `till` is the
+    *broadcast* end, not how long the stream stays: parts that aired weeks ago
+    still carry a `till` in the past while their streams live on. What actually
+    expires is the audio: a part with no `audioLinks` cannot be downloaded any
+    more - the case that made a library report "2 nové díly" for two parts that
+    were long gone.
+    """
+    moment = now or datetime.now(timezone.utc)
+    since = _moment(attributes.get("since"))
+
+    if since is not None and since > moment:
+        return UPCOMING
+
+    if not attributes.get("audioLinks"):
+        return EXPIRED
+
+    return AVAILABLE
+
+
+def _moment(value: Any) -> Optional[datetime]:
+    """An API timestamp as an aware datetime, if it parses."""
+    if not value:
+        return None
+
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def count_states(parts: list[NewPart]) -> Counter:
+    """How many of the missing parts are available, upcoming, or expired."""
+    return Counter(part.state for part in parts)
 
 
 def episodes_url(ctype: str, cid: str) -> Optional[str]:
@@ -53,20 +107,22 @@ class LibraryUpdates:
 
     async def check_all(self) -> int:
         """
-        Looks at every work the library holds; returns how many gained parts.
+        Looks at every work the library holds; returns how many gained a part.
 
         One request per work, so a library of a few dozen works is a few dozen
         requests - the price of noticing a new episode without the user asking.
+        Only parts that can still be fetched count as news here; what expired or
+        has not aired yet lives in the badges, not in "nové díly".
         """
         checked = 0
 
         for ctype, cid in await self._works():
             check = await self.check_work(ctype, cid)
 
-            if check is not None and check.missing:
+            if check is not None and check.available:
                 checked += 1
 
-        crologger.info("New-part check: %s works have something new", checked)
+        crologger.info("New-part check: %s works have new parts", checked)
         return checked
 
     async def check_work(self, ctype: str, cid: str) -> Optional[UpdateCheck]:
@@ -80,8 +136,13 @@ class LibraryUpdates:
         if missing is None:
             return None
 
+        counted = count_states(missing)
         check = UpdateCheck(
-            collection_id=cid, collection_type=ctype, missing=len(missing)
+            collection_id=cid,
+            collection_type=ctype,
+            available=counted[AVAILABLE],
+            upcoming=counted[UPCOMING],
+            expired=counted[EXPIRED],
         )
 
         return await self.repository.save_update_check(check)
@@ -90,8 +151,9 @@ class LibraryUpdates:
         """
         The parts the API lists that the library does not have.
 
-        None when there is nothing to ask about (no Czech Radio id, or an API
-        that is away).
+        Each one says whether it can still be fetched, will be aired, or is gone
+        (see `part_state`). None when there is nothing to ask about (no Czech
+        Radio id, or an API that is away).
         """
         url = episodes_url(ctype, cid)
         if not api_id(cid) or url is None:
@@ -116,6 +178,7 @@ class LibraryUpdates:
                     title=str(attributes.get("title", "Unknown")),
                     part=attributes.get("part"),
                     asset_url=extract_asset_url(attributes),
+                    state=part_state(attributes),
                 )
             )
 

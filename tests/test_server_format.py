@@ -8,11 +8,13 @@ from crodl.server.format import (
     check_report,
     czech_count,
     czech_datetime,
+    expired_parts_label,
     media_url,
     new_parts_label,
     parts_label,
     records_label,
     refresh_report,
+    upcoming_parts_label,
 )
 from crodl.settings import DOWNLOAD_PATH
 
@@ -119,6 +121,16 @@ class TestNewPartsLabel(unittest.TestCase):
         self.assertEqual(new_parts_label(1), "1 nový díl")
         self.assertEqual(new_parts_label(3), "3 nové díly")
         self.assertEqual(new_parts_label(14), "14 nových dílů")
+
+    def test_parts_the_radio_has_not_aired_yet(self):
+        self.assertEqual(upcoming_parts_label(1), "Ještě 1 díl")
+        self.assertEqual(upcoming_parts_label(2), "Ještě 2 díly")
+        self.assertEqual(upcoming_parts_label(9), "Ještě 9 dílů")
+
+    def test_parts_whose_streams_are_gone(self):
+        self.assertEqual(expired_parts_label(1), "1 díl nedostupný")
+        self.assertEqual(expired_parts_label(2), "2 díly nedostupné")
+        self.assertEqual(expired_parts_label(7), "7 dílů nedostupných")
 
 
 class TestMediaUrl(unittest.TestCase):

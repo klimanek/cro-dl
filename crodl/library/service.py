@@ -36,8 +36,10 @@ class LibraryItem:
     image_path: Optional[str] = None
     #: Whether a Czech Radio id is behind it (a folder adopted from disk is not).
     from_api: bool = False
-    #: Parts the API has that the library does not (see `LibraryUpdates`).
-    missing: int = 0
+    #: Missing parts by state: fetchable now, not aired yet, gone for good.
+    available: int = 0
+    upcoming: int = 0
+    expired: int = 0
     #: When the work was last looked at for new parts.
     checked_at: Optional[datetime] = None
 
@@ -276,6 +278,10 @@ class LibraryService:
         """
         return await self.updates.check_all()
 
+    async def check_work(self, ctype: str, cid: str) -> Optional[UpdateCheck]:
+        """Looks at one work and remembers what it is missing (None if unknown)."""
+        return await self.updates.check_work(ctype, cid)
+
     async def missing_parts(self, ctype: str, cid: str) -> Optional[list[NewPart]]:
         """The parts the API has that this work does not."""
         return await self.updates.missing_parts(ctype, cid)
@@ -376,6 +382,8 @@ def check_fields(cid: str, checks: Mapping[str, UpdateCheck]) -> dict[str, Any]:
     check = checks.get(cid)
 
     return {
-        "missing": check.missing if check else 0,
+        "available": check.available if check else 0,
+        "upcoming": check.upcoming if check else 0,
+        "expired": check.expired if check else 0,
         "checked_at": check.checked_at if check else None,
     }

@@ -6,6 +6,7 @@
         --text-secondary: #b3b3b3;
         --accent: #1db954;
         --danger: #e05555;
+        --warning: #e08b2a;
     }
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -46,12 +47,38 @@
     }
     .danger { background-color: var(--danger); color: #fff; }
     .badge {
-        background-color: var(--accent);
         border-radius: 10px;
-        color: #06210f;
         font-size: 0.75em;
         font-weight: bold;
         padding: 2px 8px;
+    }
+    .badge--new { background-color: var(--accent); color: #06210f; }
+    .badge--upcoming { background-color: #3a3a3a; color: var(--text-secondary); }
+    .badge--expired { background-color: var(--warning); color: #241300; }
+    .inline-form { display: inline; }
+    .check-link {
+        background: none;
+        border: 0;
+        color: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85em;
+        padding: 0;
+    }
+    .check-link:hover { text-decoration: underline; }
+    .check-link--failed { color: var(--danger); }
+    .check-state { color: var(--text-secondary); font-size: 0.85em; }
+    .spinner {
+        animation: spin 0.8s linear infinite;
+        border: 2px solid #444;
+        border-radius: 50%;
+        border-top-color: var(--accent);
+        display: inline-block;
+        height: 12px;
+        width: 12px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
     .grid {
         display: grid;

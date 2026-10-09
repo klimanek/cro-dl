@@ -55,6 +55,9 @@
   library page via "Zkontrolovat nové díly"). Works with something new carry a
   badge ("3 nové díly") and a button that downloads exactly those parts - by
   their uuid, so no page URL is needed - with progress in the downloads list.
+- "Zkontrolovat nové díly" lives in the top bar and shows what it is doing: a
+  spinner while it runs, then a tick or a cross. The check runs in the background
+  (the page refreshes itself), so no request waits for the API.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -130,6 +133,12 @@
   `StaticFiles(directory=DOWNLOAD_PATH)` mount published the whole download
   directory. They answer 404 now, and a path that tries to leave the directory
   (`..`, an absolute path) is refused.
+- A part the library lacks was always announced as news. Works are time-limited,
+  so the API still lists parts whose streams expired long ago: those now show an
+  orange "2 díly nedostupné" (nothing to fetch), parts the radio has not aired
+  yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
+  green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
+  stream window - the missing audio links are what tells the two apart.
 
 ## [1.5.2] - 2026-10-06
 

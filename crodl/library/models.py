@@ -46,19 +46,24 @@ class Series(SQLModel, table=True):
 
 class UpdateCheck(SQLModel, table=True):
     """
-    What the last look for new parts found.
+    What the last look for new parts found, by the state of the missing parts.
 
-    Kept in the database so a badge survives a page or a restart: a work whose
-    series has released something since is marked until the parts are fetched
-    (or the work is checked again).
+    Kept in the database so a badge survives a page or a restart. A part the
+    library lacks is not necessarily news: the Czech Radio takes its streams
+    down again after a while, and it announces parts before airing them - hence
+    three counts rather than one.
     """
 
     # The work in the content API: a series' or a show's uuid.
     collection_id: str = Field(primary_key=True)
     collection_type: str
     checked_at: datetime = Field(default_factory=datetime.now)
-    #: Parts the API has that the library does not.
-    missing: int = 0
+    #: Parts that aired and are still streamable - worth fetching now.
+    available: int = 0
+    #: Parts the API announces but has not aired yet.
+    upcoming: int = 0
+    #: Parts whose streams have expired; they can no longer be fetched.
+    expired: int = 0
 
 
 class Episode(SQLModel, table=True):

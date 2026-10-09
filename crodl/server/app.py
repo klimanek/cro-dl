@@ -19,10 +19,10 @@ from fastapi.responses import (
 from crodl.library.database import init_db
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
-from crodl.library.updates import LibraryUpdates
 from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
+from crodl.server.checks import checker
 from crodl.server.downloads import downloads
 from crodl.server.format import (
     added_line,
@@ -30,18 +30,19 @@ from crodl.server.format import (
     check_report,
     czech_count,
     czech_datetime,
+    expired_parts_label,
     media_url,
     new_parts_label,
     parts_label,
     records_label,
     refresh_report,
+    upcoming_parts_label,
 )
 from crodl.settings import (
     SERVER_HOST,
     SERVER_PORT,
     UPDATE_CHECK_HOURS,
 )
-from crodl.tools.logger import crologger
 
 # The addresses the server itself runs on: the only origins that may talk to it.
 LOCAL_ORIGINS = [
@@ -67,12 +68,16 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "parts_label": parts_label,
         "records_label": records_label,
         "new_parts_label": new_parts_label,
+        "upcoming_parts_label": upcoming_parts_label,
+        "expired_parts_label": expired_parts_label,
         "type_labels": TYPE_LABELS,
         "czech_datetime": czech_datetime,
         "czech_count": czech_count,
         "added_line": added_line,
         "changed_line": changed_line,
+        "check_report": check_report,
         "edit_mode": edit_mode_on(request),
+        "check": checker.state,
     }
 
 
@@ -109,9 +114,10 @@ async def watch_for_new_parts() -> None:
     """
     Looks for new parts shortly after start, then every `UPDATE_CHECK_HOURS`.
 
-    Seeing a new episode of a series without asking is the point; a check that
-    fails (the network is away, the API has a bad day) must never take the server
-    down, so it is only logged.
+    Seeing a new episode of a series without asking is the point; the run goes
+    through the same checker the button uses, so the top bar shows its outcome.
+    A check that fails (the network is away, the API has a bad day) must never
+    take the server down, and `run()` only records it.
     """
     if not UPDATE_CHECK_HOURS:
         return  # switched off in settings
@@ -119,11 +125,7 @@ async def watch_for_new_parts() -> None:
     await asyncio.sleep(UPDATE_CHECK_DELAY)
 
     while True:
-        try:
-            await LibraryUpdates().check_all()
-        except Exception as error:
-            crologger.error("The new-parts check failed: %s", error)
-
+        await checker.run()
         await asyncio.sleep(UPDATE_CHECK_HOURS * 3600)
 
 
@@ -243,7 +245,6 @@ async def index(request: Request):
                 "works": len(collections),
                 "parts": sum(item.count for item in collections),
                 "deleted": int(deleted) if deleted.isdigit() else 0,
-                "checked": check_report(request.query_params.get("zkontrolovano", "")),
             },
         )
     except Exception as e:
@@ -292,23 +293,30 @@ async def switch_edit_mode(request: Request, on: str = "0", next: str = "/"):
 
 @app.post("/updates/check")
 async def check_new_parts(request: Request):
-    """Look for parts the Czech Radio released since (the watcher does this too)."""
-    check_same_origin(request)
-    found = await library_service().check_for_new_parts()
+    """
+    Look for parts the Czech Radio released since.
 
-    return RedirectResponse(f"/?zkontrolovano={found}", status_code=303)
+    The check runs in the background and the library shows a spinner until it is
+    done (a tick or a cross afterwards); the timer in the app uses the same one.
+    """
+    check_same_origin(request)
+    checker.start()
+
+    return RedirectResponse("/", status_code=303)
 
 
 @app.post("/detail/{ctype}/{content_id}/missing")
 async def download_new_parts(request: Request, ctype: str, content_id: str):
-    """Queue the parts a work gained since it was downloaded."""
+    """Queue the parts this work gained since it was downloaded."""
     check_same_origin(request)
     service = library_service()
-    parts = await service.missing_parts(ctype, content_id)
+    missing = await service.missing_parts(ctype, content_id)
+    # Only what can still be fetched: expired and un-aired parts are not news.
+    parts = [part for part in missing or [] if part.fetchable]
     content, episodes = await service.detail(ctype, content_id)
 
     if not parts or content is None or not episodes:
-        # Nothing new (or nothing to hang the parts on) - just show the work.
+        # Nothing to fetch - just show the work.
         return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
 
     job = downloads.start_missing(

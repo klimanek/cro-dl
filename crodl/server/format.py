@@ -68,8 +68,18 @@ def records_label(count: int) -> str:
 
 
 def new_parts_label(count: int) -> str:
-    """Czech for parts a series has released since: 1 nový díl, 3 nové díly."""
+    """Czech for parts that aired and can be fetched: 1 nový díl, 3 nové díly."""
     return czech_count(count, "nový díl", "nové díly", "nových dílů")
+
+
+def upcoming_parts_label(count: int) -> str:
+    """Czech for parts the Czech Radio has announced but not aired yet."""
+    return "Ještě " + czech_count(count, "díl", "díly", "dílů")
+
+
+def expired_parts_label(count: int) -> str:
+    """Czech for parts whose streams are gone: 1 díl nedostupný, 2 díly nedostupné."""
+    return czech_count(count, "díl nedostupný", "díly nedostupné", "dílů nedostupných")
 
 
 def check_report(param: str) -> Optional[str]:

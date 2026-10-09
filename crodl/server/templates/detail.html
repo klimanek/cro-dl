@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ content.title }} - CRo-DL</title>
     {% include "_style.html" %}
+    {% if check.running %}
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
 </head>
 <body>
     <header>
@@ -21,12 +24,18 @@
                 <h1>{{ content.title }}</h1>
                 <div class="work-meta">
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
-                    {% if content.missing %}
-                    <span class="badge">{{ new_parts_label(content.missing) }}</span>
+                    {% if content.available %}
+                    <span class="badge badge--new">{{ new_parts_label(content.available) }}</span>
+                    {% endif %}
+                    {% if content.upcoming %}
+                    <span class="badge badge--upcoming">{{ upcoming_parts_label(content.upcoming) }}</span>
+                    {% endif %}
+                    {% if content.expired %}
+                    <span class="badge badge--expired">{{ expired_parts_label(content.expired) }}</span>
                     {% endif %}
                 </div>
                 <div class="description">{{ content.description }}</div>
-                {% if content.missing %}
+                {% if content.available %}
                 <div class="actions">
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">
                         <button type="submit">⬇ Stáhnout nové díly</button>
@@ -35,6 +44,9 @@
                     <span class="job-url">Zkontrolováno {{ czech_datetime(content.checked_at) }}</span>
                     {% endif %}
                 </div>
+                {% endif %}
+                {% if content.expired and content.checked_at %}
+                <p class="job-url">Naposledy zkontrolováno {{ czech_datetime(content.checked_at) }}</p>
                 {% endif %}
                 {% if report %}
                 <p class="note">{{ report }}</p>

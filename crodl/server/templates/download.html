@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ job.title or 'Stahování' }} - CRo-DL</title>
     {% include "_style.html" %}
+    {% if check.running %}
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
     {% if job.state == "running" %}
     <!-- A download takes minutes; keep the page honest without any JavaScript. -->
     <meta http-equiv="refresh" content="3">

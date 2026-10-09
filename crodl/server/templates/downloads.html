@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stahování - CRo-DL</title>
     {% include "_style.html" %}
+    {% if check.running %}
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
 </head>
 <body>
     {% set state_labels = {"running": "stahuje se", "done": "hotovo", "failed": "selhalo"} %}
