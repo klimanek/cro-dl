@@ -38,26 +38,6 @@ def extract_asset_url(attributes: dict) -> Optional[str]:
     return str(asset) if asset else None
 
 
-def extract_parent(payload: dict) -> Optional[tuple[str, str]]:
-    """
-    The work an episode was aired in, as `(kind, uuid)`, if the API names one.
-
-    The record carries `relationships` for the show and the serial it belongs to
-    (linkage only - no titles). A serial is the more specific work, so it wins
-    over the show; an episode that is a work of its own names neither.
-    """
-    relationships = (payload or {}).get("data", {}).get("relationships", {})
-
-    for name, kind in (("serial", "series"), ("show", "show")):
-        data = (relationships.get(name) or {}).get("data")
-        entity = data[0] if isinstance(data, list) and data else data
-
-        if isinstance(entity, dict) and entity.get("id"):
-            return (kind, str(entity["id"]))
-
-    return None
-
-
 def extract_genre(payload: dict) -> Optional[str]:
     """
     The first genre the API lists for a work, if it lists any.

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 
-from crodl.data.attributes import extract_asset_url, extract_genre, extract_parent
+from crodl.data.attributes import extract_genre
 from crodl.library import roots
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
 from crodl.library.models import Episode, LibraryRoot, UpdateCheck, WorkLink
@@ -115,9 +115,9 @@ class LibraryService:
     ) -> Optional[Episode]:
         """Stores a finished download, its artwork, its work - and its tags."""
         if collection is None:
-            # A one-off episode arrives without a work of its own; the API names
-            # the show it was aired in, and that is where its file belongs.
-            collection = await self._parent_collection(work)
+            # A part that arrives without a work of its own *is* the work, named
+            # the way it was downloaded (see `_own_collection`).
+            collection = self._own_collection(work)
 
         image_path = await self._artwork(work, path, collection)
 
@@ -126,8 +126,20 @@ class LibraryService:
             path,
             audio_format=audio_format,
             image_path=image_path,
+            source_url=work.url,
             collection=collection,
         )
+
+        if collection is not None and work.url:
+            # Where it came from: the work's page reads it back, and "Aktualizovat
+            # data" uses it for a work the API knows only by its page.
+            await self.repository.save_work_link(
+                WorkLink(
+                    collection_id=collection.uuid,
+                    collection_type=collection.type,
+                    source_url=work.url,
+                )
+            )
 
         # What a player reads belongs in the file, not only in our database.
         await write_tags(
@@ -499,64 +511,65 @@ class LibraryService:
         """The folders that are not there right now (an unplugged disk)."""
         return roots.missing()
 
-    async def _parent_collection(self, work: DownloadedWork) -> Optional["Collection"]:
+    def _own_collection(self, work: DownloadedWork) -> Optional["Collection"]:
         """
-        The work an episode was aired in, so its file is not left without one.
+        A part that arrives without a work becomes a work of its own.
 
-        The relationship carries only a uuid, so the work's own record is fetched
-        for its title - and, for free, for the description, the genre and the
-        artwork its parts should share. One request, and only when a download
-        arrives with no work of its own.
+        A one-off episode - a play aired in a magazine show - is downloaded as
+        that play: a person's library should show it under the name they chose,
+        not under a show they never asked for. The record is already in hand (the
+        download read it), so the work carries the part's own title, description,
+        genre and artwork, and its uuid is the part's - which is what makes the
+        API and the tags work for it.
         """
-        return await self._collection_for(work.parent)
-
-    async def _collection_for(
-        self, parent: Optional[tuple[str, str]]
-    ) -> Optional["Collection"]:
-        """The work a record names, fetched for what its parts should share."""
-        if parent is None:
+        if not api_id(work.uuid):
             return None
 
-        ctype, uuid = parent
-        fetch = (
-            self.refresher.client.get_series_data
-            if ctype == "series"
-            else self.refresher.client.get_show_data
+        payload = getattr(work, "json_data", None) or {}
+
+        return Collection(
+            uuid=str(work.uuid),
+            type="show",
+            title=work.title,
+            description=work.description,
+            genre=extract_genre(payload),
         )
 
+    async def _record_of(self, uuid: str) -> Optional[dict[str, Any]]:
+        """The API's record for one part (one request, for a repair)."""
         try:
-            data = await asyncio.to_thread(fetch, uuid)
-        except Exception as error:  # the API is the network: it may be away
-            crologger.warning("Could not read the work behind %s: %s", uuid, error)
+            data = await asyncio.to_thread(self.refresher.client.get_episode_data, uuid)
+        except Exception as error:
+            crologger.warning("Could not read part %s: %s", uuid, error)
             return None
 
-        record = (data or {}).get("data") or {}
+        record = (data or {}).get("data")
+
+        return dict(record) if isinstance(record, Mapping) and record else None
+
+    def _collection_of(
+        self, uuid: str, record: Mapping[str, Any], title: Optional[str]
+    ) -> "Collection":
+        """The work a part becomes: its own record, under its own name."""
         attributes = record.get("attributes") or {}
-        title = attributes.get("title")
-
-        if not title:
-            return None
-
-        crologger.info("Library: %s is the work behind a part", title)
 
         return Collection(
             uuid=uuid,
-            type=ctype,
-            title=str(title),
+            type="show",
+            title=title or str(attributes.get("title") or uuid),
             description=remove_html_tags(str(attributes.get("description") or ""))
             or None,
-            shared_asset_url=extract_asset_url(record),
-            genre=extract_genre(data),
+            genre=extract_genre({"data": dict(record)}),
         )
 
     async def link_loose_parts(self) -> int:
         """
-        Files the library kept without a work: ask the API which work each aired in.
+        Files the library kept without a work get one of their own.
 
-        Downloads that arrived before cro-dl read the API's relationships sit in
-        "Místní soubory" although the record of the part names the show (or
-        serial) it belongs to. One request per loose part; a file the API does
-        not know is left where it is.
+        A part stored before cro-dl made works of such downloads sits among the
+        loose files; its row knows the part's uuid, so the API's record for it
+        gives the title, the genre and the artwork, and the file becomes the work
+        it would have been stored as had it been downloaded now.
         """
         linked = 0
 
@@ -564,28 +577,17 @@ class LibraryService:
             if episode.show_id or episode.series_id or not api_id(episode.uuid):
                 continue
 
-            collection = await self._collection_for(
-                await self._parent_of_part(episode.uuid)
-            )
-
-            if collection is None:
+            record = await self._record_of(episode.uuid)
+            if record is None:
                 continue
 
-            await self.repository.link_episode(episode.uuid, collection)
+            await self.repository.link_episode(
+                episode.uuid, self._collection_of(episode.uuid, record, episode.title)
+            )
             linked += 1
 
         crologger.info("Library: linked %s loose parts to their works", linked)
         return linked
-
-    async def _parent_of_part(self, uuid: str) -> Optional[tuple[str, str]]:
-        """The work the API says a part belongs to (a record carries only a uuid)."""
-        try:
-            data = await asyncio.to_thread(self.refresher.client.get_episode_data, uuid)
-        except Exception as error:
-            crologger.warning("Could not read part %s: %s", uuid, error)
-            return None
-
-        return extract_parent(data or {})
 
     async def _artwork(
         self,

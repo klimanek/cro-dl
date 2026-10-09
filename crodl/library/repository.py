@@ -62,13 +62,13 @@ class DownloadedWork(Protocol):
     def asset_url(self) -> Optional[str]: ...
 
     @property
-    def parent(self) -> Optional[tuple[str, str]]:
+    def url(self) -> Optional[str]:
         """
-        The work this one belongs to, as `(kind, uuid)`, if the API names one.
+        The page this work was downloaded from, if there was one.
 
-        A one-off episode is a work of its own, yet it was aired inside a show;
-        the library files its file under that work instead of leaving it among
-        the files that belong to nothing.
+        The library keeps it with the work: it is what a refresh of a work the
+        content API knows only by its page reads the uuid from, and it is how a
+        work's provenance stays visible.
         """
         ...
 

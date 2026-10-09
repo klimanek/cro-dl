@@ -117,7 +117,13 @@ class LibraryUpdates:
         checked = 0
 
         for ctype, cid in await self._works():
-            check = await self.check_work(ctype, cid)
+            try:
+                check = await self.check_work(ctype, cid)
+            except Exception as error:
+                # One work the API (or the database) refuses must not stop the
+                # rest of the library; the next run picks it up again.
+                crologger.error("Could not check %s: %s", cid, error)
+                continue
 
             if check is not None and check.available:
                 checked += 1

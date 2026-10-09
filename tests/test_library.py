@@ -22,7 +22,7 @@ from crodl.library.repository import (
     parse_since,
     to_naive_utc,
 )
-from crodl.data.attributes import extract_genre, extract_parent
+from crodl.data.attributes import extract_genre
 from crodl.library import roots
 from crodl.library.scan import LibraryScan
 from crodl.library.service import ORPHANS, LibraryService
@@ -57,7 +57,7 @@ class FakeWork:
         part: Optional[int] = 3,
         duration: Optional[int] = 3229,
         asset_url: Optional[str] = None,
-        parent: Optional[tuple[str, str]] = None,
+        url: Optional[str] = None,
     ) -> None:
         self.uuid = uuid
         self.title = title
@@ -69,7 +69,7 @@ class FakeWork:
         self.part = part
         self.duration = duration
         self.asset_url = asset_url
-        self.parent = parent
+        self.url = url
 
 
 async def make_repo() -> SqliteLibraryRepository:
@@ -1020,13 +1020,19 @@ class FakeApi:
 
     def _record(self) -> dict:
         """A work record: its attributes, plus the genres beside them."""
-        relationships = {
-            "genres": {
-                "data": [{"attributes": {"title": genre}} for genre in self.genres]
-            }
+        return {"data": {"attributes": self.work, "relationships": self._genres()}}
+
+    def _genres(self) -> dict:
+        """The genres relationship, when the test set any."""
+        if not self.genres:
+            return dict(self.episode_relationships)
+
+        relationships = dict(self.episode_relationships)
+        relationships["genres"] = {
+            "data": [{"attributes": {"title": genre}} for genre in self.genres]
         }
 
-        return {"data": {"attributes": self.work, "relationships": relationships}}
+        return relationships
 
     def get_series_data(self, uuid: str) -> dict:
         self.calls.append(("series", uuid))
@@ -1041,7 +1047,7 @@ class FakeApi:
         return {
             "data": {
                 "attributes": self.episode,
-                "relationships": self.episode_relationships,
+                "relationships": self._genres(),
             }
         }
 
@@ -1681,71 +1687,54 @@ class TestLibraryRoots(InMemoryLibraryTestCase):
             roots.forget(Path("/tmp"))
 
 
-class TestAWorkAnEpisodeBelongsTo(InMemoryLibraryTestCase):
-    """A one-off episode is filed under the show it was aired in."""
+class TestAOneOffEpisode(InMemoryLibraryTestCase):
+    """A play aired in a show is a work of its own, named after the play."""
 
     # The real ids from the reported page.
     show_uuid = "0e65e92d-3eb9-329a-8b35-86d9b7e1ce76"
     episode_uuid = "6be024ac-b862-3d3e-afea-4f21d73b3e8e"
+    title = "Kateřina Surmanová: Zvedá se vítr"
+    page = (
+        "https://www.mujrozhlas.cz/hra-na-nedeli/"
+        "katerina-surmanova-zveda-se-vitr-premiera-krimi-mystery-z-moravy-misici-fikci"
+    )
     path = Path("/tmp/Z Rozhlasu/Kateřina Surmanová - Zvedá se vítr/Zvedá se vítr.aac")
 
-    def test_the_parent_comes_from_the_records_relationships(self):
-        show = {
-            "data": {"relationships": {"show": {"data": {"type": "show", "id": "s-1"}}}}
-        }
-        self.assertEqual(extract_parent(show), ("show", "s-1"))
-
-        both = {
-            "data": {
-                "relationships": {
-                    "serial": {"data": [{"id": "r-1"}]},
-                    "show": {"data": {"id": "s-1"}},
-                }
-            }
-        }
-        # A serial is the more specific work and wins over the show.
-        self.assertEqual(extract_parent(both), ("series", "r-1"))
-        self.assertIsNone(extract_parent({}))
-        self.assertIsNone(extract_parent({"data": {"relationships": {}}}))
-
-    async def test_the_episode_is_stored_under_its_show(self):
+    async def test_the_episode_becomes_a_work_of_its_own(self):
         repo = await make_repo()
-        api = FakeApi(
-            work={"title": "Hra na neděli", "description": "<p>Magazín</p>"},
-            genres=["Krimi"],
-        )
-        service = LibraryService(
-            repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
-        )
+        service = LibraryService(repository=repo)
 
         await service.save_download(
             FakeWork(
                 uuid=self.episode_uuid,
-                title="Zvedá se vítr",
+                title=self.title,
                 part=None,
-                parent=("show", self.show_uuid),
+                url=self.page,
             ),
             self.path,
             audio_format="aac",
         )
 
         items = await service.overview()
-        works = [item for item in items if item.title == "Hra na neděli"]
+        works = [item for item in items if item.title == self.title]
         self.assertEqual(len(works), 1)
+        # The work is keyed by the part's uuid, which is what the API knows.
+        self.assertEqual(works[0].id, self.episode_uuid)
         self.assertEqual(works[0].count, 1)
-        self.assertEqual(works[0].genre, "Krimi")  # the show's genre came along
         self.assertEqual([item for item in items if item.type == ORPHANS], [])
 
         episode = await repo.find_episode_by_path(self.path)
-        self.assertEqual(episode.show_id, self.show_uuid)  # type: ignore[union-attr]
-        self.assertEqual(api.calls.count(("show", self.show_uuid)), 1)
+        self.assertEqual(episode.show_id, self.episode_uuid)  # type: ignore[union-attr]
+        # Where it came from is stored, with the work and on the part itself.
+        self.assertEqual(episode.source_url, self.page)  # type: ignore[union-attr]
+        self.assertEqual(await service.source_url(self.episode_uuid), self.page)
 
-    async def test_an_episode_without_a_parent_stays_loose(self):
+    async def test_a_file_without_an_api_uuid_stays_loose(self):
         repo = await make_repo()
         service = LibraryService(repository=repo)
 
         await service.save_download(
-            FakeWork(uuid=self.episode_uuid, title="Samostatné", parent=None),
+            FakeWork(uuid="hash-of-a-file", title="Samostatné", part=None),
             Path("/tmp/Z Rozhlasu/Samostatné.aac"),
             audio_format="aac",
         )
@@ -1753,20 +1742,20 @@ class TestAWorkAnEpisodeBelongsTo(InMemoryLibraryTestCase):
         items = await service.overview()
         self.assertEqual([item.type for item in items], [ORPHANS])
 
-    async def test_a_loose_part_is_linked_when_the_library_asks(self):
+    async def test_a_loose_part_gets_its_own_work_when_the_library_asks(self):
         repo = await make_repo()
-        # A download from before the library read the API's relationships.
+        # A part stored before cro-dl made works of such downloads.
         await repo.save_download(
             FakeWork(uuid=self.episode_uuid, title="Zvedá se vítr", part=None),
             self.path,
             audio_format="aac",
         )
         api = FakeApi(
-            work={"title": "Hra na neděli"},
-            episode={"title": "Zvedá se vítr"},
-            episode_relationships={
-                "show": {"data": {"type": "show", "id": self.show_uuid}}
+            episode={
+                "title": self.title,
+                "description": "<p>Krimi mystery z Moravy.</p>",
             },
+            genres=["Krimi"],
         )
         service = LibraryService(
             repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
@@ -1775,11 +1764,13 @@ class TestAWorkAnEpisodeBelongsTo(InMemoryLibraryTestCase):
         linked = await service.link_loose_parts()
 
         self.assertEqual(linked, 1)
-        works = [i for i in await service.overview() if i.title == "Hra na neděli"]
+        works = [
+            item for item in await service.overview() if item.id == self.episode_uuid
+        ]
         self.assertEqual(len(works), 1)
-        self.assertEqual(works[0].count, 1)
+        self.assertEqual(works[0].genre, "Krimi")  # the part's own genre, from the API
         episode = await repo.find_episode_by_path(self.path)
-        self.assertEqual(episode.show_id, self.show_uuid)  # type: ignore[union-attr]
+        self.assertEqual(episode.show_id, self.episode_uuid)  # type: ignore[union-attr]
 
     async def test_a_file_the_api_does_not_know_is_left_alone(self):
         repo = await make_repo()
@@ -1792,6 +1783,31 @@ class TestAWorkAnEpisodeBelongsTo(InMemoryLibraryTestCase):
         service = LibraryService(repository=repo)
 
         self.assertEqual(await service.link_loose_parts(), 0)
+
+
+class TestCheckSurvivesABadWork(InMemoryLibraryTestCase):
+    """A work the database refuses must not stop the check (the reported crash)."""
+
+    uuid = "aaaa0000-1111-2222-3333-444455556666"
+
+    async def test_the_check_carries_on_without_the_broken_one(self):
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="aaaa0001-1111-2222-3333-444455556666", title="1-Díl"),
+            Path("/tmp/Z Rozhlasu/Seriály/S/1 - Díl.mp3"),
+            collection=Collection(uuid=self.uuid, type="series", title="Seriál"),
+        )
+
+        async def refuse(check: object) -> None:
+            raise ValueError("NOT NULL constraint failed: updatecheck.missing")
+
+        repo.save_update_check = refuse  # what an old library.db used to do
+
+        checked = await LibraryUpdates(
+            repository=repo, client=FakeApi(episodes=[])
+        ).check_all()
+
+        self.assertEqual(checked, 0)  # nothing counted, and nothing raised
 
 
 if __name__ == "__main__":

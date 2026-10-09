@@ -78,8 +78,8 @@ class ScannedFile:
         return None
 
     @property
-    def parent(self) -> Optional[tuple[str, str]]:
-        """A file found on disk says nothing about the work it was aired in."""
+    def url(self) -> Optional[str]:
+        """A file found on disk has no page it came from."""
         return None
 
 

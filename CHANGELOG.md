@@ -184,14 +184,21 @@
   than "Stahování" and "Režim úprav" beside it; all of them are 14.4px now.
 - An episode that the API knows as part of a show (a play aired in "Hra na
   neděli") was stored with no work of its own and turned up in "Místní soubory",
-  where nothing could be refreshed for it. The record fetched for such a part
-  names the show (or serial) it aired in, and the library ignored it: a download
-  is now filed under that work - its title, genre and artwork come along - and
-  "↻ Aktualizovat data" on the "Místní soubory" page links the loose files that
-  are already in a library, part by part (that button used to answer "Tenhle
-  záznam nemá v API protějšek"). Note for files already downloaded: a download
-  that is on disk is skipped, so the hook never sees it - the button is the way,
-  or removing the file and downloading it again.
+  where nothing could be refreshed for it. It is now a work of its own: keyed by
+  the part's uuid, named the way it was downloaded (not after the show it aired
+  in), with the genre and artwork from its own record - and the page it came from
+  is stored with it, on the part and as the work's link, so the work's page shows
+  it and "Aktualizovat data" has something to read the uuid from. "↻ Aktualizovat
+  data" on the "Místní soubory" page gives the loose files that same work, which
+  is also the way to repair a library that stored them earlier: a download that is
+  already on disk is skipped, so re-downloading such a file does nothing.
+- Checking for new parts failed on any library whose database was created while
+  `updatecheck` kept one NOT NULL count without a default: every write was refused
+  ("NOT NULL constraint failed: updatecheck.missing"), so the check could never
+  record what it found. The table is rebuilt on startup without the column it no
+  longer uses (its rows are a cache that the next check recomputes), and a work
+  the database refuses is skipped with a log line instead of failing the whole
+  check.
 
 ## [1.5.2] - 2026-10-06
 
