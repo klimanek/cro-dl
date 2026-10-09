@@ -22,9 +22,11 @@ from crodl.library.repository import (
     parse_since,
     to_naive_utc,
 )
+from crodl.data.attributes import extract_genre
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
+from crodl.library.tags import write_tags_now
 from crodl.library.updates import (
     AVAILABLE,
     EXPIRED,
@@ -33,6 +35,7 @@ from crodl.library.updates import (
     part_state,
 )
 from crodl.program.content import Collection
+from mutagen.easyid3 import EasyID3
 
 # Engines created by `make_repo`, disposed by `InMemoryLibraryTestCase`.
 _ENGINES: list[AsyncEngine] = []
@@ -1371,6 +1374,61 @@ class TestSourceUrl(InMemoryLibraryTestCase):
         service = await self._library(repo)
 
         self.assertIsNone(await service.refresh("series", "hash-1"))
+
+
+class TestTags(unittest.TestCase):
+    """What the library knows about a work belongs in the file itself."""
+
+    def test_the_tags_are_written_and_read_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "3 - Díl.mp3"
+            path.write_bytes(b"")
+
+            written = write_tags_now(
+                path,
+                title="Díl",
+                author="Bohumil Hrabal",
+                album="Seriál",
+                genre="Horor",
+                track=3,
+            )
+
+            self.assertTrue(written)
+            tags = EasyID3(str(path))
+            self.assertEqual(tags["title"], ["Díl"])
+            self.assertEqual(tags["artist"], ["Bohumil Hrabal"])
+            self.assertEqual(tags["album"], ["Seriál"])
+            self.assertEqual(tags["genre"], ["Horor"])
+            self.assertEqual(tags["tracknumber"], ["3"])
+
+    def test_nothing_to_write_or_no_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.mp3"
+            path.write_bytes(b"")
+
+            self.assertFalse(write_tags_now(path))  # nothing known
+            self.assertFalse(write_tags_now(Path(tmp) / "gone.mp3", title="Díl"))
+
+    def test_a_file_it_cannot_tag_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "note.txt"
+            path.write_text("x", encoding="utf-8")
+
+            self.assertFalse(write_tags_now(path, title="Díl"))
+            self.assertEqual(path.read_text(encoding="utf-8"), "x")
+
+    def test_the_genre_comes_from_the_api_payload(self):
+        payload = {
+            "data": {
+                "relationships": {
+                    "genres": {"data": [{"attributes": {"title": "Horor"}}]}
+                }
+            }
+        }
+
+        self.assertEqual(extract_genre(payload), "Horor")
+        self.assertIsNone(extract_genre({}))
+        self.assertIsNone(extract_genre({"data": {"relationships": {}}}))
 
 
 if __name__ == "__main__":

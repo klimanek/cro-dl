@@ -38,6 +38,25 @@ def extract_asset_url(attributes: dict) -> Optional[str]:
     return str(asset) if asset else None
 
 
+def extract_genre(payload: dict) -> Optional[str]:
+    """
+    The first genre the API lists for a work, if it lists any.
+
+    Genres hang off the work, not off its parts, and arrive as a relationship
+    (`data.relationships.genres.data[].attributes.title`) - "Horor", "Komedie"
+    and the like, which is what a player wants in a tag.
+    """
+    relationships = (payload or {}).get("data", {}).get("relationships", {})
+    genres = relationships.get("genres", {}).get("data") or []
+
+    for genre in genres:
+        title = (genre.get("attributes") or {}).get("title")
+        if title:
+            return str(title)
+
+    return None
+
+
 def extract_episode_info(episode: dict) -> dict:
     """
     Maps one episode dict (as returned by the API) to a plain info dict.

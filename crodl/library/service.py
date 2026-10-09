@@ -12,6 +12,7 @@ from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
 from crodl.library.models import Episode, UpdateCheck, WorkLink
 from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
+from crodl.library.tags import write_tags
 from crodl.library.updates import LibraryUpdates, NewPart
 from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
 
@@ -107,16 +108,28 @@ class LibraryService:
         audio_format: Optional[str] = None,
         collection: Optional["Collection"] = None,
     ) -> Optional[Episode]:
-        """Stores a finished download together with its artwork and collection."""
+        """Stores a finished download, its artwork, its collection - and its tags."""
         image_path = await self._artwork(work, path, collection)
 
-        return await self.repository.save_download(
+        episode = await self.repository.save_download(
             work,
             path,
             audio_format=audio_format,
             image_path=image_path,
             collection=collection,
         )
+
+        # What a player reads belongs in the file, not only in our database.
+        await write_tags(
+            path,
+            title=work.title,
+            author=work.author,
+            album=collection.title if collection else None,
+            genre=collection.genre if collection else None,
+            track=work.part,
+        )
+
+        return episode
 
     async def overview(self) -> list[LibraryItem]:
         """Every work of the library, sorted by title, orphans last."""

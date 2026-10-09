@@ -30,6 +30,8 @@ class Collection:
     description: Optional[str] = None
     # Artwork every part of this collection reports, if they share one.
     shared_asset_url: Optional[str] = None
+    #: The genre the API lists for the work ("Horor", "Komedie", …), if any.
+    genre: Optional[str] = None
 
 
 def shared_artwork_url(episodes: list[dict]) -> Optional[str]:

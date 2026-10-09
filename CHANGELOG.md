@@ -62,6 +62,10 @@
   is stored (its own small table, so the work keeps its key), and "Aktualizovat
   data" reads the uuid off that page and fetches what the API has - which is what
   makes a folder adopted from disk refreshable.
+- Downloads are tagged as they are stored: `mutagen` writes the title, the
+  author, the work as the album, the part as the track number and the genre the
+  API lists for the work ("Horor", "Komedie") into MP3 (ID3) and M4A/AAC (MP4)
+  files, so a player shows the reading as a reading and not as a loose file.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global

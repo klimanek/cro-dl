@@ -6,7 +6,13 @@ from typing import Optional, Any, Dict
 
 from rich.progress import Progress
 
-from crodl.data.attributes import Attributes, Data, Episodes, extract_asset_url
+from crodl.data.attributes import (
+    Attributes,
+    Data,
+    Episodes,
+    extract_asset_url,
+    extract_genre,
+)
 from crodl.program.audiowork import AudioWork
 from crodl.program.content import (
     Collection,
@@ -127,6 +133,7 @@ class Show(Content):
             title=self.title,
             description=self.description,
             shared_asset_url=shared_artwork_url(self.episodes.data),
+            genre=extract_genre(self.json),
         )
 
     @property
