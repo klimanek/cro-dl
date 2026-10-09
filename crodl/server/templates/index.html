@@ -23,6 +23,7 @@
             <a href="/edit-mode?on=1&amp;next={{ request.url.path }}">✏️ Režim úprav</a>
             {% endif %}
         </div>
+        {% include "_genres.html" %}
     </header>
 
     <form class="add-form" method="post" action="/downloads">

@@ -24,6 +24,7 @@
                 <h1>{{ content.title }}</h1>
                 <div class="work-meta">
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
+                    {% if content.genre %} · {{ content.genre }}{% endif %}
                     {% if source_url %}
                     <a href="{{ source_url }}">mujrozhlas.cz</a>
                     {% endif %}
@@ -74,14 +75,23 @@
                     <a class="mode-link" href="/detail/{{ type }}/{{ content.id }}/delete">🗑 Smazat z knihovny</a>
                 </div>
                 <details class="editor">
-                    <summary>✏️ Upravit název a popis</summary>
+                    <summary>✏️ Upravit název, žánr a popis</summary>
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/edit">
                         <label>Název
                             <input type="text" name="title" value="{{ content.title }}">
                         </label>
+                        <label>Žánr
+                            <input type="text" name="genre" value="{{ content.genre or '' }}" list="genre-list" placeholder="Pohádka, horor, krimi…">
+                        </label>
                         <label>Popis
                             <textarea name="description" rows="3">{{ content.description or '' }}</textarea>
                         </label>
+                        <datalist id="genre-list">
+                            {% for genre in genres %}
+                            <option value="{{ genre }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        <p class="job-url">Žánr se po uložení zapíše do tagů všech dílů.</p>
                         <button type="submit">Uložit</button>
                     </form>
                 </details>

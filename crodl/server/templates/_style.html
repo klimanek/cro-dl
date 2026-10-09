@@ -55,6 +55,42 @@
     .badge--new { background-color: var(--accent); color: #06210f; }
     .badge--upcoming { background-color: #3a3a3a; color: var(--text-secondary); }
     .badge--expired { background-color: var(--warning); color: #241300; }
+    /* The genres of the library, in the top bar (a few links, the rest folded). */
+    .genres {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    .genres-label { color: var(--text-secondary); font-size: 0.85em; }
+    .genre {
+        background-color: #242424;
+        border-radius: 10px;
+        color: inherit;
+        font-size: 0.85em;
+        padding: 2px 8px;
+        text-decoration: none;
+    }
+    .genre:hover { background-color: #333; }
+    .genre--active {
+        background-color: var(--accent);
+        color: #06210f;
+        font-weight: bold;
+    }
+    .genre--clear { color: var(--text-secondary); }
+    .genre-more { position: relative; }
+    .genre-more summary { cursor: pointer; font-size: 0.85em; }
+    .genre-more-items {
+        background-color: #1c1c1c;
+        border: 1px solid #2c2c2c;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px;
+        position: absolute;
+        z-index: 30;
+    }
     /* The play buttons only mean something once the player script is there. */
     .js-only { display: none; }
     html.js .js-only { display: inline-flex; }

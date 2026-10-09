@@ -1005,19 +1005,31 @@ class FakeApi:
         work: dict | None = None,
         episode: dict | None = None,
         episodes: list[dict] | None = None,
+        genres: list[str] | None = None,
     ) -> None:
         self.work = work or {}
         self.episode = episode or {}
         self.episodes = episodes or []
+        self.genres = genres or []
         self.calls: list[tuple[str, str]] = []
+
+    def _record(self) -> dict:
+        """A work record: its attributes, plus the genres beside them."""
+        relationships = {
+            "genres": {
+                "data": [{"attributes": {"title": genre}} for genre in self.genres]
+            }
+        }
+
+        return {"data": {"attributes": self.work, "relationships": relationships}}
 
     def get_series_data(self, uuid: str) -> dict:
         self.calls.append(("series", uuid))
-        return {"data": {"attributes": self.work}}
+        return self._record()
 
     def get_show_data(self, uuid: str) -> dict:
         self.calls.append(("show", uuid))
-        return {"data": {"attributes": self.work}}
+        return self._record()
 
     def get_episode_data(self, uuid: str) -> dict:
         self.calls.append(("episode", uuid))
@@ -1447,7 +1459,9 @@ class TestWorkTags(InMemoryLibraryTestCase):
 
     async def _library_with_parts(self, tmp: str) -> tuple[LibraryService, Path]:
         repo = await make_repo()
-        collection = Collection(uuid=self.uuid, type="series", title="Seriál")
+        collection = Collection(
+            uuid=self.uuid, type="series", title="Seriál", genre="Horor"
+        )
         folder = Path(tmp)
 
         for part in (1, 2):
@@ -1476,6 +1490,7 @@ class TestWorkTags(InMemoryLibraryTestCase):
             tags = read_tags_now(folder / "2 - Díl.mp3")
             self.assertEqual(tags["title"], "2-Díl")
             self.assertEqual(tags["album"], "Seriál")
+            self.assertEqual(tags["genre"], "Horor")  # the work's genre, item 1
             self.assertEqual(tags["tracknumber"], "2")
 
     async def test_a_work_that_is_not_there_writes_nothing(self):
@@ -1521,6 +1536,78 @@ class TestAnEpisodeBehindAShow(InMemoryLibraryTestCase):
         self.assertEqual(filled.fields, 1)  # type: ignore[union-attr]
         show = await repo.get_show("hash-1")
         self.assertIn("destrukci", show.description or "")  # type: ignore[union-attr]
+
+
+class TestGenres(InMemoryLibraryTestCase):
+    """The genre of a whole work: edited by hand, written into its parts' tags."""
+
+    uuid = "aaaa0000-1111-2222-3333-444455556666"
+    genre = "Pohádka"
+
+    async def _library(self, repo: SqliteLibraryRepository) -> LibraryService:
+        await repo.save_download(
+            FakeWork(uuid="aaaa0001-1111-2222-3333-444455556666", title="1-Díl"),
+            Path("/tmp/Z Rozhlasu/Seriály/S/1 - Díl.mp3"),
+            collection=Collection(
+                uuid=self.uuid, type="series", title="Seriál", genre=self.genre
+            ),
+        )
+
+        return LibraryService(repository=repo)
+
+    async def test_a_download_brings_the_genre_along(self):
+        service = await self._library(await make_repo())
+
+        item = [i for i in await service.overview() if i.id == self.uuid][0]
+
+        self.assertEqual(item.genre, self.genre)
+        self.assertEqual(await service.genres(), [self.genre])
+
+    async def test_the_genre_can_be_edited_and_cleared(self):
+        repo = await make_repo()
+        service = await self._library(repo)
+
+        self.assertTrue(
+            await service.curate_work("series", self.uuid, {"genre": "Horor"})
+        )
+        detail = await service.detail("series", self.uuid)
+        self.assertEqual(detail[0].genre, "Horor")  # type: ignore[union-attr]
+
+        self.assertTrue(await service.curate_work("series", self.uuid, {"genre": ""}))
+        detail = await service.detail("series", self.uuid)
+        self.assertIsNone(detail[0].genre)  # type: ignore[union-attr]
+
+    async def test_a_refresh_takes_the_genres_from_the_api(self):
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="aaaa0001-1111-2222-3333-444455556666", title="1-Díl"),
+            Path("/tmp/Z Rozhlasu/Seriály/S/1 - Díl.mp3"),
+            collection=Collection(uuid=self.uuid, type="series", title="Seriál"),
+        )
+        api = FakeApi(work={"title": "Podle API"}, genres=["Krimi", "Thriller"])
+        service = LibraryService(
+            repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
+        )
+
+        await service.refresh("series", self.uuid)
+
+        self.assertEqual((await service.detail("series", self.uuid))[0].genre, "Krimi")
+
+    async def test_an_edited_genre_is_not_overwritten_by_a_download(self):
+        repo = await make_repo()
+        service = await self._library(repo)
+        await service.curate_work("series", self.uuid, {"genre": "Horor"})
+
+        # The same work arrives again (another part), genre and all.
+        await repo.save_download(
+            FakeWork(uuid="aaaa0002-1111-2222-3333-444455556666", title="2-Díl"),
+            Path("/tmp/Z Rozhlasu/Seriály/S/2 - Díl.mp3"),
+            collection=Collection(
+                uuid=self.uuid, type="series", title="Seriál", genre="Pohádka"
+            ),
+        )
+
+        self.assertEqual((await service.detail("series", self.uuid))[0].genre, "Horor")
 
 
 if __name__ == "__main__":

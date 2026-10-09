@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from crodl.data.attributes import extract_asset_url
+from crodl.data.attributes import extract_asset_url, extract_genre
 from crodl.library.artwork import cover_path, fetch_cover
 from crodl.library.models import Episode
 from crodl.library.repository import (
@@ -87,12 +87,14 @@ class LibraryRefresh:
         if work is None:
             return None
 
-        attributes = await self._entity(api_uuid)
-        if attributes is None:
+        record = await self._record(api_uuid)
+        if record is None:
             return None
 
+        attributes = record.get("attributes") or {}
         result = Refresh()
         result.fields += await self._fill_work(ctype, cid, work, attributes)
+        result.fields += await self._fill_genre(ctype, cid, work, record)
 
         episodes = await self._episodes(ctype, cid)
         result.fields += await self._fill_episodes(episodes)
@@ -157,9 +159,9 @@ class LibraryRefresh:
 
         return None
 
-    async def _entity(self, uuid: str) -> Optional[Mapping[str, Any]]:
+    async def _record(self, uuid: str) -> Optional[dict[str, Any]]:
         """
-        The attributes of whatever the API keeps under this uuid.
+        The API's record behind a uuid, whatever kind it is.
 
         A uuid does not say what it is - and a library row may well be of another
         kind than the API's record: a folder adopted from disk often looks like a
@@ -175,10 +177,10 @@ class LibraryRefresh:
                 crologger.warning("Not a %s: %s (%s)", fetch_name, uuid, error)
                 continue
 
-            attributes = (data or {}).get("data", {}).get("attributes")
+            record = (data or {}).get("data")
 
-            if isinstance(attributes, Mapping) and attributes:
-                return attributes
+            if isinstance(record, Mapping) and record.get("attributes"):
+                return dict(record)
 
         return None
 
@@ -199,6 +201,29 @@ class LibraryRefresh:
                 await self.repository.update_show(cid, changes)
 
         return len(changes)
+
+    async def _fill_genre(
+        self, ctype: str, cid: str, work: Any, record: Mapping[str, Any]
+    ) -> int:
+        """
+        The genre the API lists for the work, when it has none yet.
+
+        Genres hang off the work's relationships rather than its attributes, so
+        they travel beside them; a genre somebody typed by hand wins.
+        """
+        if getattr(work, "genre", None):
+            return 0
+
+        genre = extract_genre({"data": dict(record)})
+        if not genre:
+            return 0
+
+        if ctype == "series":
+            await self.repository.update_series(cid, {"genre": genre})
+        else:
+            await self.repository.update_show(cid, {"genre": genre})
+
+        return 1
 
     async def _fill_episodes(self, episodes: list[Episode]) -> int:
         """Fills what each part is missing, one API call per part that needs one."""

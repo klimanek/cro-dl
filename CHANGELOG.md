@@ -79,6 +79,11 @@
   itself pauses when a page changes: a new document means a new `<audio>`, and a
   browser only starts audio after a click - hence the bar staying and the place
   being kept. Without JavaScript the per-part player is still there (`<noscript>`).
+- A work's genre is a field of its own ("Upravit název, žánr a popis" in edit
+  mode): saving it rewrites the genre tag of every part, and a download or a
+  refresh fills it from the API's genres when nobody has set one.
+- The top bar lists the library's genres; one genre filters the grid, and when
+  there are more than a few the rest fold into a dropdown.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
@@ -160,6 +165,14 @@
   yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
   green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
   stream window - the missing audio links are what tells the two apart.
+- "Aktualizovat data" answered "Tenhle záznam nemá v API protějšek" for a work
+  whose page is a JavaScript shell. The uuid *was* found on the page; the refresh
+  then asked the API about the row's kind (a `Show`) while the record was an
+  episode, and the API answered `entity_not_found`. The API is now asked until
+  one of its kinds answers (series, show, episode), which is also what a folder
+  adopted from disk looks like.
+- The "Zkontrolováno" link in the top bar rendered at a smaller size (0.85em)
+  than "Stahování" and "Režim úprav" beside it; all of them are 14.4px now.
 
 ## [1.5.2] - 2026-10-06
 

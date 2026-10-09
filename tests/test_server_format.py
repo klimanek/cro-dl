@@ -6,6 +6,7 @@ from crodl.server.format import (
     added_line,
     changed_line,
     check_report,
+    curated_report,
     czech_count,
     czech_datetime,
     expired_parts_label,
@@ -100,6 +101,13 @@ class TestRefreshReport(unittest.TestCase):
     def test_anything_else_says_nothing(self):
         self.assertIsNone(refresh_report(""))
         self.assertIsNone(refresh_report("nonsense"))
+
+
+class TestCuratedReport(unittest.TestCase):
+    def test_it_says_what_saving_a_work_did(self):
+        self.assertEqual(curated_report("3"), "Uloženo a tagy přepsány v 3 souborech.")
+        self.assertEqual(curated_report("0"), "Uloženo.")
+        self.assertIsNone(curated_report(""))
 
 
 class TestTagsReport(unittest.TestCase):

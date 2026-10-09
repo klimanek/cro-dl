@@ -27,10 +27,12 @@ from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
 from crodl.server.checks import checker
 from crodl.server.downloads import downloads
-from crodl.server.format import (
+from crodl.server.format import (  # noqa: I001
+    GENRES_SHOWN,
     added_line,
     changed_line,
     check_report,
+    curated_report,
     czech_count,
     czech_datetime,
     expired_parts_label,
@@ -90,6 +92,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "changed_line": changed_line,
         "check_report": check_report,
         "file_tags": file_tags,
+        "genres_shown": GENRES_SHOWN,
         "edit_mode": edit_mode_on(request),
         "check": checker.state,
     }
@@ -252,7 +255,14 @@ async def media(path: str):
 async def index(request: Request):
     """Render the library: one card per work, each with its artwork."""
     try:
-        collections = await library_service().overview()
+        service = library_service()
+        items = await service.overview()
+        genres = await service.genres()
+        # A genre in the URL narrows the grid to that genre (the top bar links).
+        wanted = request.query_params.get("zanr", "")
+        collections = (
+            [item for item in items if item.genre == wanted] if wanted else items
+        )
         deleted = request.query_params.get("smazano", "")
 
         return templates.TemplateResponse(
@@ -263,6 +273,8 @@ async def index(request: Request):
                 "works": len(collections),
                 "parts": sum(item.count for item in collections),
                 "deleted": int(deleted) if deleted.isdigit() else 0,
+                "genres": genres,
+                "active_genre": wanted,
             },
         )
     except Exception as e:
@@ -288,8 +300,10 @@ async def detail(request: Request, ctype: str, content_id: str):
                 "type": ctype,
                 "report": refresh_report(request.query_params.get("obnoveno", ""))
                 or link_report(request.query_params.get("odkaz", ""))
-                or tags_report(request.query_params.get("tagy", "")),
+                or tags_report(request.query_params.get("tagy", ""))
+                or curated_report(request.query_params.get("upraveno", "")),
                 "source_url": await library_service().source_url(content_id),
+                "genres": await library_service().genres(),
             },
         )
     except Exception as e:
@@ -402,15 +416,19 @@ async def download_detail(request: Request, job_id: str):
 
 @app.post("/detail/{ctype}/{content_id}/edit")
 async def curate_work(request: Request, ctype: str, content_id: str):
-    """Save the name and description a person gave a work."""
+    """Save the name, genre and description a person gave a work."""
     check_same_origin(request)
+    service = library_service()
 
-    if not await library_service().curate_work(
-        ctype, content_id, await form_fields(request)
-    ):
+    if not await service.curate_work(ctype, content_id, await form_fields(request)):
         return PlainTextResponse("Not found", status_code=404)
 
-    return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+    # The genre (and whatever else the parts carry) belongs in their files too.
+    written = await service.write_work_tags(ctype, content_id)
+
+    return RedirectResponse(
+        f"/detail/{ctype}/{content_id}?upraveno={written}", status_code=303
+    )
 
 
 @app.post("/detail/{ctype}/{content_id}/parts/{part_id}/edit")

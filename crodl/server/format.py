@@ -57,6 +57,10 @@ def czech_count(count: int, one: str, few: str, many: str) -> str:
     return f"{count} {many}"
 
 
+#: How many genres the top bar spells out before folding the rest away.
+GENRES_SHOWN = 4
+
+
 def parts_label(count: int) -> str:
     """Czech plural of "díl" for a part count."""
     return czech_count(count, "díl", "díly", "dílů")
@@ -123,6 +127,16 @@ def added_line(job: Mapping[str, Any]) -> str:
         line += f" · dokončeno {czech_datetime(finished)}"
 
     return line
+
+
+def curated_report(param: str) -> Optional[str]:
+    """What the page says after a work's title, genre or description was saved."""
+    if not param:
+        return None
+
+    written = int(param) if param.isdigit() else 0
+
+    return f"Uloženo a tagy přepsány v {written} souborech." if written else "Uloženo."
 
 
 def tags_report(param: str) -> Optional[str]:

@@ -30,6 +30,8 @@ class Show(SQLModel, table=True):
     uuid: str = Field(primary_key=True)
     title: str
     description: Optional[str] = None
+    #: The genre of the whole work ("Pohádka", "Horor", ...), used for its tags.
+    genre: Optional[str] = None
 
     episodes: List["Episode"] = Relationship(back_populates="show")
 
@@ -40,6 +42,8 @@ class Series(SQLModel, table=True):
     uuid: str = Field(primary_key=True)
     title: str
     description: Optional[str] = None
+    #: The genre of the whole work ("Pohádka", "Horor", ...), used for its tags.
+    genre: Optional[str] = None
 
     episodes: List["Episode"] = Relationship(back_populates="series")
 

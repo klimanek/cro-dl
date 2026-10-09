@@ -176,6 +176,10 @@ class SqliteLibraryRepository:
         }
     )
 
+    #: Columns hand-editing may touch on a work (a show or a series). The genre
+    #: is the "album" value: saving it rewrites the genre tag of every part.
+    WORK_FIELDS = frozenset({"title", "genre", "description"})
+
     def __init__(
         self,
         session_factory: Callable[[], AsyncSession] = async_session_factory,
@@ -304,22 +308,28 @@ class SqliteLibraryRepository:
         self, session: AsyncSession, collection: "Collection"
     ) -> None:
         """Makes sure the show/series exists, so its parts can point at it."""
-        if collection.type == "series":
-            await session.merge(
-                Series(
+        model = Series if collection.type == "series" else Show
+        existing = await session.get(model, collection.uuid)
+
+        if existing is None:
+            session.add(
+                model(
                     uuid=collection.uuid,
                     title=collection.title,
                     description=collection.description,
+                    genre=collection.genre,
                 )
             )
-        else:
-            await session.merge(
-                Show(
-                    uuid=collection.uuid,
-                    title=collection.title,
-                    description=collection.description,
-                )
-            )
+            return
+
+        # A work already in the library keeps what it has: a download only fills
+        # the gaps, so a title or genre edited by hand is not undone by it.
+        if collection.genre and not existing.genre:
+            existing.genre = collection.genre
+        if collection.description and not existing.description:
+            existing.description = collection.description
+
+        session.add(existing)
 
     async def save_station(self, station: Station) -> Station:
         return await self._upsert(station)
@@ -387,13 +397,13 @@ class SqliteLibraryRepository:
 
     async def update_show(self, uuid: str, changes: dict[str, Any]) -> Optional[Show]:
         """Applies the given columns to a stored show, leaving the rest alone."""
-        return await self._update_row(Show, uuid, changes)
+        return await self._update_row(Show, uuid, changes, self.WORK_FIELDS)
 
     async def update_series(
         self, uuid: str, changes: dict[str, Any]
     ) -> Optional[Series]:
         """Applies the given columns to a stored series, leaving the rest alone."""
-        return await self._update_row(Series, uuid, changes)
+        return await self._update_row(Series, uuid, changes, self.WORK_FIELDS)
 
     async def update_episode(
         self, uuid: str, changes: dict[str, Any]
@@ -404,7 +414,7 @@ class SqliteLibraryRepository:
         `save_download()` cannot do this: it builds a whole row from a finished
         download and `merge()` would blank whatever the caller left out.
         """
-        return await self._update_row(Episode, uuid, changes)
+        return await self._update_row(Episode, uuid, changes, self.EDITABLE_FIELDS)
 
     async def set_artwork(self, uuids: Sequence[str], image_path: Path) -> int:
         """
@@ -506,10 +516,14 @@ class SqliteLibraryRepository:
         return result.scalars().all()
 
     async def _update_row(
-        self, model: type[Any], uuid: str, changes: dict[str, Any]
+        self,
+        model: type[Any],
+        uuid: str,
+        changes: dict[str, Any],
+        allowed: frozenset[str],
     ) -> Optional[Any]:
         """Writes hand-curated columns onto one row; None if it does not exist."""
-        unknown = set(changes) - self.EDITABLE_FIELDS
+        unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"Cannot curate: {', '.join(sorted(unknown))}")
 

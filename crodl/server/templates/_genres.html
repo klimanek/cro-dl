@@ -1,0 +1,22 @@
+{# The genres the library knows: a few as links, the rest folded away (item 2). #}
+{% if genres %}
+<div class="genres">
+    <span class="genres-label">Žánry:</span>
+    {% for genre in genres[:genres_shown] %}
+    <a href="/?zanr={{ genre | urlencode }}" class="genre{% if genre == active_genre %} genre--active{% endif %}">{{ genre }}</a>
+    {% endfor %}
+    {% if genres | length > genres_shown %}
+    <details class="genre-more">
+        <summary>Další žánry ({{ genres | length - genres_shown }})</summary>
+        <div class="genre-more-items">
+            {% for genre in genres[genres_shown:] %}
+            <a href="/?zanr={{ genre | urlencode }}" class="genre{% if genre == active_genre %} genre--active{% endif %}">{{ genre }}</a>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+    {% if active_genre %}
+    <a href="/" class="genre genre--clear">✕ Vše</a>
+    {% endif %}
+</div>
+{% endif %}

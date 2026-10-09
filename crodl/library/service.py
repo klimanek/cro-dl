@@ -42,6 +42,8 @@ class LibraryItem:
     image_path: Optional[str] = None
     #: Whether a Czech Radio id is behind it (a folder adopted from disk is not).
     from_api: bool = False
+    #: The work's genre, used for the parts' tags and the genre menu.
+    genre: Optional[str] = None
     #: Missing parts by state: fetchable now, not aired yet, gone for good.
     available: int = 0
     upcoming: int = 0
@@ -162,6 +164,7 @@ class LibraryService:
                     id=cid,
                     title=row.title if row else cid,
                     description=row.description if row else None,
+                    genre=row.genre if row else None,
                     count=len(parts),
                     image_path=self._cover_of(parts),
                     from_api=api_id(cid),
@@ -184,6 +187,15 @@ class LibraryService:
             )
 
         return items
+
+    async def genres(self) -> list[str]:
+        """Every genre the library knows, for the genre menu in the top bar."""
+        rows = [
+            *await self.repository.get_all_shows(),
+            *await self.repository.get_all_series(),
+        ]
+
+        return sorted({str(row.genre) for row in rows if row.genre}, key=str.casefold)
 
     async def detail(
         self, ctype: str, cid: str
@@ -225,6 +237,7 @@ class LibraryService:
             title=str(title),
             description=getattr(row, "description", None)
             or ("Soubory bez metadat." if ctype == ORPHANS else None),
+            genre=getattr(row, "genre", None) if row else None,
             count=len(episodes),
             image_path=self._cover_of(episodes),
             from_api=api_id(cid),
@@ -237,14 +250,15 @@ class LibraryService:
         self, ctype: str, cid: str, fields: Mapping[str, str]
     ) -> bool:
         """
-        Applies hand-edited metadata to a work (title, description).
+        Applies hand-edited metadata to a work (title, genre, description).
 
         A work that was adopted from disk is named after its folder; this is how
         it gets the name a person would give it. A blank title leaves the work as
-        it is - an unnamed work cannot be shown - while a blank description
-        clears what was there. Returns False only when there is no such work.
+        it is - an unnamed work cannot be shown - while a blank genre or
+        description clears what was there. Returns False only when there is no
+        such work.
         """
-        changes = _changes(fields, ("title", "description"))
+        changes = _changes(fields, ("title", "genre", "description"))
 
         if ctype == "show":
             row = await self.repository.update_show(cid, changes)
@@ -323,9 +337,10 @@ class LibraryService:
         Writes what the library knows into every part's file; how many took it.
 
         For files that were downloaded before cro-dl tagged anything, or whose
-        file was replaced: the work's title becomes the album, the part brings
-        its own title, author and number. A genre already in a file stays - the
-        API's genre is only known while a work is being downloaded or refreshed.
+        file was replaced: the work's title becomes the album, the work's genre
+        the genre, and the part brings its own title, author and number. A file
+        keeps a genre nobody typed for its work (`write_tags` only writes what it
+        is given).
         """
         content, episodes = await self.detail(ctype, cid)
         if content is None or not episodes:
@@ -341,6 +356,7 @@ class LibraryService:
                 title=episode.title,
                 author=episode.author,
                 album=content.title,
+                genre=content.genre,
                 track=episode.part,
             ):
                 written += 1
