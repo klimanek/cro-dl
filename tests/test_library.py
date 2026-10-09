@@ -22,10 +22,10 @@ from crodl.library.repository import (
     parse_since,
     to_naive_utc,
 )
-from crodl.data.attributes import extract_genre
+from crodl.data.attributes import extract_genre, extract_parent
 from crodl.library import roots
 from crodl.library.scan import LibraryScan
-from crodl.library.service import LibraryService
+from crodl.library.service import ORPHANS, LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
 from crodl.library.tags import read_tags_now, write_tags_now
 from crodl.library.updates import (
@@ -57,6 +57,7 @@ class FakeWork:
         part: Optional[int] = 3,
         duration: Optional[int] = 3229,
         asset_url: Optional[str] = None,
+        parent: Optional[tuple[str, str]] = None,
     ) -> None:
         self.uuid = uuid
         self.title = title
@@ -68,6 +69,7 @@ class FakeWork:
         self.part = part
         self.duration = duration
         self.asset_url = asset_url
+        self.parent = parent
 
 
 async def make_repo() -> SqliteLibraryRepository:
@@ -1007,11 +1009,13 @@ class FakeApi:
         episode: dict | None = None,
         episodes: list[dict] | None = None,
         genres: list[str] | None = None,
+        episode_relationships: dict | None = None,
     ) -> None:
         self.work = work or {}
         self.episode = episode or {}
         self.episodes = episodes or []
         self.genres = genres or []
+        self.episode_relationships = episode_relationships or {}
         self.calls: list[tuple[str, str]] = []
 
     def _record(self) -> dict:
@@ -1034,7 +1038,12 @@ class FakeApi:
 
     def get_episode_data(self, uuid: str) -> dict:
         self.calls.append(("episode", uuid))
-        return {"data": {"attributes": self.episode}}
+        return {
+            "data": {
+                "attributes": self.episode,
+                "relationships": self.episode_relationships,
+            }
+        }
 
     def get_related_data(self, url: str) -> dict:
         self.calls.append(("episodes", url))
@@ -1150,8 +1159,11 @@ class TestRefresh(InMemoryLibraryTestCase):
 
             # A hash is not a Czech Radio uuid.
             self.assertIsNone(await service.refresh("series", "47668695b67d4acd"))
-            # And the files without a work have no record either.
-            self.assertIsNone(await service.refresh("orphans", "orphans"))
+            # The files without a work are asked part by part (their own records
+            # name the works they aired in), so this one answers - with nothing
+            # found here, since none of them is in the API.
+            loose = await service.refresh("orphans", "orphans")
+            self.assertEqual((loose.fields, loose.images), (0, 0))  # type: ignore[union-attr]
 
         self.assertEqual(api.calls, [])
 
@@ -1667,6 +1679,119 @@ class TestLibraryRoots(InMemoryLibraryTestCase):
         finally:
             roots.forget(away)
             roots.forget(Path("/tmp"))
+
+
+class TestAWorkAnEpisodeBelongsTo(InMemoryLibraryTestCase):
+    """A one-off episode is filed under the show it was aired in."""
+
+    # The real ids from the reported page.
+    show_uuid = "0e65e92d-3eb9-329a-8b35-86d9b7e1ce76"
+    episode_uuid = "6be024ac-b862-3d3e-afea-4f21d73b3e8e"
+    path = Path("/tmp/Z Rozhlasu/Kateřina Surmanová - Zvedá se vítr/Zvedá se vítr.aac")
+
+    def test_the_parent_comes_from_the_records_relationships(self):
+        show = {
+            "data": {"relationships": {"show": {"data": {"type": "show", "id": "s-1"}}}}
+        }
+        self.assertEqual(extract_parent(show), ("show", "s-1"))
+
+        both = {
+            "data": {
+                "relationships": {
+                    "serial": {"data": [{"id": "r-1"}]},
+                    "show": {"data": {"id": "s-1"}},
+                }
+            }
+        }
+        # A serial is the more specific work and wins over the show.
+        self.assertEqual(extract_parent(both), ("series", "r-1"))
+        self.assertIsNone(extract_parent({}))
+        self.assertIsNone(extract_parent({"data": {"relationships": {}}}))
+
+    async def test_the_episode_is_stored_under_its_show(self):
+        repo = await make_repo()
+        api = FakeApi(
+            work={"title": "Hra na neděli", "description": "<p>Magazín</p>"},
+            genres=["Krimi"],
+        )
+        service = LibraryService(
+            repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
+        )
+
+        await service.save_download(
+            FakeWork(
+                uuid=self.episode_uuid,
+                title="Zvedá se vítr",
+                part=None,
+                parent=("show", self.show_uuid),
+            ),
+            self.path,
+            audio_format="aac",
+        )
+
+        items = await service.overview()
+        works = [item for item in items if item.title == "Hra na neděli"]
+        self.assertEqual(len(works), 1)
+        self.assertEqual(works[0].count, 1)
+        self.assertEqual(works[0].genre, "Krimi")  # the show's genre came along
+        self.assertEqual([item for item in items if item.type == ORPHANS], [])
+
+        episode = await repo.find_episode_by_path(self.path)
+        self.assertEqual(episode.show_id, self.show_uuid)  # type: ignore[union-attr]
+        self.assertEqual(api.calls.count(("show", self.show_uuid)), 1)
+
+    async def test_an_episode_without_a_parent_stays_loose(self):
+        repo = await make_repo()
+        service = LibraryService(repository=repo)
+
+        await service.save_download(
+            FakeWork(uuid=self.episode_uuid, title="Samostatné", parent=None),
+            Path("/tmp/Z Rozhlasu/Samostatné.aac"),
+            audio_format="aac",
+        )
+
+        items = await service.overview()
+        self.assertEqual([item.type for item in items], [ORPHANS])
+
+    async def test_a_loose_part_is_linked_when_the_library_asks(self):
+        repo = await make_repo()
+        # A download from before the library read the API's relationships.
+        await repo.save_download(
+            FakeWork(uuid=self.episode_uuid, title="Zvedá se vítr", part=None),
+            self.path,
+            audio_format="aac",
+        )
+        api = FakeApi(
+            work={"title": "Hra na neděli"},
+            episode={"title": "Zvedá se vítr"},
+            episode_relationships={
+                "show": {"data": {"type": "show", "id": self.show_uuid}}
+            },
+        )
+        service = LibraryService(
+            repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
+        )
+
+        linked = await service.link_loose_parts()
+
+        self.assertEqual(linked, 1)
+        works = [i for i in await service.overview() if i.title == "Hra na neděli"]
+        self.assertEqual(len(works), 1)
+        self.assertEqual(works[0].count, 1)
+        episode = await repo.find_episode_by_path(self.path)
+        self.assertEqual(episode.show_id, self.show_uuid)  # type: ignore[union-attr]
+
+    async def test_a_file_the_api_does_not_know_is_left_alone(self):
+        repo = await make_repo()
+        # A file the scan adopted: keyed by a hash the API has never heard of.
+        await repo.save_download(
+            FakeWork(uuid="hash-of-a-folder", title="Z ulice", part=None),
+            Path("/tmp/Z Rozhlasu/Z ulice/Z ulice.aac"),
+            audio_format="aac",
+        )
+        service = LibraryService(repository=repo)
+
+        self.assertEqual(await service.link_loose_parts(), 0)
 
 
 if __name__ == "__main__":

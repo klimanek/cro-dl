@@ -49,7 +49,6 @@ class DownloadedWork(Protocol):
 
     @property
     def since(self) -> str: ...
-
     @property
     def description(self) -> Optional[str]: ...
 
@@ -61,6 +60,17 @@ class DownloadedWork(Protocol):
 
     @property
     def asset_url(self) -> Optional[str]: ...
+
+    @property
+    def parent(self) -> Optional[tuple[str, str]]:
+        """
+        The work this one belongs to, as `(kind, uuid)`, if the API names one.
+
+        A one-off episode is a work of its own, yet it was aired inside a show;
+        the library files its file under that work instead of leaving it among
+        the files that belong to nothing.
+        """
+        ...
 
 
 @runtime_checkable

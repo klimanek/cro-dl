@@ -182,6 +182,16 @@
   adopted from disk looks like.
 - The "Zkontrolováno" link in the top bar rendered at a smaller size (0.85em)
   than "Stahování" and "Režim úprav" beside it; all of them are 14.4px now.
+- An episode that the API knows as part of a show (a play aired in "Hra na
+  neděli") was stored with no work of its own and turned up in "Místní soubory",
+  where nothing could be refreshed for it. The record fetched for such a part
+  names the show (or serial) it aired in, and the library ignored it: a download
+  is now filed under that work - its title, genre and artwork come along - and
+  "↻ Aktualizovat data" on the "Místní soubory" page links the loose files that
+  are already in a library, part by part (that button used to answer "Tenhle
+  záznam nemá v API protějšek"). Note for files already downloaded: a download
+  that is on disk is skipped, so the hook never sees it - the button is the way,
+  or removing the file and downloading it again.
 
 ## [1.5.2] - 2026-10-06
 

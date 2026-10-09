@@ -77,6 +77,11 @@ class ScannedFile:
     def asset_url(self) -> Optional[str]:
         return None
 
+    @property
+    def parent(self) -> Optional[tuple[str, str]]:
+        """A file found on disk says nothing about the work it was aired in."""
+        return None
+
 
 class LibraryScan:
     """Syncs the audio files on disk into the library."""

@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 
 from rich.progress import Progress
 
-from crodl.data.attributes import extract_asset_url
+from crodl.data.attributes import extract_asset_url, extract_parent
 from crodl.program.content import Collection, Content, DownloadedHook
 from crodl.settings import DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT, AudioFormat
 from crodl.streams import DASH, HLS, MP3, AudioParts
@@ -144,6 +144,17 @@ class AudioWork(Content):
             if value:
                 return str(value)
         return None
+
+    @property
+    def parent(self) -> tuple[str, str] | None:
+        """
+        The show or serial this episode was aired in, if the API names one.
+
+        A one-off episode is a work of its own, but it was aired inside a
+        magazine show - the library files its file under that work instead of
+        leaving it among the files that belong to nothing.
+        """
+        return extract_parent(self.json_data or {})
 
     @property
     def asset_url(self) -> str | None:

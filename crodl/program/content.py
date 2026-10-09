@@ -83,6 +83,18 @@ class Content(ABC):
     def already_exists(self) -> bool:
         pass
 
+    @property
+    def parent(self) -> Optional[tuple[str, str]]:
+        """
+        The work this content belongs to, as `(kind, uuid)`, if the API names one.
+
+        A one-off episode (a play inside a magazine show) is downloaded as a work
+        of its own, but the record fetched for it names the show or serial it was
+        aired in - that is what the library files it under. A series or a show is
+        its own work and has no parent here.
+        """
+        return None
+
     @abstractmethod
     async def download(
         self,

@@ -5,9 +5,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
+from crodl.data.attributes import extract_asset_url, extract_genre, extract_parent
 from crodl.library import roots
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
 from crodl.library.models import Episode, LibraryRoot, UpdateCheck, WorkLink
@@ -16,14 +17,13 @@ from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
 from crodl.library.scan import LibraryScan
 from crodl.library.tags import write_tags
 from crodl.library.updates import LibraryUpdates, NewPart
+from crodl.program.content import Collection
 from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
+from crodl.streams.utils import remove_html_tags
 from crodl.tools.logger import crologger
 
 #: Hosts whose pages cro-dl can read (a work's link must point at one).
 SUPPORTED_HOSTS = {domain.replace("www.", "") for domain in SUPPORTED_DOMAINS}
-
-if TYPE_CHECKING:
-    from crodl.program.content import Collection
 
 # The library's bucket for files that belong to no show or series.
 ORPHANS = "orphans"
@@ -113,7 +113,12 @@ class LibraryService:
         audio_format: Optional[str] = None,
         collection: Optional["Collection"] = None,
     ) -> Optional[Episode]:
-        """Stores a finished download, its artwork, its collection - and its tags."""
+        """Stores a finished download, its artwork, its work - and its tags."""
+        if collection is None:
+            # A one-off episode arrives without a work of its own; the API names
+            # the show it was aired in, and that is where its file belongs.
+            collection = await self._parent_collection(work)
+
         image_path = await self._artwork(work, path, collection)
 
         episode = await self.repository.save_download(
@@ -301,7 +306,14 @@ class LibraryService:
         know, and the artwork whose download failed earlier). Works for a work
         the API knows by its own uuid and for one whose page somebody added (see
         `set_source_url`); None when there is no API record to ask about.
+
+        The files that belong to no work ("Místní soubory") are the exception:
+        there, each part's own record says which work it aired in, and asking is
+        what links it (`link_loose_parts`).
         """
+        if ctype == ORPHANS:
+            return Refresh(fields=await self.link_loose_parts())
+
         return await self.refresher.refresh_work(ctype, cid)
 
     async def set_source_url(
@@ -486,6 +498,94 @@ class LibraryService:
     def missing_roots(self) -> list[Path]:
         """The folders that are not there right now (an unplugged disk)."""
         return roots.missing()
+
+    async def _parent_collection(self, work: DownloadedWork) -> Optional["Collection"]:
+        """
+        The work an episode was aired in, so its file is not left without one.
+
+        The relationship carries only a uuid, so the work's own record is fetched
+        for its title - and, for free, for the description, the genre and the
+        artwork its parts should share. One request, and only when a download
+        arrives with no work of its own.
+        """
+        return await self._collection_for(work.parent)
+
+    async def _collection_for(
+        self, parent: Optional[tuple[str, str]]
+    ) -> Optional["Collection"]:
+        """The work a record names, fetched for what its parts should share."""
+        if parent is None:
+            return None
+
+        ctype, uuid = parent
+        fetch = (
+            self.refresher.client.get_series_data
+            if ctype == "series"
+            else self.refresher.client.get_show_data
+        )
+
+        try:
+            data = await asyncio.to_thread(fetch, uuid)
+        except Exception as error:  # the API is the network: it may be away
+            crologger.warning("Could not read the work behind %s: %s", uuid, error)
+            return None
+
+        record = (data or {}).get("data") or {}
+        attributes = record.get("attributes") or {}
+        title = attributes.get("title")
+
+        if not title:
+            return None
+
+        crologger.info("Library: %s is the work behind a part", title)
+
+        return Collection(
+            uuid=uuid,
+            type=ctype,
+            title=str(title),
+            description=remove_html_tags(str(attributes.get("description") or ""))
+            or None,
+            shared_asset_url=extract_asset_url(record),
+            genre=extract_genre(data),
+        )
+
+    async def link_loose_parts(self) -> int:
+        """
+        Files the library kept without a work: ask the API which work each aired in.
+
+        Downloads that arrived before cro-dl read the API's relationships sit in
+        "Místní soubory" although the record of the part names the show (or
+        serial) it belongs to. One request per loose part; a file the API does
+        not know is left where it is.
+        """
+        linked = 0
+
+        for episode in await self.repository.get_all_episodes():
+            if episode.show_id or episode.series_id or not api_id(episode.uuid):
+                continue
+
+            collection = await self._collection_for(
+                await self._parent_of_part(episode.uuid)
+            )
+
+            if collection is None:
+                continue
+
+            await self.repository.link_episode(episode.uuid, collection)
+            linked += 1
+
+        crologger.info("Library: linked %s loose parts to their works", linked)
+        return linked
+
+    async def _parent_of_part(self, uuid: str) -> Optional[tuple[str, str]]:
+        """The work the API says a part belongs to (a record carries only a uuid)."""
+        try:
+            data = await asyncio.to_thread(self.refresher.client.get_episode_data, uuid)
+        except Exception as error:
+            crologger.warning("Could not read part %s: %s", uuid, error)
+            return None
+
+        return extract_parent(data or {})
 
     async def _artwork(
         self,
