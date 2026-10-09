@@ -1484,5 +1484,44 @@ class TestWorkTags(InMemoryLibraryTestCase):
         self.assertEqual(await service.write_work_tags("series", "nope"), 0)
 
 
+class TestAnEpisodeBehindAShow(InMemoryLibraryTestCase):
+    """The reported bug: the page's uuid is an episode, the work is stored as a show."""
+
+    uuid = "063a6a5f-c5f2-39ec-b085-34cb85d46230"  # what that page really answers
+    link = (
+        "https://www.mujrozhlas.cz/sobotni-drama/"
+        "pavel-landovsky-hodinovy-hotelier-hrusinsky-lukavsky-ve-hre-o-destrukci-lidskych"
+    )
+    episode = {
+        "title": "Pavel Landovský: Hodinový hoteliér",
+        "description": "<p>Hra o destrukci lidských vztahů.</p>",
+    }
+
+    async def test_the_episode_fills_the_show_row(self):
+        repo = await make_repo()
+        await repo.save_download(
+            FakeWork(uuid="aaaa0001-1111-2222-3333-444455556666", title="1-Složka"),
+            Path("/tmp/Z Rozhlasu/Složka/1 - Díl.mp3"),
+            collection=Collection(uuid="hash-1", type="show", title="Složka"),
+        )
+        api = FakeApi(episode=self.episode)
+        # The page answers with an episode uuid, as the real one does.
+        api.get_series_id = mock.Mock(return_value=self.uuid)  # type: ignore[method-assign]
+        service = LibraryService(
+            repository=repo,
+            refresher=LibraryRefresh(repository=repo, client=api),
+        )
+        await service.set_source_url("show", "hash-1", self.link)
+
+        filled = await service.refresh("show", "hash-1")
+
+        # The row is a show, but the record behind it is an episode: the API is
+        # asked until one of its kinds answers.
+        self.assertIn(("episode", self.uuid), api.calls)
+        self.assertEqual(filled.fields, 1)  # type: ignore[union-attr]
+        show = await repo.get_show("hash-1")
+        self.assertIn("destrukci", show.description or "")  # type: ignore[union-attr]
+
+
 if __name__ == "__main__":
     unittest.main()

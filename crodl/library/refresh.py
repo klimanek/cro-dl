@@ -20,6 +20,10 @@ from crodl.tools.logger import crologger
 #: What a refresh may take from the API, per episode.
 EPISODE_FIELDS = ("author", "description", "short_title", "duration", "part")
 
+#: The kinds of record the content API keeps, in the order a refresh asks about
+#: them (a uuid does not say which it is - see `LibraryRefresh._entity`).
+ENTITY_FETCHES = ("get_series_data", "get_show_data", "get_episode_data")
+
 
 @dataclass
 class Refresh:
@@ -83,7 +87,7 @@ class LibraryRefresh:
         if work is None:
             return None
 
-        attributes = await self._attributes(ctype, api_uuid)
+        attributes = await self._entity(api_uuid)
         if attributes is None:
             return None
 
@@ -153,23 +157,30 @@ class LibraryRefresh:
 
         return None
 
-    async def _attributes(self, ctype: str, cid: str) -> Optional[Mapping[str, Any]]:
-        """The work's attributes, fetched off the event loop."""
-        fetch = (
-            self.client.get_series_data
-            if ctype == "series"
-            else self.client.get_show_data
-        )
+    async def _entity(self, uuid: str) -> Optional[Mapping[str, Any]]:
+        """
+        The attributes of whatever the API keeps under this uuid.
 
-        try:
-            data = await asyncio.to_thread(fetch, cid)
-        except Exception as error:  # the API is the network: it may be away
-            crologger.error("Refresh failed for %s: %s", cid, error)
-            return None
+        A uuid does not say what it is - and a library row may well be of another
+        kind than the API's record: a folder adopted from disk often looks like a
+        show while the page behind it is a one-off episode (or the other way
+        round). Asking the API about just the row's kind answered "no such
+        entity" for those, so every kind is asked; the first answer wins.
+        """
+        for fetch_name in ENTITY_FETCHES:
+            fetch = getattr(self.client, fetch_name)
+            try:
+                data = await asyncio.to_thread(fetch, uuid)
+            except Exception as error:  # this is not the kind of entity it is
+                crologger.warning("Not a %s: %s (%s)", fetch_name, uuid, error)
+                continue
 
-        attributes = (data or {}).get("data", {}).get("attributes")
+            attributes = (data or {}).get("data", {}).get("attributes")
 
-        return attributes if isinstance(attributes, Mapping) else None
+            if isinstance(attributes, Mapping) and attributes:
+                return attributes
+
+        return None
 
     async def _fill_work(
         self,
