@@ -63,7 +63,7 @@ def czech_count(count: int, one: str, few: str, many: str) -> str:
 
 
 #: How many genres the top bar spells out before folding the rest away.
-GENRES_SHOWN = 4
+GENRES_SHOWN = 10
 
 
 def parts_label(count: int) -> str:
