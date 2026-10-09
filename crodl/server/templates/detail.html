@@ -38,7 +38,9 @@
                     <span class="badge badge--expired">{{ expired_parts_label(content.expired) }}</span>
                     {% endif %}
                 </div>
+                {% if content.description %}
                 <div class="description">{{ content.description }}</div>
+                {% endif %}
                 {% if content.available %}
                 <div class="actions">
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">
@@ -111,17 +113,22 @@
                 {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
                 {% if ep.duration %} | {{ ep.duration // 60 }} min {% endif %}
             </div>
+            {% set source = media_url(ep.local_path) %}
+            {% if source %}
             <button type="button" class="play-button js-only" data-play
-                    data-src="{{ media_url(ep.local_path) }}"
+                    data-src="{{ source }}"
                     data-title="{{ (ep.part ~ '. ') if ep.part else '' }}{{ ep.title }}"
                     data-work="{{ content.title }}"
                     aria-label="Přehrát {{ ep.title }}">▶</button>
             <noscript>
                 <audio controls class="episode-player" preload="none">
-                    <source src="{{ media_url(ep.local_path) }}" type="audio/mpeg">
+                    <source src="{{ source }}" type="audio/mpeg">
                     Tvůj prohlížeč nepodporuje přehrávání.
                 </audio>
             </noscript>
+            {% else %}
+            <p class="job-url">Soubor teď není k dispozici (složka knihovny možná není připojená).</p>
+            {% endif %}
             {% if edit_mode %}
             <details class="editor">
                 <summary>✏️ Upravit údaje dílu</summary>

@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
+from crodl.library import roots
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
-from crodl.library.models import Episode, UpdateCheck, WorkLink
+from crodl.library.models import Episode, LibraryRoot, UpdateCheck, WorkLink
 from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
+from crodl.library.scan import LibraryScan
 from crodl.library.tags import write_tags
 from crodl.library.updates import LibraryUpdates, NewPart
 from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
@@ -402,21 +404,88 @@ class LibraryService:
         """
         The file the library keeps at `relative_path`, ready to be served.
 
-        Only what the library stored is handed out - the download directory also
-        holds the segment folders, the log and the database itself, none of which
-        belong in a URL. A path that tries to leave that directory is refused.
+        Only what the library stored is handed out - a library folder also holds
+        the segment folders, the log and the database itself, none of which
+        belong in a URL. A path that tries to leave a folder is refused. The
+        path is relative to one of the folders the library keeps, so a second
+        folder on an external disk is served the same way.
         """
         parts = Path(relative_path).parts
 
         if Path(relative_path).is_absolute() or ".." in parts:
             return None
 
-        target = self.download_path.joinpath(*parts)
+        for root in dict.fromkeys([self.download_path, *roots.known()]):
+            target = root.joinpath(*parts)
 
-        if not target.is_file() or not await self.repository.knows_file(target):
+            if target.is_file() and await self.repository.knows_file(target):
+                return target
+
+        return None
+
+    async def load_roots(self) -> None:
+        """
+        Loads the folders the library keeps, seeding the default one.
+
+        Called when the server starts, so the pages can tell (without asking the
+        database per part) which files may be served and whether a folder is
+        missing right now.
+        """
+        stored = await self.repository.get_roots()
+
+        if not stored:
+            stored = [
+                await self.repository.save_root(LibraryRoot(path=str(DOWNLOAD_PATH)))
+            ]
+
+        roots.load([row.path for row in stored])
+
+    async def add_root(self, path: str) -> Optional[LibraryRoot]:
+        """
+        Registers a folder of audio; None when it cannot be read.
+
+        The folder has to be there and be a directory - an external disk that is
+        not plugged in is what the page then says.
+        """
+        folder = Path(path.strip()).expanduser()
+
+        if not path.strip() or not folder.is_dir():
             return None
 
-        return target
+        stored = await self.repository.save_root(LibraryRoot(path=str(folder)))
+        roots.register(folder)
+        crologger.info("Library: added root %s", folder)
+
+        return stored
+
+    async def import_root(self, path: str) -> dict[str, int]:
+        """Scans a folder into the library; the counts come from the scan."""
+        result = await LibraryScan(
+            repository=self.repository, download_path=Path(path)
+        ).sync_all()
+
+        crologger.info("Library: imported %s (%s)", path, result)
+        return result
+
+    async def forget_root(self, path: str) -> bool:
+        """Forgets a folder; the works that came from it stay in the library."""
+        if not await self.repository.delete_root(path):
+            return False
+
+        roots.forget(Path(path))
+        return True
+
+    def known_roots(self) -> list[Path]:
+        """The folders the library keeps its audio in."""
+        return roots.known()
+
+    async def stored_roots(self) -> list[LibraryRoot]:
+        """The folders as the database holds them, oldest first."""
+        return list(await self.repository.get_roots())
+
+    def missing_roots(self) -> list[Path]:
+        """The folders that are not there right now (an unplugged disk)."""
+        return roots.missing()
 
     async def _artwork(
         self,

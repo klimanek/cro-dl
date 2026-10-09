@@ -34,8 +34,17 @@
   the order the segments were merged in and that the temporary segment folder is
   gone - the wiring a downloader without a declared container used to slip
   through.
-- Editing metadata by hand: a work's title and description, and each part's
-  title, author and description, are editable on the detail page (a work adopted
+- The library can hold more than one folder: "⚙️ Nastavení" (in the top bar) lists
+  the folders it keeps, and "Importovat" takes the path of another one (a
+  collection on an external disk). The files stay where they are, the works show
+  up next to the rest, and they are served and played like anything else. A
+  folder that is not there right now (an unplugged disk) is named in a banner on
+  every page, and the setting stays for when it comes back - the library is not
+  written to or crashed on in the meantime. A file that is not there gets no
+  address at all, so a missing cover or part shows a placeholder instead of a
+  broken player.
+- A work's description is only shown when it has one (it used to print "None").
+- Editing metadata by hand: a work's title and description, and each part's  title, author and description, are editable on the detail page (a work adopted
   from disk is named after its folder until then). Curation writes in place and
   only the columns a person may touch.
 - Downloading from the web library: a field on the home page takes a

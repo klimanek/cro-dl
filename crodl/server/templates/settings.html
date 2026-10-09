@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nastavení - CRo-DL</title>
+    {% include "_style.html" %}
+</head>
+<body>
+    {% set back = "/" %}
+    {% set back_label = "← Zpět do knihovny" %}
+    {% include "_top.html" %}
+
+    <main class="library">
+        <h2>Složky knihovny</h2>
+        <p class="job-url">
+            Soubory zůstávají, kde jsou - knihovna si je jen zapisuje. Nové pořady
+            a seriály se do přidané složky nestahují, jen se z ní načtou.
+        </p>
+        <table class="folders">
+            {% for folder in folders %}
+            <tr>
+                <td class="folder-path">{{ folder.path }}</td>
+                <td>
+                    {% if folder.default %}<span class="badge badge--upcoming">výchozí</span>{% endif %}
+                    {% if folder.missing %}<span class="badge badge--expired">nedostupná</span>{% endif %}
+                </td>
+                <td>
+                    {% if not folder.default %}
+                    <form method="post" action="/settings/roots/remove">
+                        <input type="hidden" name="path" value="{{ folder.path }}">
+                        <button type="submit">Odebrat</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        {% if report %}
+        <p class="note">{{ report }}</p>
+        {% endif %}
+
+        <h2>Importovat složku</h2>
+        <form class="add-form" method="post" action="/settings/roots">
+            <input type="text" name="path" placeholder="/Volumes/Disk/Sbírka" aria-label="Cesta ke složce">
+            <button type="submit">Importovat</button>
+        </form>
+        <p class="job-url">
+            Složka se prohledá: každá její podsložka se stane dílem (pod
+            „Seriály/“ seriálem), hudba se nenačítá, jen mluvené slovo.
+        </p>
+    </main>
+</body>
+</html>

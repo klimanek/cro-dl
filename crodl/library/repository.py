@@ -8,7 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from crodl.library.database import async_session_factory
-from crodl.library.models import Episode, Series, Show, Station, UpdateCheck, WorkLink
+from crodl.library.models import (
+    Episode,
+    LibraryRoot,
+    Series,
+    Show,
+    Station,
+    UpdateCheck,
+    WorkLink,
+)
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -121,6 +129,18 @@ class LibraryRepository(DownloadStore, Protocol):
 
     async def get_work_link(self, collection_id: str) -> Optional[WorkLink]:
         """The link stored for a work, if a person supplied one."""
+        ...
+
+    async def save_root(self, root: LibraryRoot) -> LibraryRoot:
+        """Registers a folder whose audio belongs to the library."""
+        ...
+
+    async def get_roots(self) -> Sequence[LibraryRoot]:
+        """Every registered folder, oldest first."""
+        ...
+
+    async def delete_root(self, path: str) -> bool:
+        """Forgets a folder; the works that came from it stay."""
         ...
 
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
@@ -459,6 +479,33 @@ class SqliteLibraryRepository:
         """The link stored for a work, if a person supplied one."""
         async with self._session_factory() as session:
             return await session.get(WorkLink, collection_id)
+
+    async def save_root(self, root: LibraryRoot) -> LibraryRoot:
+        """Registers a folder whose audio belongs to the library."""
+        return await self._upsert(root)
+
+    async def get_roots(self) -> Sequence[LibraryRoot]:
+        """Every registered folder, oldest first (the default one is seeded first)."""
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(LibraryRoot).order_by(col(LibraryRoot.added_at))
+            )
+            return result.scalars().all()
+
+    async def delete_root(self, path: str) -> bool:
+        """Forgets a folder; the works that came from it stay in the library."""
+        async with self._lock:
+            async with self._session_factory() as session:
+                row = await session.get(LibraryRoot, path)
+
+                if row is None:
+                    return False
+
+                await session.delete(row)
+                await session.commit()
+
+        crologger.info("Library: forgot root %s", path)
+        return True
 
     async def delete_work(self, ctype: str, cid: str) -> int:
         """

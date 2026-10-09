@@ -1,7 +1,11 @@
 """How the pages write things down: dates, counts, media URLs."""
 
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
+from crodl.library import roots
 from crodl.server.format import (
     added_line,
     changed_line,
@@ -15,6 +19,7 @@ from crodl.server.format import (
     parts_label,
     records_label,
     refresh_report,
+    settings_report,
     tags_report,
     upcoming_parts_label,
 )
@@ -103,6 +108,41 @@ class TestRefreshReport(unittest.TestCase):
         self.assertIsNone(refresh_report("nonsense"))
 
 
+class TestMediaUrlAcrossRoots(unittest.TestCase):
+    """A folder added by hand is served like the default one."""
+
+    def test_a_file_in_an_added_folder_has_a_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            extra = Path(tmp) / "Sbírka"
+            (extra / "Dílo").mkdir(parents=True)
+            (extra / "Dílo" / "1 - Část.mp3").write_bytes(b"")
+            roots.register(extra)
+
+            try:
+                self.assertEqual(
+                    media_url(str(extra / "Dílo" / "1 - Část.mp3")),
+                    "/library/D%C3%ADlo/1%20-%20%C4%8C%C3%A1st.mp3",
+                )
+            finally:
+                roots.forget(extra)
+
+            self.assertIsNone(media_url(str(extra / "Dílo" / "1 - Část.mp3")))
+
+    def test_the_default_folder_is_always_known(self):
+        self.assertIn(DOWNLOAD_PATH, roots.known())
+
+
+class TestSettingsReport(unittest.TestCase):
+    def test_it_says_what_happened(self):
+        self.assertEqual(
+            settings_report(added="/mnt/Sbírka", files="12"),
+            "Složka /mnt/Sbírka přidána, naimportováno 12 souborů.",
+        )
+        self.assertIn("nepodařilo", settings_report(error="1") or "")
+        self.assertIn("odebrána", settings_report(removed="1") or "")
+        self.assertIsNone(settings_report())
+
+
 class TestCuratedReport(unittest.TestCase):
     def test_it_says_what_saving_a_work_did(self):
         self.assertEqual(curated_report("3"), "Uloženo a tagy přepsány v 3 souborech.")
@@ -153,6 +193,14 @@ class TestNewPartsLabel(unittest.TestCase):
 
 
 class TestMediaUrl(unittest.TestCase):
+    def setUp(self):
+        self.folder = DOWNLOAD_PATH / "Seriály" / "Bohumil Hrabal"
+        self.folder.mkdir(parents=True, exist_ok=True)
+        (self.folder / "8 - Díl.mp3").write_bytes(b"")
+
+    def tearDown(self):
+        shutil.rmtree(DOWNLOAD_PATH / "Seriály" / "Bohumil Hrabal", ignore_errors=True)
+
     def test_a_file_in_the_library_gets_a_url(self):
         path = str(DOWNLOAD_PATH / "Seriály" / "Bohumil Hrabal" / "8 - Díl.mp3")
 
@@ -164,11 +212,14 @@ class TestMediaUrl(unittest.TestCase):
     def test_nothing_to_serve(self):
         self.assertIsNone(media_url(None))
         self.assertIsNone(media_url(""))
+        # A file that is not there has no address either.
+        self.assertIsNone(media_url(str(DOWNLOAD_PATH / "Seriály" / "nikde.mp3")))
 
     def test_a_file_outside_the_download_directory_has_no_url(self):
         # The media route would refuse it, so the page must not link to it.
         self.assertIsNone(media_url("/etc/passwd"))
         self.assertIsNone(media_url(str(DOWNLOAD_PATH / ".." / "outside.mp3")))
+        self.assertIsNone(media_url(str(self.folder / ".." / "outside.mp3")))
 
 
 if __name__ == "__main__":

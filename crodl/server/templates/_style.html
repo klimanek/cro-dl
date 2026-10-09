@@ -55,6 +55,18 @@
     .badge--new { background-color: var(--accent); color: #06210f; }
     .badge--upcoming { background-color: #3a3a3a; color: var(--text-secondary); }
     .badge--expired { background-color: var(--warning); color: #241300; }
+    /* A folder of the library that is not there right now (an unplugged disk). */
+    .roots-warning {
+        background-color: #3a2410;
+        border: 1px solid var(--warning);
+        border-radius: 6px;
+        color: #ffd9a8;
+        margin: 12px 0;
+        padding: 10px 14px;
+    }
+    .folders { border-collapse: collapse; margin: 8px 0 18px; width: 100%; }
+    .folders td { border-bottom: 1px solid #262626; padding: 6px 8px; vertical-align: middle; }
+    .folder-path { font-family: monospace; word-break: break-all; }
     /* The genres of the library, in the top bar (a few links, the rest folded). */
     .genres {
         align-items: center;

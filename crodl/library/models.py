@@ -48,6 +48,20 @@ class Series(SQLModel, table=True):
     episodes: List["Episode"] = Relationship(back_populates="series")
 
 
+class LibraryRoot(SQLModel, table=True):
+    """
+    A folder whose audio belongs to this library.
+
+    The default one is the folder cro-dl downloads into; others are added by
+    hand (a collection on an external disk). The files stay where they are and
+    the library keeps one database, so an added folder only has to be scanned
+    for its works to show up next to the rest.
+    """
+
+    path: str = Field(primary_key=True)
+    added_at: datetime = Field(default_factory=datetime.now)
+
+
 class UpdateCheck(SQLModel, table=True):
     """
     What the last look for new parts found, by the state of the missing parts.

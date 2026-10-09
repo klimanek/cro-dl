@@ -1,3 +1,4 @@
+import shutil
 import unittest
 from pathlib import Path
 from typing import Optional
@@ -13,21 +14,31 @@ def work() -> LibraryItem:
 
 
 def episode(uuid: str, title: str, part: Optional[int], name: Optional[str]) -> Episode:
-    # Only files inside the download directory are servable, so the queue only
-    # ever holds those (see `media_url`).
-    local_path = str(DOWNLOAD_PATH / "Seriály" / "S" / name) if name else None
+    # Only files inside the download directory are servable, and only files that
+    # are there: the queue is built on real paths (see `media_url`).
+    if not name:
+        return Episode(
+            uuid=uuid, title=title, part=part, local_path=None, audio_format="mp3"
+        )
+
+    path = DOWNLOAD_PATH / "Seriály" / "S" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"")
 
     return Episode(
         uuid=uuid,
         title=title,
         part=part,
-        local_path=local_path,
+        local_path=str(path),
         audio_format="mp3",
     )
 
 
 class TestQueueItems(unittest.TestCase):
     """What "Přidat do fronty" puts into the player's queue."""
+
+    def tearDown(self):
+        shutil.rmtree(DOWNLOAD_PATH / "Seriály" / "S", ignore_errors=True)
 
     def test_parts_come_back_in_order_and_name_their_work(self):
         items = queue_items(

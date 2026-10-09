@@ -1,12 +1,11 @@
 """Turning the library's data into what the pages show."""
 
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Optional
 from urllib.parse import quote
 
-from crodl.settings import DOWNLOAD_PATH
+from crodl.library import roots
 
 # Czech month names in the genitive - the form a written date uses.
 MONTHS = (
@@ -27,21 +26,27 @@ MONTHS = (
 
 def media_url(path: Optional[str]) -> Optional[str]:
     """
-    URL of a file under the download directory, as served on /library.
+    URL of a file under one of the library's folders, as served on /library.
 
-    None for anything the media route would refuse anyway (a file outside the
-    download directory has no address here), so a page shows a placeholder
-    instead of a link that cannot work.
+    None for anything the media route would refuse anyway (a file in no known
+    folder has no address here), so a page shows a placeholder instead of a link
+    that cannot work.
     """
     if not path:
         return None
 
-    try:
-        relative = Path(os.path.relpath(path, DOWNLOAD_PATH))
-    except ValueError:  # a file on another drive (Windows) has no relative path
+    root = roots.where(path)
+    if root is None:
         return None
 
-    if relative.is_absolute() or ".." in relative.parts:
+    relative = Path(path).relative_to(root)
+
+    if ".." in relative.parts:  # it only *looked* like it was inside
+        return None
+
+    if not Path(path).is_file():
+        # A file that is not there (a folder that has been unplugged, a cover
+        # somebody deleted) gets no address: a placeholder, not a broken player.
         return None
 
     return "/library/" + quote(relative.as_posix())
@@ -127,6 +132,23 @@ def added_line(job: Mapping[str, Any]) -> str:
         line += f" · dokončeno {czech_datetime(finished)}"
 
     return line
+
+
+def settings_report(
+    *, added: str = "", files: str = "", error: str = "", removed: str = ""
+) -> Optional[str]:
+    """What the settings page says after a folder was added or removed."""
+    if error:
+        return "Složku se nepodařilo přidat - musí existovat a být dostupná."
+
+    if removed:
+        return "Složka odebrána z knihovny; díla zůstala (soubory se nemazaly)."
+
+    if added:
+        count = int(files) if files.isdigit() else 0
+        return f"Složka {added} přidána, naimportováno {count} souborů."
+
+    return None
 
 
 def curated_report(param: str) -> Optional[str]:

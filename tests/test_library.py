@@ -23,6 +23,7 @@ from crodl.library.repository import (
     to_naive_utc,
 )
 from crodl.data.attributes import extract_genre
+from crodl.library import roots
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
@@ -1608,6 +1609,64 @@ class TestGenres(InMemoryLibraryTestCase):
         )
 
         self.assertEqual((await service.detail("series", self.uuid))[0].genre, "Horor")
+
+
+class TestLibraryRoots(InMemoryLibraryTestCase):
+    """A folder of audio added by hand: registered, imported, forgotten."""
+
+    async def test_a_folder_that_is_not_there_is_refused(self):
+        service = LibraryService(repository=await make_repo())
+
+        self.assertIsNone(await service.add_root("/nonexistent/nope"))
+        self.assertIsNone(await service.add_root(""))
+        self.assertEqual(await service.stored_roots(), [])
+
+    async def test_an_added_folder_is_imported_and_served(self):
+        repo = await make_repo()
+        service = LibraryService(repository=repo)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Sbírka"
+            (root / "Dílo").mkdir(parents=True)
+            (root / "Dílo" / "1 - Část.mp3").write_bytes(b"")
+            (root / "Dílo" / "2 - Část.mp3").write_bytes(b"")
+
+            added = await service.add_root(str(root))
+            self.assertIsNotNone(added)
+
+            try:
+                imported = await service.import_root(added.path)  # type: ignore[union-attr]
+                self.assertEqual(imported["success"], 2)
+
+                works = [i for i in await service.overview() if i.title == "Dílo"]
+                self.assertEqual(len(works), 1)
+                self.assertEqual(works[0].count, 2)
+
+                # The files are served through the added folder, as anywhere else.
+                self.assertIn(root, service.known_roots())
+                served = await service.media_file("Dílo/1 - Část.mp3")
+                self.assertEqual(served, root / "Dílo" / "1 - Část.mp3")
+            finally:
+                self.assertTrue(
+                    await service.forget_root(added.path)  # type: ignore[union-attr]
+                )
+
+            self.assertNotIn(root, service.known_roots())
+            self.assertEqual(await service.stored_roots(), [])
+
+    async def test_an_unavailable_folder_is_reported(self):
+        repo = await make_repo()
+        service = LibraryService(repository=repo)
+        away = Path("/nonexistent/odpojeny-disk")
+        await service.add_root("/tmp")  # hmm: a folder that is there
+
+        roots.register(away)
+
+        try:
+            self.assertIn(away, service.missing_roots())
+        finally:
+            roots.forget(away)
+            roots.forget(Path("/tmp"))
 
 
 if __name__ == "__main__":

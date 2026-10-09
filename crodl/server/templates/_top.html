@@ -1,6 +1,7 @@
 <div class="top-bar">
     <a href="{{ back }}" class="back-link">{{ back_label }}</a>
     {% include "_check.html" %}
+    <a href="/settings" class="mode-link" title="Nastavení">⚙️ Nastavení</a>
     {% if edit_mode %}
     <a href="/edit-mode?on=0&amp;next={{ request.url.path }}" class="mode-link">✓ Hotovo</a>
     {% else %}
@@ -8,3 +9,4 @@
     {% endif %}
 </div>
 {% include "_player.html" %}
+{% include "_roots_warning.html" %}

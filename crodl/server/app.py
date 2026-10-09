@@ -4,7 +4,7 @@ import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +17,7 @@ from fastapi.responses import (
     RedirectResponse,
 )
 
+from crodl.library import roots
 from crodl.library.database import init_db
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
@@ -42,10 +43,12 @@ from crodl.server.format import (  # noqa: I001
     parts_label,
     records_label,
     refresh_report,
+    settings_report,
     tags_report,
     upcoming_parts_label,
 )
 from crodl.settings import (
+    DOWNLOAD_PATH,
     SERVER_HOST,
     SERVER_PORT,
     UPDATE_CHECK_HOURS,
@@ -93,6 +96,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "check_report": check_report,
         "file_tags": file_tags,
         "genres_shown": GENRES_SHOWN,
+        "missing_roots": [str(path) for path in roots.missing()],
         "edit_mode": edit_mode_on(request),
         "check": checker.state,
     }
@@ -150,6 +154,9 @@ async def watch_for_new_parts() -> None:
 async def lifespan(app: FastAPI):
     """Make sure the library exists, then watch it for new parts."""
     await init_db()
+    # Which folders the library keeps its audio in (the default one, plus any
+    # added by hand), so the pages know what may be served.
+    await library_service().load_roots()
     watcher = asyncio.create_task(watch_for_new_parts())
 
     try:
@@ -440,6 +447,65 @@ async def curate_part(request: Request, ctype: str, content_id: str, part_id: st
         return PlainTextResponse("Not found", status_code=404)
 
     return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+
+
+@app.get("/settings")
+async def settings(request: Request):
+    """Which folders make up the library, and importing one of them."""
+    stored = await library_service().stored_roots()
+    folders = [
+        {
+            "path": row.path,
+            "missing": not Path(row.path).is_dir(),
+            "default": row.path == str(DOWNLOAD_PATH),
+        }
+        for row in stored
+    ]
+
+    return templates.TemplateResponse(
+        request=request,
+        name="settings.html",
+        context={
+            "folders": folders,
+            "report": settings_report(
+                added=request.query_params.get("pridano", ""),
+                files=request.query_params.get("souboru", ""),
+                error=request.query_params.get("chyba", ""),
+                removed=request.query_params.get("odebrano", ""),
+            ),
+        },
+    )
+
+
+@app.post("/settings/roots")
+async def add_root(request: Request):
+    """Add a folder of audio to the library, and import what is in it."""
+    check_same_origin(request)
+    fields = await form_fields(request)
+    service = library_service()
+    added = await service.add_root(fields.get("path", ""))
+
+    if added is None:
+        return RedirectResponse("/settings?chyba=1", status_code=303)
+
+    imported = await service.import_root(added.path)
+
+    return RedirectResponse(
+        f"/settings?pridano={quote(added.path)}&souboru={imported.get('success', 0)}",
+        status_code=303,
+    )
+
+
+@app.post("/settings/roots/remove")
+async def remove_root(request: Request):
+    """Forget a folder; its works stay in the library (the files are untouched)."""
+    check_same_origin(request)
+    fields = await form_fields(request)
+
+    if not await library_service().forget_root(fields.get("path", "")):
+        return RedirectResponse("/settings?chyba=1", status_code=303)
+
+    return RedirectResponse("/settings?odebrano=1", status_code=303)
 
 
 @app.post("/detail/{ctype}/{content_id}/link")
