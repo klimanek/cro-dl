@@ -1179,7 +1179,10 @@ class TestRefresh(InMemoryLibraryTestCase):
             api.get_series_data = mock.Mock(side_effect=OSError("no network"))  # type: ignore[method-assign]
             service, _ = await self._library(Path(tmp), api)
 
-            self.assertIsNone(await service.refresh("series", self.uuid))
+            # An API that is away must not break the page: the work still takes
+            # whatever lies next to its files (nothing, here).
+            filled = await service.refresh("series", self.uuid)
+            self.assertEqual((filled.fields, filled.images), (0, 0))  # type: ignore[union-attr]
 
 
 class TestNewParts(InMemoryLibraryTestCase):
@@ -1404,7 +1407,10 @@ class TestSourceUrl(InMemoryLibraryTestCase):
         repo = await make_repo()
         service = await self._library(repo)
 
-        self.assertIsNone(await service.refresh("series", "hash-1"))
+        # Nothing to ask the API about, but an image next to the files is still
+        # worth taking - there is none here, so the answer is "nothing".
+        filled = await service.refresh("series", "hash-1")
+        self.assertEqual((filled.fields, filled.images), (0, 0))  # type: ignore[union-attr]
 
 
 class TestTags(unittest.TestCase):
@@ -1808,6 +1814,100 @@ class TestCheckSurvivesABadWork(InMemoryLibraryTestCase):
         ).check_all()
 
         self.assertEqual(checked, 0)  # nothing counted, and nothing raised
+
+
+class TestArtworkFromDisk(InMemoryLibraryTestCase):
+    """An image lying next to the audio becomes the cover of the work."""
+
+    image = b"\x89PNG\r\n\x1a\n not really an image"
+    episode_uuid = "aaaa0001-1111-2222-3333-444455556666"
+
+    async def _work_over_files(
+        self,
+        tmp: str,
+        *,
+        image_path: Optional[Path] = None,
+        uuid: str = "hash-1",
+    ) -> tuple[SqliteLibraryRepository, Path]:
+        repo = await make_repo()
+        folder = Path(tmp)
+        (folder / "1 - Díl.mp3").write_bytes(b"")
+        await repo.save_download(
+            FakeWork(uuid=self.episode_uuid, title="1-Díl"),
+            folder / "1 - Díl.mp3",
+            audio_format="mp3",
+            image_path=image_path,
+            collection=Collection(uuid=uuid, type="series", title="Složka"),
+        )
+
+        return repo, folder
+
+    async def test_a_cover_in_the_folder_is_taken_when_the_api_knows_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, folder = await self._work_over_files(tmp)
+            (folder / "cover.jpg").write_bytes(self.image)
+            service = LibraryService(repository=repo)
+
+            filled = await service.refresh("series", "hash-1")
+
+            self.assertEqual(filled.images, 1)  # type: ignore[union-attr]
+            episode = await repo.find_episode_by_path(folder / "1 - Díl.mp3")
+            self.assertEqual(episode.image_path, str(folder / "cover.jpg"))  # type: ignore[union-attr]
+            # And the grid shows it.
+            items = await service.overview()
+            self.assertEqual(items[0].image_path, str(folder / "cover.jpg"))
+
+    async def test_a_cover_in_the_folder_is_taken_when_the_api_has_no_image(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            uuid = "aaaa0000-1111-2222-3333-444455556666"
+            repo, folder = await self._work_over_files(tmp, uuid=uuid)
+            (folder / "cover.jpg").write_bytes(self.image)
+            api = FakeApi(work={"title": "Složka"})  # the API reports no image
+            service = LibraryService(
+                repository=repo, refresher=LibraryRefresh(repository=repo, client=api)
+            )
+
+            filled = await service.refresh("series", uuid)
+
+            self.assertEqual(filled.images, 1)  # type: ignore[union-attr]
+
+    async def test_a_part_whose_image_is_gone_gets_the_folder_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            repo, folder = await self._work_over_files(
+                tmp, image_path=folder / "gone.jpg"
+            )
+            (folder / "cover.jpg").write_bytes(self.image)
+            service = LibraryService(repository=repo)
+
+            filled = await service.refresh("series", "hash-1")
+
+            self.assertEqual(filled.images, 1)  # type: ignore[union-attr]
+            episode = await repo.find_episode_by_path(folder / "1 - Díl.mp3")
+            self.assertEqual(episode.image_path, str(folder / "cover.jpg"))  # type: ignore[union-attr]
+
+    async def test_a_part_with_its_own_image_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            own = folder / "1 - Díl.jpg"
+            own.write_bytes(self.image)
+            repo, folder = await self._work_over_files(tmp, image_path=own)
+            (folder / "cover.jpg").write_bytes(self.image)
+            service = LibraryService(repository=repo)
+
+            filled = await service.refresh("series", "hash-1")
+
+            self.assertEqual(filled.images, 0)  # type: ignore[union-attr]
+
+    async def test_importing_the_folder_takes_a_cover_that_appeared_later(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, folder = await self._work_over_files(tmp)
+            (folder / "cover.jpg").write_bytes(self.image)
+
+            await LibraryScan(repository=repo, download_path=folder).sync_all()
+
+            episode = await repo.find_episode_by_path(folder / "1 - Díl.mp3")
+            self.assertEqual(episode.image_path, str(folder / "cover.jpg"))  # type: ignore[union-attr]
 
 
 if __name__ == "__main__":

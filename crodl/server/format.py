@@ -188,7 +188,7 @@ def link_report(param: str) -> Optional[str]:
 
 
 def changed_line(fields: int, images: int) -> str:
-    """What a refresh from the API filled in."""
+    """What a refresh filled in (from the API, or from the images on disk)."""
     if not fields and not images:
         return "Nic k doplnění - údaje i obrázek už knihovna má."
 
@@ -198,7 +198,7 @@ def changed_line(fields: int, images: int) -> str:
     if images:
         parts.append(czech_count(images, "obrázek", "obrázky", "obrázků"))
 
-    return "Doplněno z API: " + ", ".join(parts) + "."
+    return "Doplněno: " + ", ".join(parts) + "."
 
 
 def refresh_report(param: str) -> Optional[str]:

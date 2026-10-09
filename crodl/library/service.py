@@ -10,7 +10,12 @@ from urllib.parse import urlparse
 
 from crodl.data.attributes import extract_genre
 from crodl.library import roots
-from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
+from crodl.library.artwork import (
+    cover_path,
+    fetch_artwork,
+    fetch_cover,
+    stored_artwork,
+)
 from crodl.library.models import Episode, LibraryRoot, UpdateCheck, WorkLink
 from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
@@ -599,9 +604,13 @@ class LibraryService:
         shared_url = collection.shared_asset_url if collection else None
 
         if shared_url:
-            return await self._shared_cover(shared_url, path.parent)
+            return await self._shared_cover(shared_url, path.parent) or stored_artwork(
+                path
+            )
 
-        return await fetch_artwork(work.asset_url, path)
+        # An image already lying next to the file (one somebody put there) is the
+        # cover when the API has none, or when fetching it failed.
+        return await fetch_artwork(work.asset_url, path) or stored_artwork(path)
 
     async def _shared_cover(self, url: str, directory: Path) -> Optional[Path]:
         """Fetches a work's cover once - later parts and runs reuse the file."""

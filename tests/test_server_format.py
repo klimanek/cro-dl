@@ -81,8 +81,8 @@ class TestCzechCounting(unittest.TestCase):
 
 class TestChangedLine(unittest.TestCase):
     def test_what_a_refresh_filled_in(self):
-        self.assertEqual(changed_line(2, 1), "Doplněno z API: 2 údaje, 1 obrázek.")
-        self.assertEqual(changed_line(0, 1), "Doplněno z API: 1 obrázek.")
+        self.assertEqual(changed_line(2, 1), "Doplněno: 2 údaje, 1 obrázek.")
+        self.assertEqual(changed_line(0, 1), "Doplněno: 1 obrázek.")
 
     def test_nothing_was_missing(self):
         self.assertIn("Nic k doplnění", changed_line(0, 0))
@@ -92,7 +92,7 @@ class TestRefreshReport(unittest.TestCase):
     """The note the detail page shows after "Aktualizovat data"."""
 
     def test_what_was_filled_in(self):
-        self.assertEqual(refresh_report("2-1"), "Doplněno z API: 2 údaje, 1 obrázek.")
+        self.assertEqual(refresh_report("2-1"), "Doplněno: 2 údaje, 1 obrázek.")
         self.assertEqual(
             refresh_report("0-0"), "Nic k doplnění - údaje i obrázek už knihovna má."
         )

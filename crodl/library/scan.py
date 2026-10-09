@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from crodl.library.artwork import stored_artwork
+from crodl.library.models import Episode
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.program.content import Collection
 from crodl.settings import AUDIO_FORMATS, DOWNLOAD_PATH, SERIES_DOWNLOAD_DIR
@@ -156,6 +157,7 @@ class LibraryScan:
 
         if existing is not None:
             await self.repository.link_episode(existing.uuid, collection)
+            await self._adopt_artwork(existing, path)
             return
 
         await self.repository.save_download(
@@ -166,3 +168,18 @@ class LibraryScan:
             is_manual=True,
             collection=collection,
         )
+
+    async def _adopt_artwork(self, episode: Episode, path: Path) -> None:
+        """
+        Takes an image lying next to the file, if the row has none (or lost it).
+
+        Somebody who drops a `cover.jpg` into a work's folder and imports the
+        folder again gets the cover the download would have stored.
+        """
+        if episode.image_path and Path(episode.image_path).is_file():
+            return
+
+        artwork = stored_artwork(path)
+
+        if artwork is not None:
+            await self.repository.set_artwork([episode.uuid], artwork)

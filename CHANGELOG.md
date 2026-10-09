@@ -95,6 +95,15 @@
   there are more than a few the rest fold into a dropdown.
 
 ### Changed
+- An image dropped into a work's folder (`cover.jpg`) was not picked up by the
+  library: the refresh only ever asked the content API, and for a work the API
+  cannot describe (a folder adopted from disk) it did not look at the disk at all
+  - it answered "Tenhle záznam nemá v API protějšek". "↻ Aktualizovat data" now
+  takes an image lying next to the parts (their own `<name>.jpg`, or the work's
+  `cover.jpg`) as the cover whenever the API reports none, when fetching it fails,
+  when the stored image has gone missing, and for works with no API record at all;
+  the download path falls back to it as well, and importing the folder again
+  adopts it. What the refresh says no longer claims the image came "z API".
 - Two layout inconsistencies in the same area: on a work's page "Aktualizovat
   data" and "Zapsat tagy do dílů" were different heights (the emoji in the second
   label made its line box taller), and the bars did not match between pages (the

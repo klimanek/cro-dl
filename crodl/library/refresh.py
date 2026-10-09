@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from crodl.data.attributes import extract_asset_url, extract_genre
-from crodl.library.artwork import cover_path, fetch_cover
+from crodl.library.artwork import cover_path, fetch_cover, stored_artwork
 from crodl.library.models import Episode
 from crodl.library.repository import (
     SqliteLibraryRepository,
@@ -67,15 +67,14 @@ class LibraryRefresh:
 
     async def refresh_work(self, ctype: str, cid: str) -> Optional[Refresh]:
         """
-        Fills a work and its parts in from the API; None if there is nothing to ask.
+        Fills a work and its parts in from the API; None when there is no work.
 
-        Returns what was filled in, so the page can say so.
+        Returns what was filled in, so the page can say so. A work the API cannot
+        describe (a folder adopted from disk, keyed by a hash) still gets the
+        artwork that lies next to its files - which is what somebody who drops a
+        `cover.jpg` into the folder is asking for.
         """
         if ctype not in ("show", "series"):
-            return None
-
-        api_uuid = await self._api_uuid(ctype, cid)
-        if api_uuid is None:
             return None
 
         work = (
@@ -87,16 +86,17 @@ class LibraryRefresh:
         if work is None:
             return None
 
-        record = await self._record(api_uuid)
+        episodes = await self._episodes(ctype, cid)
+        api_uuid = await self._api_uuid(ctype, cid)
+        record = await self._record(api_uuid) if api_uuid else None
+
         if record is None:
-            return None
+            return await self._local_cover(episodes)
 
         attributes = record.get("attributes") or {}
         result = Refresh()
         result.fields += await self._fill_work(ctype, cid, work, attributes)
         result.fields += await self._fill_genre(ctype, cid, work, record)
-
-        episodes = await self._episodes(ctype, cid)
         result.fields += await self._fill_episodes(episodes)
         result.images += await self._store_cover(episodes, attributes)
 
@@ -108,6 +108,34 @@ class LibraryRefresh:
         )
 
         return result
+
+    async def _local_cover(self, episodes: list[Episode]) -> Refresh:
+        """
+        Artwork already on disk, for a work the content API cannot describe.
+
+        Every part takes the image lying next to it - its own, or the `cover.jpg`
+        of the whole work - and parts that already have an image are left alone.
+        One file counts once, like the API's cover does, however many parts share
+        it.
+        """
+        by_artwork: dict[Path, list[str]] = {}
+
+        for episode in episodes:
+            if not episode.local_path:
+                continue
+
+            if episode.image_path and Path(episode.image_path).is_file():
+                continue
+
+            artwork = stored_artwork(Path(episode.local_path))
+            if artwork is not None:
+                by_artwork.setdefault(artwork, []).append(episode.uuid)
+
+        for artwork, uuids in by_artwork.items():
+            await self.repository.set_artwork(uuids, artwork)
+            crologger.info("Library: took %s as the cover", artwork.name)
+
+        return Refresh(images=len(by_artwork))
 
     async def _api_uuid(self, ctype: str, cid: str) -> Optional[str]:
         """
@@ -260,17 +288,38 @@ class LibraryRefresh:
         Stores the work's own cover for the parts that have none.
 
         One file per work, like the download does: the parts of a work share the
-        image the API reports for it.
+        image the API reports for it. When the API reports none (a play published
+        without one) - or the download of it fails - an image that is already
+        lying next to the audio is used instead, so a `cover.jpg` somebody put in
+        the folder becomes the work's cover. A part whose stored image has gone
+        missing counts as having none, too.
         """
-        url = extract_asset_url(dict(attributes))
-        missing = [episode for episode in episodes if not episode.image_path]
+        missing = [
+            episode
+            for episode in episodes
+            if not episode.image_path or not Path(episode.image_path).is_file()
+        ]
 
-        if not url or not missing:
+        if not missing:
             return 0
 
-        folder = Path(episodes[0].local_path).parent
-        target = cover_path(url, folder)
-        cover = target if target.exists() else await fetch_cover(url, folder)
+        folder = next(
+            (
+                Path(episode.local_path).parent
+                for episode in missing
+                if episode.local_path
+            ),
+            None,
+        )
+        url = extract_asset_url(dict(attributes))
+        cover: Optional[Path] = None
+
+        if url and folder is not None:
+            target = cover_path(url, folder)
+            cover = target if target.exists() else await fetch_cover(url, folder)
+
+        if cover is None and missing[0].local_path:
+            cover = stored_artwork(Path(missing[0].local_path))
 
         if cover is None:
             return 0
