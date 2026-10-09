@@ -15,6 +15,7 @@ from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
 from crodl.library.tags import write_tags
 from crodl.library.updates import LibraryUpdates, NewPart
 from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
+from crodl.tools.logger import crologger
 
 #: Hosts whose pages cro-dl can read (a work's link must point at one).
 SUPPORTED_HOSTS = {domain.replace("www.", "") for domain in SUPPORTED_DOMAINS}
@@ -316,6 +317,53 @@ class LibraryService:
         link = await self.repository.get_work_link(cid)
 
         return link.source_url if link else None
+
+    async def write_work_tags(self, ctype: str, cid: str) -> int:
+        """
+        Writes what the library knows into every part's file; how many took it.
+
+        For files that were downloaded before cro-dl tagged anything, or whose
+        file was replaced: the work's title becomes the album, the part brings
+        its own title, author and number. A genre already in a file stays - the
+        API's genre is only known while a work is being downloaded or refreshed.
+        """
+        content, episodes = await self.detail(ctype, cid)
+        if content is None or not episodes:
+            return 0
+
+        written = 0
+        for episode in episodes:
+            if not episode.local_path:
+                continue
+
+            if await write_tags(
+                Path(episode.local_path),
+                title=episode.title,
+                author=episode.author,
+                album=content.title,
+                track=episode.part,
+            ):
+                written += 1
+
+        crologger.info(
+            "Library: tagged %s of %s files of %s", written, len(episodes), cid
+        )
+        return written
+
+    async def write_part_tags(
+        self,
+        path: Path,
+        *,
+        title: Optional[str] = None,
+        author: Optional[str] = None,
+        album: Optional[str] = None,
+        genre: Optional[str] = None,
+        track: Optional[int] = None,
+    ) -> bool:
+        """Writes the tags a person edited for one part into its file."""
+        return await write_tags(
+            path, title=title, author=author, album=album, genre=genre, track=track
+        )
 
     async def check_for_new_parts(self) -> int:
         """

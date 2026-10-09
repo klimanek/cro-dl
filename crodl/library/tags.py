@@ -21,6 +21,47 @@ MP4_KEYS = {
     "genre": "\xa9gen",
 }
 
+#: Extensions that hold ID3 tags, including raw AAC: Czech Radio streams come
+#: down as ADTS `.aac`, which has no container to put tags in - an ID3 chunk in
+#: front of it is what players (VLC, foobar2000, ...) expect and read.
+ID3_SUFFIXES = (".mp3", ".aac")
+
+
+async def read_tags(path: Path) -> dict[str, str]:
+    """The tags a player would show for `path` (empty when there are none)."""
+    return await asyncio.to_thread(read_tags_now, path)
+
+
+def read_tags_now(path: Path) -> dict[str, str]:
+    """Reads the tags off the file, so edit mode can offer them for correction."""
+    if path.suffix.lower() not in TAGGABLE or not path.exists():
+        return {}
+
+    try:
+        if path.suffix.lower() in ID3_SUFFIXES:
+            raw: dict[str, object] = dict(EasyID3(str(path)))
+        else:
+            audio = MP4(str(path))
+            raw = {}
+
+            for key, mp4_key in MP4_KEYS.items():
+                values = audio.get(mp4_key)
+                if values:
+                    raw[key] = values[0]
+
+            track = audio.get("trkn")
+            if track:
+                raw["tracknumber"] = str(track[0][0])
+    except Exception as error:  # a file without tags is not an error
+        crologger.warning("Could not read tags of %s: %s", path.name, error)
+        return {}
+
+    return {
+        key: value[0] if isinstance(value, list) else str(value)
+        for key, value in raw.items()
+        if value
+    }
+
 
 def wanted(
     *,
@@ -85,7 +126,7 @@ def write_tags_now(
         return False
 
     try:
-        if path.suffix.lower() == ".mp3":
+        if path.suffix.lower() in ID3_SUFFIXES:
             _write_mp3(path, tags)
         else:
             _write_mp4(path, tags)

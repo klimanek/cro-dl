@@ -26,7 +26,7 @@ from crodl.data.attributes import extract_genre
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
 from crodl.library.refresh import LibraryRefresh, api_id
-from crodl.library.tags import write_tags_now
+from crodl.library.tags import read_tags_now, write_tags_now
 from crodl.library.updates import (
     AVAILABLE,
     EXPIRED,
@@ -1401,6 +1401,15 @@ class TestTags(unittest.TestCase):
             self.assertEqual(tags["genre"], ["Horor"])
             self.assertEqual(tags["tracknumber"], ["3"])
 
+    def test_a_raw_aac_file_takes_an_id3_tag_too(self):
+        # Czech Radio streams come down as ADTS .aac, with no container to tag.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "9 - Díl.aac"
+            path.write_bytes(b"")
+
+            self.assertTrue(write_tags_now(path, title="Devátý", track=9))
+            self.assertEqual(read_tags_now(path)["title"], "Devátý")
+
     def test_nothing_to_write_or_no_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "a.mp3"
@@ -1429,6 +1438,50 @@ class TestTags(unittest.TestCase):
         self.assertEqual(extract_genre(payload), "Horor")
         self.assertIsNone(extract_genre({}))
         self.assertIsNone(extract_genre({"data": {"relationships": {}}}))
+
+
+class TestWorkTags(InMemoryLibraryTestCase):
+    """Edit mode writes the library's knowledge into the files themselves."""
+
+    uuid = "aaaa0000-1111-2222-3333-444455556666"
+
+    async def _library_with_parts(self, tmp: str) -> tuple[LibraryService, Path]:
+        repo = await make_repo()
+        collection = Collection(uuid=self.uuid, type="series", title="Seriál")
+        folder = Path(tmp)
+
+        for part in (1, 2):
+            path = folder / f"{part} - Díl.mp3"
+            path.write_bytes(b"")
+            await repo.save_download(
+                FakeWork(
+                    uuid=f"aaaa000{part}-1111-2222-3333-444455556666",
+                    title=f"{part}-Díl",
+                    part=part,
+                ),
+                path,
+                audio_format="mp3",
+                collection=collection,
+            )
+
+        return LibraryService(repository=repo), folder
+
+    async def test_every_part_gets_the_works_tags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service, folder = await self._library_with_parts(tmp)
+
+            written = await service.write_work_tags("series", self.uuid)
+
+            self.assertEqual(written, 2)
+            tags = read_tags_now(folder / "2 - Díl.mp3")
+            self.assertEqual(tags["title"], "2-Díl")
+            self.assertEqual(tags["album"], "Seriál")
+            self.assertEqual(tags["tracknumber"], "2")
+
+    async def test_a_work_that_is_not_there_writes_nothing(self):
+        service = LibraryService(repository=await make_repo())
+
+        self.assertEqual(await service.write_work_tags("series", "nope"), 0)
 
 
 if __name__ == "__main__":

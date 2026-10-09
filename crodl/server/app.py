@@ -3,7 +3,7 @@ import os
 import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
@@ -19,6 +19,7 @@ from fastapi.responses import (
 from crodl.library.database import init_db
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
+from crodl.library.tags import read_tags_now
 from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
@@ -37,6 +38,7 @@ from crodl.server.format import (
     parts_label,
     records_label,
     refresh_report,
+    tags_report,
     upcoming_parts_label,
 )
 from crodl.settings import (
@@ -62,6 +64,14 @@ TYPE_LABELS = {"show": "Pořad", "series": "Seriál", "orphans": "Bez metadat"}
 EDIT_COOKIE = "edit"
 
 
+def file_tags(path: Optional[str]) -> dict[str, str]:
+    """What a part's file says about itself (edit mode shows it, and offers it)."""
+    if not path:
+        return {}
+
+    return read_tags_now(Path(path))
+
+
 def template_helpers(request: Request) -> dict[str, Any]:
     """What every template can use: labels, formatting, the editing mode."""
     return {
@@ -77,6 +87,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "added_line": added_line,
         "changed_line": changed_line,
         "check_report": check_report,
+        "file_tags": file_tags,
         "edit_mode": edit_mode_on(request),
         "check": checker.state,
     }
@@ -270,7 +281,8 @@ async def detail(request: Request, ctype: str, content_id: str):
                 "episodes": episodes,
                 "type": ctype,
                 "report": refresh_report(request.query_params.get("obnoveno", ""))
-                or link_report(request.query_params.get("odkaz", "")),
+                or link_report(request.query_params.get("odkaz", ""))
+                or tags_report(request.query_params.get("tagy", "")),
                 "source_url": await library_service().source_url(content_id),
             },
         )
@@ -418,6 +430,44 @@ async def set_source_url(request: Request, ctype: str, content_id: str):
     return RedirectResponse(
         f"/detail/{ctype}/{content_id}?odkaz={'ok' if saved else 'ne'}",
         status_code=303,
+    )
+
+
+@app.post("/detail/{ctype}/{content_id}/tags")
+async def write_work_tags(request: Request, ctype: str, content_id: str):
+    """Write what the library knows into every part's file (edit mode)."""
+    check_same_origin(request)
+    written = await library_service().write_work_tags(ctype, content_id)
+
+    return RedirectResponse(
+        f"/detail/{ctype}/{content_id}?tagy={written}", status_code=303
+    )
+
+
+@app.post("/detail/{ctype}/{content_id}/parts/{part_id}/tags")
+async def write_part_tags(request: Request, ctype: str, content_id: str, part_id: str):
+    """Write the tags a person edited into one part's file (edit mode)."""
+    check_same_origin(request)
+    fields = await form_fields(request)
+    service = library_service()
+    _, episodes = await service.detail(ctype, content_id)
+    episode = next((ep for ep in episodes or [] if ep.uuid == part_id), None)
+
+    if episode is None or not episode.local_path:
+        return PlainTextResponse("Not found", status_code=404)
+
+    track = fields.get("track", "").strip()
+    written = await service.write_part_tags(
+        Path(episode.local_path),
+        title=fields.get("title") or None,
+        author=fields.get("author") or None,
+        album=fields.get("album") or None,
+        genre=fields.get("genre") or None,
+        track=int(track) if track.isdigit() else None,
+    )
+
+    return RedirectResponse(
+        f"/detail/{ctype}/{content_id}?tagy={1 if written else 0}", status_code=303
     )
 
 

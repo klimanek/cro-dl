@@ -66,6 +66,11 @@
   author, the work as the album, the part as the track number and the genre the
   API lists for the work ("Horor", "Komedie") into MP3 (ID3) and M4A/AAC (MP4)
   files, so a player shows the reading as a reading and not as a loose file.
+- Edit mode gained a tag editor: "Zapsat tagy do dílů" writes what the library
+  knows into every part's file (for downloads from before there were tags), and
+  each part has its own form showing what its file says - an empty field leaves
+  that tag alone. Raw AAC (ADTS, the Czech Radio HLS format) takes an ID3 chunk,
+  which is what players read there; only a file that cannot be tagged is skipped.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global

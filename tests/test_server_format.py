@@ -14,6 +14,7 @@ from crodl.server.format import (
     parts_label,
     records_label,
     refresh_report,
+    tags_report,
     upcoming_parts_label,
 )
 from crodl.settings import DOWNLOAD_PATH
@@ -99,6 +100,16 @@ class TestRefreshReport(unittest.TestCase):
     def test_anything_else_says_nothing(self):
         self.assertIsNone(refresh_report(""))
         self.assertIsNone(refresh_report("nonsense"))
+
+
+class TestTagsReport(unittest.TestCase):
+    def test_it_says_how_many_files_took_the_tags(self):
+        self.assertEqual(tags_report("1"), "Tagy zapsány do 1 souboru.")
+        self.assertEqual(tags_report("2"), "Tagy zapsány do 2 souborů.")
+
+    def test_a_failed_write_is_said_plainly(self):
+        self.assertIn("nepodařilo", tags_report("0") or "")
+        self.assertIsNone(tags_report(""))
 
 
 class TestCheckReport(unittest.TestCase):

@@ -68,6 +68,9 @@
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/refresh">
                         <button type="submit">↻ Aktualizovat data</button>
                     </form>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/tags">
+                        <button type="submit">🏷 Zapsat tagy do dílů</button>
+                    </form>
                     <a class="mode-link" href="/detail/{{ type }}/{{ content.id }}/delete">🗑 Smazat z knihovny</a>
                 </div>
                 <details class="editor">
@@ -116,6 +119,34 @@
                         <textarea name="description" rows="2">{{ ep.description or '' }}</textarea>
                     </label>
                     <button type="submit">Uložit</button>
+                </form>
+            </details>
+            {% set tags = file_tags(ep.local_path) %}
+            <details class="editor">
+                <summary>🏷 Tagy v souboru</summary>
+                <p class="job-url">
+                    V souboru: {{ tags.get("title") or "—" }} · {{ tags.get("artist") or "—" }}
+                    · {{ tags.get("album") or "—" }} · {{ tags.get("genre") or "—" }}
+                    · skladba {{ tags.get("tracknumber") or "—" }}
+                </p>
+                <form method="post" action="/detail/{{ type }}/{{ content.id }}/parts/{{ ep.uuid }}/tags">
+                    <label>Název
+                        <input type="text" name="title" value="{{ tags.get('title', '') }}">
+                    </label>
+                    <label>Autor
+                        <input type="text" name="author" value="{{ tags.get('artist', '') }}">
+                    </label>
+                    <label>Album
+                        <input type="text" name="album" value="{{ tags.get('album', '') }}">
+                    </label>
+                    <label>Žánr
+                        <input type="text" name="genre" value="{{ tags.get('genre', '') }}">
+                    </label>
+                    <label>Číslo dílu
+                        <input type="text" name="track" value="{{ tags.get('tracknumber', '') }}">
+                    </label>
+                    <p class="job-url">Prázdné pole tag nezmění.</p>
+                    <button type="submit">Zapsat do souboru</button>
                 </form>
             </details>
             {% endif %}

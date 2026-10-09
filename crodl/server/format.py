@@ -125,6 +125,19 @@ def added_line(job: Mapping[str, Any]) -> str:
     return line
 
 
+def tags_report(param: str) -> Optional[str]:
+    """What the page says after tags were written into files."""
+    if not param:
+        return None
+
+    written = int(param) if param.isdigit() else 0
+    if not written:
+        return "Tagy se nepodařilo zapsat - soubor se nenašel nebo ho nelze označit."
+
+    # After "do" Czech wants the genitive plural for any count but one.
+    return f"Tagy zapsány do {czech_count(written, 'souboru', 'souborů', 'souborů')}."
+
+
 def link_report(param: str) -> Optional[str]:
     """What the page says after a work's link was added."""
     if param == "ok":
