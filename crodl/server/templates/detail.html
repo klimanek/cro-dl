@@ -24,6 +24,9 @@
                 <h1>{{ content.title }}</h1>
                 <div class="work-meta">
                     {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
+                    {% if source_url %}
+                    <a href="{{ source_url }}">mujrozhlas.cz</a>
+                    {% endif %}
                     {% if content.available %}
                     <span class="badge badge--new">{{ new_parts_label(content.available) }}</span>
                     {% endif %}
@@ -52,6 +55,15 @@
                 <p class="note">{{ report }}</p>
                 {% endif %}
                 {% if edit_mode %}
+                <details class="editor">
+                    <summary>🔗 Odkaz na mujrozhlas.cz</summary>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/link">
+                        <label>Odkaz na stránku díla
+                            <input type="text" name="url" value="{{ source_url or '' }}" placeholder="https://www.mujrozhlas.cz/…">
+                        </label>
+                        <button type="submit">Uložit odkaz</button>
+                    </form>
+                </details>
                 <div class="actions">
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/refresh">
                         <button type="submit">↻ Aktualizovat data</button>

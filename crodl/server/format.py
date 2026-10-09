@@ -125,6 +125,19 @@ def added_line(job: Mapping[str, Any]) -> str:
     return line
 
 
+def link_report(param: str) -> Optional[str]:
+    """What the page says after a work's link was added."""
+    if param == "ok":
+        return (
+            "Odkaz uložen - „Aktualizovat data“ se z něj dočte uuid a stáhne, co chybí."
+        )
+
+    if param == "ne":
+        return "Odkaz se neuložil: musí to být stránka na www.mujrozhlas.cz."
+
+    return None
+
+
 def changed_line(fields: int, images: int) -> str:
     """What a refresh from the API filled in."""
     if not fields and not images:

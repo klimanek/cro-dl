@@ -31,6 +31,7 @@ from crodl.server.format import (
     czech_count,
     czech_datetime,
     expired_parts_label,
+    link_report,
     media_url,
     new_parts_label,
     parts_label,
@@ -268,7 +269,9 @@ async def detail(request: Request, ctype: str, content_id: str):
                 "content": content,
                 "episodes": episodes,
                 "type": ctype,
-                "report": refresh_report(request.query_params.get("obnoveno", "")),
+                "report": refresh_report(request.query_params.get("obnoveno", ""))
+                or link_report(request.query_params.get("odkaz", "")),
+                "source_url": await library_service().source_url(content_id),
             },
         )
     except Exception as e:
@@ -401,6 +404,21 @@ async def curate_part(request: Request, ctype: str, content_id: str, part_id: st
         return PlainTextResponse("Not found", status_code=404)
 
     return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
+
+
+@app.post("/detail/{ctype}/{content_id}/link")
+async def set_source_url(request: Request, ctype: str, content_id: str):
+    """Remember the mujrozhlas.cz page a work came from (edit mode)."""
+    check_same_origin(request)
+    fields = await form_fields(request)
+    saved = await library_service().set_source_url(
+        ctype, content_id, fields.get("url", "")
+    )
+
+    return RedirectResponse(
+        f"/detail/{ctype}/{content_id}?odkaz={'ok' if saved else 'ne'}",
+        status_code=303,
+    )
 
 
 @app.post("/detail/{ctype}/{content_id}/refresh")

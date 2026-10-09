@@ -1024,6 +1024,14 @@ class FakeApi:
         self.calls.append(("episodes", url))
         return {"data": self.episodes}
 
+    def get_series_id(self, url: str) -> Optional[str]:
+        self.calls.append(("series_id", url))
+        return None
+
+    def get_show_uuid(self, url: str) -> Optional[str]:
+        self.calls.append(("show_uuid", url))
+        return None
+
 
 class TestApiId(unittest.TestCase):
     """A work adopted from disk is keyed by a hash the API has never heard of."""
@@ -1309,6 +1317,60 @@ class TestPartState(unittest.TestCase):
             ),
             AVAILABLE,
         )
+
+
+class TestSourceUrl(InMemoryLibraryTestCase):
+    """A work adopted from disk can be told which page it came from."""
+
+    link = "https://www.mujrozhlas.cz/cetba-na-pokracovani/kondor"
+    resolved = "9d0f0f0e-1111-2222-3333-444455556666"
+
+    async def _library(self, repo: SqliteLibraryRepository, api=None) -> LibraryService:
+        await repo.save_download(
+            FakeWork(uuid="aaaa0001-1111-2222-3333-444455556666"),
+            Path("/tmp/Seriály/Složka/1 - Díl.mp3"),
+            collection=Collection(uuid="hash-1", type="series", title="Složka"),
+        )
+        return LibraryService(
+            repository=repo,
+            refresher=LibraryRefresh(repository=repo, client=api or FakeApi()),
+        )
+
+    async def test_a_page_link_is_stored(self):
+        service = await self._library(await make_repo())
+
+        stored = await service.set_source_url("series", "hash-1", self.link)
+
+        self.assertIsNotNone(stored)
+        self.assertEqual(await service.source_url("hash-1"), self.link)
+
+    async def test_a_foreign_or_empty_link_is_refused(self):
+        service = await self._library(await make_repo())
+
+        self.assertIsNone(
+            await service.set_source_url("series", "hash-1", "https://example.com/x")
+        )
+        self.assertIsNone(await service.set_source_url("series", "hash-1", "   "))
+        self.assertIsNone(await service.source_url("hash-1"))
+
+    async def test_the_uuid_is_read_from_the_link_and_remembered(self):
+        repo = await make_repo()
+        api = FakeApi(work={"description": "<p>Popis seriálu</p>"})
+        api.get_series_id = mock.Mock(return_value=self.resolved)  # type: ignore[method-assign]
+        service = await self._library(repo, api)
+        await service.set_source_url("series", "hash-1", self.link)
+
+        filled = await service.refresh("series", "hash-1")
+
+        self.assertEqual(filled.fields, 1)  # type: ignore[union-attr]  the description
+        link = await repo.get_work_link("hash-1")
+        self.assertEqual(link.resolved_uuid, self.resolved)  # type: ignore[union-attr]
+
+    async def test_a_work_without_a_link_and_without_a_uuid_asks_nothing(self):
+        repo = await make_repo()
+        service = await self._library(repo)
+
+        self.assertIsNone(await service.refresh("series", "hash-1"))
 
 
 if __name__ == "__main__":

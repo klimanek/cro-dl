@@ -58,6 +58,10 @@
 - "Zkontrolovat nové díly" lives in the top bar and shows what it is doing: a
   spinner while it runs, then a tick or a cross. The check runs in the background
   (the page refreshes itself), so no request waits for the API.
+- In edit mode a work can be given the mujrozhlas.cz page it came from. The link
+  is stored (its own small table, so the work keeps its key), and "Aktualizovat
+  data" reads the uuid off that page and fetches what the API has - which is what
+  makes a folder adopted from disk refreshable.
 
 ### Changed
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global

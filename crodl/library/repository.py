@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from crodl.library.database import async_session_factory
-from crodl.library.models import Episode, Series, Show, Station, UpdateCheck
+from crodl.library.models import Episode, Series, Show, Station, UpdateCheck, WorkLink
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -113,6 +113,14 @@ class LibraryRepository(DownloadStore, Protocol):
 
     async def get_update_checks(self) -> Sequence[UpdateCheck]:
         """Every work's last look for new parts, keyed by the work's id."""
+        ...
+
+    async def save_work_link(self, link: WorkLink) -> WorkLink:
+        """Remembers where a work came from (upsert on the work's key)."""
+        ...
+
+    async def get_work_link(self, collection_id: str) -> Optional[WorkLink]:
+        """The link stored for a work, if a person supplied one."""
         ...
 
     async def find_episode_by_path(self, path: Path) -> Optional[Episode]:
@@ -432,6 +440,15 @@ class SqliteLibraryRepository:
         async with self._session_factory() as session:
             result = await session.execute(select(UpdateCheck))
             return result.scalars().all()
+
+    async def save_work_link(self, link: WorkLink) -> WorkLink:
+        """Remembers where a work came from (upsert on the work's key)."""
+        return await self._upsert(link)
+
+    async def get_work_link(self, collection_id: str) -> Optional[WorkLink]:
+        """The link stored for a work, if a person supplied one."""
+        async with self._session_factory() as session:
+            return await session.get(WorkLink, collection_id)
 
     async def delete_work(self, ctype: str, cid: str) -> int:
         """

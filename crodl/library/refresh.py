@@ -67,7 +67,11 @@ class LibraryRefresh:
 
         Returns what was filled in, so the page can say so.
         """
-        if ctype not in ("show", "series") or not api_id(cid):
+        if ctype not in ("show", "series"):
+            return None
+
+        api_uuid = await self._api_uuid(ctype, cid)
+        if api_uuid is None:
             return None
 
         work = (
@@ -79,7 +83,7 @@ class LibraryRefresh:
         if work is None:
             return None
 
-        attributes = await self._attributes(ctype, cid)
+        attributes = await self._attributes(ctype, api_uuid)
         if attributes is None:
             return None
 
@@ -98,6 +102,56 @@ class LibraryRefresh:
         )
 
         return result
+
+    async def _api_uuid(self, ctype: str, cid: str) -> Optional[str]:
+        """
+        Which Czech Radio work to ask about: its own id, or the one its page names.
+
+        A work adopted from disk is keyed by a hash of its folder; if somebody
+        added the mujrozhlas.cz page it came from, that page says which work it
+        is. The uuid is remembered on the link, so a page is scraped once.
+        """
+        if api_id(cid):
+            return cid
+
+        link = await self.repository.get_work_link(cid)
+        if link is None:
+            return None
+
+        if api_id(link.resolved_uuid):
+            return link.resolved_uuid
+
+        resolved = await self._resolve(ctype, link.source_url)
+        if resolved is None:
+            return None
+
+        link.resolved_uuid = resolved
+        await self.repository.save_work_link(link)
+        crologger.info("Library: %s resolved to %s", link.source_url, resolved)
+
+        return resolved
+
+    async def _resolve(self, ctype: str, url: str) -> Optional[str]:
+        """The uuid behind a mujrozhlas.cz page, scraped off the page itself."""
+        # The work's own kind first: a page answers several of these scrapers,
+        # and the one that matches tells us which entity the uuid belongs to.
+        fetches = (
+            (self.client.get_series_id, self.client.get_show_uuid)
+            if ctype == "series"
+            else (self.client.get_show_uuid, self.client.get_series_id)
+        )
+
+        for fetch in fetches:
+            try:
+                uuid = await asyncio.to_thread(fetch, url)
+            except Exception as error:  # a page that is not that kind of work
+                crologger.warning("Could not read %s: %s", url, error)
+                continue
+
+            if uuid:
+                return str(uuid)
+
+        return None
 
     async def _attributes(self, ctype: str, cid: str) -> Optional[Mapping[str, Any]]:
         """The work's attributes, fetched off the event loop."""

@@ -66,6 +66,24 @@ class UpdateCheck(SQLModel, table=True):
     expired: int = 0
 
 
+class WorkLink(SQLModel, table=True):
+    """
+    The mujrozhlas.cz page a work came from, when a person supplied it.
+
+    A work adopted from disk is keyed by a hash of its folder, so it has no
+    Czech Radio identity of its own; the link (and the uuid it resolves to) is
+    what lets the API be asked about it - it stays a *source*, not a new key.
+    """
+
+    # The work in the library (a series' or a show's key, hash or uuid).
+    collection_id: str = Field(primary_key=True)
+    collection_type: str
+    source_url: str
+    #: The uuid the page resolved to, remembered so it is looked up once.
+    resolved_uuid: Optional[str] = None
+    added_at: datetime = Field(default_factory=datetime.now)
+
+
 class Episode(SQLModel, table=True):
     """One downloaded audio work kept in the local library."""
 

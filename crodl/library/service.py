@@ -6,13 +6,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
+from urllib.parse import urlparse
 
 from crodl.library.artwork import cover_path, fetch_artwork, fetch_cover
-from crodl.library.models import Episode, UpdateCheck
+from crodl.library.models import Episode, UpdateCheck, WorkLink
 from crodl.library.refresh import LibraryRefresh, Refresh, api_id
 from crodl.library.repository import DownloadedWork, SqliteLibraryRepository
 from crodl.library.updates import LibraryUpdates, NewPart
-from crodl.settings import DOWNLOAD_PATH
+from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
+
+#: Hosts whose pages cro-dl can read (a work's link must point at one).
+SUPPORTED_HOSTS = {domain.replace("www.", "") for domain in SUPPORTED_DOMAINS}
 
 if TYPE_CHECKING:
     from crodl.program.content import Collection
@@ -264,10 +268,41 @@ class LibraryService:
         Asks the content API what this work still has for us.
 
         Fills in what the library is missing (metadata that a scan could not
-        know, and the artwork whose download failed earlier); None when there is
-        no API record to ask about.
+        know, and the artwork whose download failed earlier). Works for a work
+        the API knows by its own uuid and for one whose page somebody added (see
+        `set_source_url`); None when there is no API record to ask about.
         """
         return await self.refresher.refresh_work(ctype, cid)
+
+    async def set_source_url(
+        self, ctype: str, cid: str, url: str
+    ) -> Optional[WorkLink]:
+        """
+        Remembers the mujrozhlas.cz page a work came from.
+
+        Only a page cro-dl can read is accepted; None otherwise, and an empty
+        value forgets the link. The work keeps its own key - the link is a
+        source, not a new identity.
+        """
+        url = url.strip()
+
+        if not url:
+            return None
+
+        parsed = urlparse(url)
+        host = parsed.netloc.replace("www.", "")
+        if parsed.scheme not in ("http", "https") or host not in SUPPORTED_HOSTS:
+            return None
+
+        return await self.repository.save_work_link(
+            WorkLink(collection_id=cid, collection_type=ctype, source_url=url)
+        )
+
+    async def source_url(self, cid: str) -> Optional[str]:
+        """The page a work came from, if somebody added one."""
+        link = await self.repository.get_work_link(cid)
+
+        return link.source_url if link else None
 
     async def check_for_new_parts(self) -> int:
         """
