@@ -12,17 +12,21 @@
 </head>
 <body>
     <header class="page-head">
-        <h1>📻 Moje Knihovna</h1>
-        <div class="stats">
-            {% if collections %}{{ works }} děl, {{ parts_label(parts) }} · {% endif %}
-            <a href="/downloads">Stahování</a> ·
-            {% include "_check.html" %} ·
-            {% if edit_mode %}
-            <a href="/edit-mode?on=0&amp;next={{ request.url.path }}">✓ Hotovo</a>
-            {% else %}
-            <a href="/edit-mode?on=1&amp;next={{ request.url.path }}">✏️ Režim úprav</a>
-            {% endif %}
-            · <a href="/settings">⚙️ Nastavení</a>
+        <div class="page-head-row">
+            <h1>📻 Moje Knihovna</h1>
+            <div class="stats">
+                {% if collections %}
+                <span>{{ works }} děl, {{ parts_label(parts) }}</span>
+                {% endif %}
+                <a href="/downloads">Stahování</a>
+                {% include "_check.html" %}
+                <a href="/settings">⚙️ Nastavení</a>
+                {% if edit_mode %}
+                <a href="/edit-mode?on=0&amp;next={{ request.url.path }}">✓ Hotovo</a>
+                {% else %}
+                <a href="/edit-mode?on=1&amp;next={{ request.url.path }}">✏️ Režim úprav</a>
+                {% endif %}
+            </div>
         </div>
         {% include "_genres.html" %}
         {% include "_roots_warning.html" %}

@@ -95,6 +95,16 @@
   there are more than a few the rest fold into a dropdown.
 
 ### Changed
+- Two layout inconsistencies in the same area: on a work's page "Aktualizovat
+  data" and "Zapsat tagy do dílů" were different heights (the emoji in the second
+  label made its line box taller), and the bars did not match between pages (the
+  library's items were inline text with " · " between them, a work's were a
+  spread-out flex, and the mode links were 0.9em inside an already 0.9em bar).
+  Buttons share one line height and padding now, both bars use the same 16px gaps
+  and the same 0.9em text (measured in the browser: every item 14.4px, both
+  buttons 31.6px), and the library header's title, bar, genres and warning are
+  rows of their own instead of flex items on one line. The button also says "do
+  dílů" like the rest of the UI, not "do částí".
 - Removed the legacy `crodl/tools/scrap.py` module (module-level global
   `cro_session`, duplicate `get_audio_link_of_preferred_format`, unused
   wrappers); `Series` now builds its episode list via the shared
