@@ -145,6 +145,9 @@
         width: 100%;
     }
     .queue-add:hover { color: var(--accent); }
+    /* On a work's page it stands in a row of actions: link-like, not the
+       full-width target a card's menu wants. */
+    .work-info .queue-add { text-decoration: underline; width: auto; }
     /* The player stays at the bottom of every page (see static/player.js). */
     body { padding-bottom: 72px; }
     .player-bar {

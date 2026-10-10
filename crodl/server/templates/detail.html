@@ -43,6 +43,9 @@
                     {% endif %}
                     {{ content.description or '' }}
                 </div>
+                <div class="actions">
+                    <button type="button" class="queue-add" data-queue="/detail/{{ type }}/{{ content.id }}/queue">➕ Přidat do fronty</button>
+                </div>
                 {% if content.available %}
                 <div class="actions">
                     <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">

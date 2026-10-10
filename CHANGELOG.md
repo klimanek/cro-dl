@@ -119,6 +119,8 @@
   briefly given is gone from the project's scripts (the name had one dash too
   many). `cro-dl <url>` is untouched: click's groups would read that URL as a
   command name, so the word `server` is recognised in the callback instead.
+- "Přidat do fronty" is on a work's page too, not only in the grid card menu: the
+  whole work joins the queue from where its parts are listed.
 - Two layout inconsistencies in the same area: on a work's page "Aktualizovat
   data" and "Zapsat tagy do dílů" were different heights (the emoji in the second
   label made its line box taller), and the bars did not match between pages (the
