@@ -44,6 +44,8 @@ Issues = "https://github.com/klimanek/cro-dl/issues"
 
 [project.scripts]
 cro-dl = "crodl.run:run"
+# The web library; the same as `uv run python -m crodl.server.run`.
+cro-dl-server = "crodl.server.run:start"
 
 [dependency-groups]
 dev = [
