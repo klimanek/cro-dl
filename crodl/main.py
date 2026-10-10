@@ -96,7 +96,20 @@ async def main(
     output: Optional[Path],
     no_accents: bool,
 ) -> None:
-    """Hlavní vstupní bod pro CLI aplikaci cro-dl."""
+    """
+    Hlavní vstupní bod pro CLI aplikaci cro-dl.
+
+    První slovo "server" spustí webovou knihovnu (totéž jako
+    `python -m crodl.server.run`); jinak se první slovo bere jako odkaz na dílo,
+    které se má stáhnout.
+    """
+    if recording_url == "server":
+        # Not a URL, so there is no ambiguity; a click group would instead read
+        # `cro-dl <url>` as a command name, and that is the everyday use.
+        from crodl.server.run import start
+
+        start()
+        return
 
     if sync:
         await sync_library()

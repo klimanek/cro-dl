@@ -115,6 +115,10 @@
   when the stored image has gone missing, and for works with no API record at all;
   the download path falls back to it as well, and importing the folder again
   adopts it. What the refresh says no longer claims the image came "z API".
+- The web library starts as `cro-dl server`; the `cro-dl-server` script it was
+  briefly given is gone from the project's scripts (the name had one dash too
+  many). `cro-dl <url>` is untouched: click's groups would read that URL as a
+  command name, so the word `server` is recognised in the callback instead.
 - Two layout inconsistencies in the same area: on a work's page "Aktualizovat
   data" and "Zapsat tagy do dílů" were different heights (the emoji in the second
   label made its line box taller), and the bars did not match between pages (the

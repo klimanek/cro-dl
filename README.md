@@ -1,4 +1,4 @@
-# CRo-DL (Czech Radio Downloader)
+# CRo-DL
 Listen to MůjRozhlas.cz programs offline.
 
 ## Overview
@@ -66,7 +66,7 @@ library in `~/Z Rozhlasu/library.db`:
    ```
 2. Start the server:
    ```
-   uv run cro-dl-server
+   uv run cro-dl server
    ```
 3. Open <http://127.0.0.1:8000>.
 
@@ -79,7 +79,7 @@ up as a single entry with its parts.
 <hr />
 
 ### 🇨🇿
-# CRo-DL (Český Rozhlas Downloader)
+# CRo-DL
 Poslouchejte pořady z MůjRozhlas.cz i offline.
 
 ## Popis
@@ -164,6 +164,6 @@ databází v `~/Z Rozhlasu/library.db`:
    ```
 2. Spusťte server:
    ```
-   uv run cro-dl-server
+   uv run cro-dl server
    ```
 3. Otevřete <http://127.0.0.1:8000>.
