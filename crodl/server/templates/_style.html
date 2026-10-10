@@ -80,6 +80,22 @@
     .folders { border-collapse: collapse; margin: 8px 0 18px; width: 100%; }
     .folders td { border-bottom: 1px solid #262626; padding: 6px 8px; vertical-align: middle; }
     .folder-path { font-family: monospace; word-break: break-all; }
+    /* The folder browser on the settings page: only folders, one level at a time. */
+    .browser {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        margin: 12px 0 18px;
+        padding: 12px 15px;
+    }
+    .browser-path {
+        color: var(--text-secondary);
+        font-size: 0.85em;
+        margin-bottom: 10px;
+        word-break: break-all;
+    }
+    .browser-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .browser-items a { text-decoration: none; }
+    .browser-items a:hover { text-decoration: underline; }
     /* The genres of the library, in the top bar (a few links, the rest folded). */
     .genres {
         align-items: center;

@@ -1,0 +1,27 @@
+{# A plain folder browser: only folders, one level at a time (item 2). #}
+{% if browse %}
+<div class="browser">
+    <div class="browser-path">
+        Přejít do:
+        {% for parent in browse.parents %}
+        <a href="/settings?prochazet={{ parent | urlencode }}">{{ parent.name or "/" }}</a> /
+        {% endfor %}
+        <strong>{{ browse.folder.name or browse.folder }}</strong>
+    </div>
+    {% if browse.error %}
+    <p class="job-url">{{ browse.error }}</p>
+    {% else %}
+    <div class="browser-items">
+        {% for child in browse.children %}
+        <a href="/settings?prochazet={{ child | urlencode }}">📁 {{ child.name }}</a>
+        {% else %}
+        <span class="job-url">Složka neobsahuje žádné podsložky.</span>
+        {% endfor %}
+    </div>
+    <form method="post" action="/settings/roots">
+        <input type="hidden" name="path" value="{{ browse.folder }}">
+        <button type="submit">Importovat tuto složku</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}

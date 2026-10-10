@@ -119,6 +119,11 @@
   briefly given is gone from the project's scripts (the name had one dash too
   many). `cro-dl <url>` is untouched: click's groups would read that URL as a
   command name, so the word `server` is recognised in the callback instead.
+- Importing a folder no longer means typing its path: "🗂 Vybrat složku
+  procházením…" on the settings page opens a folder browser (folders only, one
+  level at a time, breadcrumbs from `/`, then "Importovat tuto složku"). It
+  starts in `$HOME` and walks up from there, so an external disk is reachable; a
+  folder that is missing or cannot be read says so instead of raising.
 - The queue has a page of its own: `/fronta`, reached by clicking the player's
   title. It shows what is in the queue, has a play button per entry (that one
   starts next), marks the part being played, and "Vyprázdnit frontu" empties it

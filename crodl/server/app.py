@@ -26,6 +26,7 @@ from crodl.server.queue import queue_items
 from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
 from crodl.server.api import router as api_router
+from crodl.server.browse import listing
 from crodl.server.checks import checker
 from crodl.server.downloads import downloads
 from crodl.server.format import (  # noqa: I001
@@ -473,6 +474,10 @@ async def settings(request: Request):
         name="settings.html",
         context={
             "folders": folders,
+            # `?prochazet=` (even empty) asks for the folder browser; see browse.py.
+            "browse": listing(request.query_params["prochazet"])
+            if "prochazet" in request.query_params
+            else None,
             "report": settings_report(
                 added=request.query_params.get("pridano", ""),
                 files=request.query_params.get("souboru", ""),

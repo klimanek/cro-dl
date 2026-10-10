@@ -46,6 +46,8 @@
             <input type="text" name="path" placeholder="/Volumes/Disk/Sbírka" aria-label="Cesta ke složce">
             <button type="submit">Importovat</button>
         </form>
+        <p><a href="/settings?prochazet=">🗂 Vybrat složku procházením…</a></p>
+        {% include "_folders.html" %}
         <p class="job-url">
             Složka se prohledá: každá její podsložka se stane dílem (pod
             „Seriály/“ seriálem), hudba se nenačítá, jen mluvené slovo.
