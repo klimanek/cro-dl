@@ -73,8 +73,7 @@ library in `~/Z Rozhlasu/library.db`:
 The server listens on `127.0.0.1` only and is meant for personal, local use. It lists shows and
 series with their covers and plays the stored files. `--sync` groups the files it finds into works
 by their folder (the folder name is the work's title), so a download that predates the library shows
-up as a single entry with its parts. See `WEB_LIBRARY_STACK.md` for how the stack fits together
-(SQLModel, SQLAlchemy, uvicorn).
+up as a single entry with its parts.
 
 
 <hr />
@@ -157,7 +156,7 @@ cro-dl --title "Můj Pořad" --no-accents --output "./stazeno" https://www.mujro
 ## Webová knihovna
 
 Stažená díla si můžete procházet v malém lokálním webovém rozhraní (FastAPI + Jinja2) nad SQLite
-knihovnou v `~/Z Rozhlasu/library.db`:
+databází v `~/Z Rozhlasu/library.db`:
 
 1. Naimportujte, co už na disku máte (nepovinné):
    ```
@@ -168,9 +167,3 @@ knihovnou v `~/Z Rozhlasu/library.db`:
    uv run cro-dl-server
    ```
 3. Otevřete <http://127.0.0.1:8000>.
-
-Server poslouchá jen na `127.0.0.1`, tedy pouze na vašem počítači — je určený pro osobní použití.
-Zobrazuje pořady a seriály včetně obalů a umí přehrát uložené soubory. `--sync` seskupí soubory,
-které najde, do děl podle složek (název složky je název díla), takže i stažení starší než knihovna
-se zobrazí jako jeden celek s díly. Jak spolu technologicky souvisí SQLModel, SQLAlchemy a uvicorn
-(a proč je v závislostech `greenlet`) popisuje `WEB_LIBRARY_STACK.md`.
