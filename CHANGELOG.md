@@ -119,6 +119,11 @@
   briefly given is gone from the project's scripts (the name had one dash too
   many). `cro-dl <url>` is untouched: click's groups would read that URL as a
   command name, so the word `server` is recognised in the callback instead.
+- The queue has a page of its own: `/fronta`, reached by clicking the player's
+  title. It shows what is in the queue, has a play button per entry (that one
+  starts next), marks the part being played, and "Vyprázdnit frontu" empties it
+  in one go. It is the same queue the player keeps in the browser, so browsing
+  and reloading do not lose it.
 - "Přidat do fronty" is on a work's page too, not only in the grid card menu: the
   whole work joins the queue from where its parts are listed.
 - Two layout inconsistencies in the same area: on a work's page "Aktualizovat

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fronta - CRo-DL</title>
+    {% include "_style.html" %}
+</head>
+<body>
+    {% set back = "/" %}
+    {% set back_label = "← Zpět do knihovny" %}
+    {% include "_top.html" %}
+
+    <header class="page-head">
+        <div class="page-head-row">
+            <h1>🎧 Fronta</h1>
+            <div class="bar-items">
+                <button type="button" id="queue-clear">✕ Vyprázdnit frontu</button>
+                <span class="job-url" id="queue-summary"></span>
+            </div>
+        </div>
+        <p class="job-url">
+            Fronta žije v tomto prohlížeči (přehrávač dole ji drží i při procházení
+            knihovny) - na serveru se neukládá.
+        </p>
+    </header>
+
+    <div class="episode-list" id="queue-list"></div>
+
+    <p class="job-url" id="queue-empty">
+        Fronta je prázdná. Přidejte dílo z knihovny tlačítkem „➕ Přidat do fronty“.
+    </p>
+
+    {% include "_player.html" %}
+</body>
+</html>

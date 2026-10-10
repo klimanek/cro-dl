@@ -49,6 +49,81 @@
             STATE_KEY,
             JSON.stringify({ index, position: audio.currentTime || position })
         );
+
+        // If this is the queue page, it mirrors what just changed (otherwise this
+        // returns at once).
+        renderQueue();
+    }
+
+    // The queue page (see /fronta): the same queue, as a list you can play from.
+    function renderQueue() {
+        const list = document.getElementById("queue-list");
+        if (!list) {
+            return;
+        }
+
+        const summary = document.getElementById("queue-summary");
+        const empty = document.getElementById("queue-empty");
+        list.textContent = "";
+
+        if (summary) {
+            summary.textContent = queue.length ? `${queue.length} položek` : "";
+        }
+
+        if (empty) {
+            empty.hidden = queue.length > 0;
+        }
+
+        queue.forEach((item, at) => {
+            const row = document.createElement("div");
+            row.className =
+                at === index ? "episode-item queue-item--current" : "episode-item";
+
+            const line = document.createElement("div");
+            line.className = "episode-row";
+
+            const title = document.createElement("span");
+            title.className = "episode-title";
+            title.textContent = `${at + 1}. ${item.title}`;
+
+            const work = document.createElement("span");
+            work.className = "episode-meta";
+            work.textContent = item.work || "";
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "play-button";
+            button.textContent = at === index && !audio.paused ? "⏸" : "▶";
+            button.title = "Přehrát tento díl";
+            button.addEventListener("click", () => {
+                if (at === index && !audio.paused) {
+                    audio.pause();
+                } else {
+                    playAt(at, false);
+                }
+            });
+
+            line.append(title, work, button);
+            row.append(line);
+            list.append(row);
+        });
+    }
+
+    function clearQueue() {
+        audio.pause();
+        audio.removeAttribute("src");
+        queue = [];
+        index = 0;
+        position = 0;
+        save();
+        show();
+    }
+
+    document.getElementById("player-clear").addEventListener("click", clearQueue);
+
+    const clearAll = document.getElementById("queue-clear");
+    if (clearAll) {
+        clearAll.addEventListener("click", clearQueue);
     }
 
     function current() {
@@ -154,13 +229,7 @@
     });
 
     document.getElementById("player-clear").addEventListener("click", () => {
-        audio.pause();
-        audio.removeAttribute("src");
-        queue = [];
-        index = 0;
-        position = 0;
-        save();
-        show();
+        clearQueue();
     });
 
     playButton.addEventListener("click", () => {
@@ -211,4 +280,6 @@
     window.addEventListener("pagehide", save);
 
     show();
+    // The queue page draws itself on load, before anything is played.
+    renderQueue();
 })();

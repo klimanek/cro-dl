@@ -449,6 +449,12 @@ async def curate_part(request: Request, ctype: str, content_id: str, part_id: st
     return RedirectResponse(f"/detail/{ctype}/{content_id}", status_code=303)
 
 
+@app.get("/fronta")
+async def queue_page(request: Request):
+    """The player's queue as a page of its own (the script fills it in)."""
+    return templates.TemplateResponse(request=request, name="queue.html")
+
+
 @app.get("/settings")
 async def settings(request: Request):
     """Which folders make up the library, and importing one of them."""

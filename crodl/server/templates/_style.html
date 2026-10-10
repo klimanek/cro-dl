@@ -197,6 +197,11 @@
     }
     .player-seek { accent-color: var(--accent); flex: 2; min-width: 90px; }
     .player-count { color: var(--text-secondary); font-size: 0.8em; }
+    /* The player's title is the way into the queue page (see /fronta). */
+    a.player-title { color: inherit; display: block; text-decoration: none; }
+    a.player-title:hover { text-decoration: underline; }
+    /* The part the player is on, in the queue. */
+    .queue-item--current { border: 1px solid var(--accent); }
     .inline-form { display: inline; }
     .check-link {
         background: none;
