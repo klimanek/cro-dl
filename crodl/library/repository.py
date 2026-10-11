@@ -17,6 +17,7 @@ from crodl.library.models import (
     UpdateCheck,
     WorkLink,
 )
+from crodl.streams.utils import title_without_part
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -243,7 +244,9 @@ class SqliteLibraryRepository:
 
         episode = Episode(
             uuid=work.uuid,
-            title=work.title,
+            # The part has a column of its own, and a stored title with "3-" in
+            # front of it made every page show the number twice.
+            title=title_without_part(work.title, work.part),
             short_title=work.short_title,
             part=work.part,
             author=work.author,

@@ -44,14 +44,27 @@ class TestQueueItems(unittest.TestCase):
         items = queue_items(
             work(),
             [
-                episode("p1", "Díl", 1, "1 - Díl.mp3"),
-                episode("p2", "Díl", 2, "2 - Díl.mp3"),
+                episode("p1", "1-Díl", 1, "1 - Díl.mp3"),
+                episode("p2", "2-Díl", 2, "2 - Díl.mp3"),
             ],
         )
 
-        self.assertEqual([item["title"] for item in items], ["1. Díl", "2. Díl"])
+        # The part is data of its own: the title leaves the number out, and the
+        # page shows "1." and "1. díl" around it. A stored title carries the "1-"
+        # prefix (files sort by it), which is what made the queue read
+        # "1. 1. 1-Jack Black: Nemáte šanci".
+        self.assertEqual([item["title"] for item in items], ["Díl", "Díl"])
+        self.assertEqual([item["part"] for item in items], [1, 2])
         self.assertEqual(items[0]["work"], "Seriál")
         self.assertTrue(items[0]["src"].startswith("/library/"))
+
+    def test_a_title_without_a_part_number_is_left_alone(self):
+        items = queue_items(
+            work(), [episode("p1", "Medvěd Čokoláda", None, "Medvěd Čokoláda.mp3")]
+        )
+
+        self.assertEqual([item["title"] for item in items], ["Medvěd Čokoláda"])
+        self.assertIsNone(items[0]["part"])
 
     def test_a_part_without_a_file_is_not_queued(self):
         self.assertEqual(queue_items(work(), [episode("p1", "Díl", 1, None)]), [])

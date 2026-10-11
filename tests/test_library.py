@@ -1513,7 +1513,9 @@ class TestWorkTags(InMemoryLibraryTestCase):
 
             self.assertEqual(written, 2)
             tags = read_tags_now(folder / "2 - Díl.mp3")
-            self.assertEqual(tags["title"], "2-Díl")
+            # The part number is the track number; the title is the title (it used
+            # to be written as "2-Díl", which is how a queue read "1. 1. 2-Díl").
+            self.assertEqual(tags["title"], "Díl")
             self.assertEqual(tags["album"], "Seriál")
             self.assertEqual(tags["genre"], "Horor")  # the work's genre, item 1
             self.assertEqual(tags["tracknumber"], "2")
@@ -1908,6 +1910,21 @@ class TestArtworkFromDisk(InMemoryLibraryTestCase):
 
             episode = await repo.find_episode_by_path(folder / "1 - Díl.mp3")
             self.assertEqual(episode.image_path, str(folder / "cover.jpg"))  # type: ignore[union-attr]
+
+
+class TestStoredPartTitles(InMemoryLibraryTestCase):
+    """A stored title leaves the part number out; the part has a column."""
+
+    async def test_the_part_number_is_not_stored_in_the_title(self):
+        repo = await make_repo()
+
+        await repo.save_download(
+            FakeWork(title="3-Díl", part=3), Path("/tmp/a.mp3"), audio_format="mp3"
+        )
+
+        stored = (await repo.get_all_downloads())[0]
+        self.assertEqual(stored.title, "Díl")
+        self.assertEqual(stored.part, 3)
 
 
 if __name__ == "__main__":

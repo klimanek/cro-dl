@@ -24,6 +24,7 @@ from crodl.library.tags import write_tags
 from crodl.library.updates import LibraryUpdates, NewPart
 from crodl.program.content import Collection
 from crodl.settings import DOWNLOAD_PATH, SUPPORTED_DOMAINS
+from crodl.streams.utils import title_without_part
 from crodl.streams.utils import remove_html_tags
 from crodl.tools.logger import crologger
 
@@ -149,7 +150,7 @@ class LibraryService:
         # What a player reads belongs in the file, not only in our database.
         await write_tags(
             path,
-            title=work.title,
+            title=title_without_part(work.title, work.part),
             author=work.author,
             album=collection.title if collection else None,
             genre=collection.genre if collection else None,
@@ -384,7 +385,9 @@ class LibraryService:
 
             if await write_tags(
                 Path(episode.local_path),
-                title=episode.title,
+                # A file written before this was cleaned up still has the number
+                # in its title; the tag should not.
+                title=title_without_part(episode.title, episode.part),
                 author=episode.author,
                 album=content.title,
                 genre=content.genre,

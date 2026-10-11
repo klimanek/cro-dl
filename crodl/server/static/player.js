@@ -82,13 +82,18 @@
             const line = document.createElement("div");
             line.className = "episode-row";
 
+            const number = document.createElement("span");
+            number.className = "queue-number";
+            number.textContent = `${at + 1}.`;
+
             const title = document.createElement("span");
             title.className = "episode-title";
-            title.textContent = `${at + 1}. ${item.title}`;
+            title.textContent = item.title;
 
-            const work = document.createElement("span");
-            work.className = "episode-meta";
-            work.textContent = item.work || "";
+            const meta = document.createElement("span");
+            meta.className = "episode-meta";
+            // The queue's own count is the number above; this is the part.
+            meta.textContent = item.part ? `${item.part}. díl` : "";
 
             const button = document.createElement("button");
             button.type = "button";
@@ -103,7 +108,7 @@
                 }
             });
 
-            line.append(title, work, button);
+            line.append(number, title, meta, button);
             row.append(line);
             list.append(row);
         });
@@ -199,6 +204,7 @@
                     {
                         src: part.dataset.src,
                         title: part.dataset.title,
+                        part: Number(part.dataset.part) || null,
                         work: part.dataset.work,
                     },
                 ],

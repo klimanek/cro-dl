@@ -54,6 +54,7 @@ from crodl.settings import (
     SERVER_PORT,
     UPDATE_CHECK_HOURS,
 )
+from crodl.streams.utils import title_without_part
 
 # The addresses the server itself runs on: the only origins that may talk to it.
 LOCAL_ORIGINS = [
@@ -96,6 +97,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "changed_line": changed_line,
         "check_report": check_report,
         "file_tags": file_tags,
+        "title_without_part": title_without_part,
         "genres_shown": GENRES_SHOWN,
         "missing_roots": [str(path) for path in roots.missing()],
         "edit_mode": edit_mode_on(request),

@@ -112,9 +112,11 @@
             {% set source = media_url(ep.local_path) %}
             <div class="episode-row">
                 {% if ep.part %}<span class="episode-part">{{ ep.part }}.</span>{% endif %}
-                <span class="episode-title">{{ ep.title }}</span>
-                {% if ep.broadcast_at or ep.duration %}
+                <span class="episode-title">{{ title_without_part(ep.title, ep.part) }}</span>
+                {% if ep.part or ep.broadcast_at or ep.duration %}
                 <span class="episode-meta">
+                    {% if ep.part %}{{ ep.part }}. díl{% endif %}
+                    {% if ep.part and (ep.broadcast_at or ep.duration) %} · {% endif %}
                     {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
                     {% if ep.broadcast_at and ep.duration %} · {% endif %}
                     {% if ep.duration %}{{ ep.duration // 60 }} min{% endif %}
@@ -123,9 +125,10 @@
                 {% if source %}
                 <button type="button" class="play-button js-only" data-play
                         data-src="{{ source }}"
-                        data-title="{{ (ep.part ~ '. ') if ep.part else '' }}{{ ep.title }}"
+                        data-title="{{ title_without_part(ep.title, ep.part) }}"
+                        data-part="{{ ep.part or '' }}"
                         data-work="{{ content.title }}"
-                        title="Přehrát" aria-label="Přehrát {{ ep.title }}">▶</button>
+                        title="Přehrát" aria-label="Přehrát {{ title_without_part(ep.title, ep.part) }}">▶</button>
                 {% endif %}
             </div>
             {% if source %}

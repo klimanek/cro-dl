@@ -220,6 +220,13 @@
   yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
   green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
   stream window - the missing audio links are what tells the two apart.
+- A part's title is stored without the number a download puts in front of it
+  (`title_with_part` exists so that files sort): the number has a column of its
+  own, so the queue no longer read "1. 1. 1-Jack Black: Nemáte šanci". The detail
+  page shows `1. Název` with a quiet "1. díl" beside the date, the queue shows a
+  quiet track number and "1. díl", and the title written into a file's tags is
+  the title alone. Rows stored before this are cleaned as they are read, so
+  nothing had to be migrated.
 - "Aktualizovat data" answered "Tenhle záznam nemá v API protějšek" for a work
   whose page is a JavaScript shell. The uuid *was* found on the page; the refresh
   then asked the API about the row's kind (a `Show`) while the record was an
