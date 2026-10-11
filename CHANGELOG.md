@@ -61,10 +61,11 @@
   the foot of every page (play/pause, previous/next, a seek bar, the queue). The
   queue lives in the browser, so browsing the library - or reloading it - leaves
   the part you were in where you left it, and one click carries on. A work's menu
-  has "Přidat do fronty" (its parts in playing order, no duplicates). Playback
-  itself pauses when a page changes: a new document means a new `<audio>`, and a
-  browser only starts audio after a click - hence the bar staying and the place
-  being kept. Without JavaScript the per-part player is still there (`<noscript>`).
+  has "Přidat do fronty" (its parts in playing order, no duplicates). What is
+  playing stays playing while you move around: internal links and forms are
+  fetched and swapped into the page itself, so the element playing is never
+  replaced. A link that leaves the app (mujrozhlas.cz) navigates for real, and
+  without JavaScript the per-part player is still there (`<noscript>`).
 - A work's genre is a field of its own ("Upravit název, žánr a popis" in edit
   mode): saving it rewrites the genre tag of every part, and a download or a
   refresh fills it from the API's genres when nobody has set one.
@@ -152,6 +153,10 @@
   yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
   green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
   stream window - the missing audio links are what tells the two apart.
+- Playing something and then opening the queue from the player's title stopped
+  the audio: that loaded a new document, and a browser will not start audio in a
+  new one without a click. Moving around inside the library no longer loads a
+  document at all, so the reading plays on wherever you go.
 - A part's title is stored without the number a download puts in front of it
   (`title_with_part` exists so that files sort): the number has a column of its
   own, so the queue no longer read "1. 1. 1-Jack Black: Nemáte šanci". A work's

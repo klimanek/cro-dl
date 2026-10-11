@@ -3,9 +3,12 @@
  *
  * The queue lives in localStorage, so what you were listening to is still there
  * after browsing the library, and pressing play carries on where you stopped.
- * Playback itself pauses when the page changes: a new document means a new
- * <audio> element, and a browser only lets a script start it after a click. So
- * the bar stays, the place is kept, and one click resumes.
+ *
+ * Moving around does not stop the playback: internal links and forms are fetched
+ * and swapped into this document (see `swap`), so the <audio> element is never
+ * replaced and the browser - which only starts audio after a click - is never
+ * asked to. Without JavaScript the app navigates as it always did; the playback
+ * stops then, and one click on the bar carries on.
  */
 (() => {
     "use strict";
@@ -124,13 +127,6 @@
         show();
     }
 
-    document.getElementById("player-clear").addEventListener("click", clearQueue);
-
-    const clearAll = document.getElementById("queue-clear");
-    if (clearAll) {
-        clearAll.addEventListener("click", clearQueue);
-    }
-
     function current() {
         return queue[index] || null;
     }
@@ -223,7 +219,26 @@
                     workButton.textContent = "✓ Ve frontě";
                 })
                 .catch(() => {});
+            return;
         }
+
+        if (event.target.closest("#queue-clear")) {
+            event.preventDefault();
+            clearQueue();
+            return;
+        }
+
+        followLink(event);
+    });
+
+    document.addEventListener("submit", (event) => {
+        if (event.target instanceof HTMLFormElement) {
+            followSubmit(event, event.target, event.submitter);
+        }
+    });
+
+    window.addEventListener("popstate", () => {
+        go(location.href, false);
     });
 
     document.getElementById("player-prev").addEventListener("click", () => {
@@ -285,7 +300,179 @@
 
     window.addEventListener("pagehide", save);
 
-    show();
-    // The queue page draws itself on load, before anything is played.
-    renderQueue();
+    // --- moving inside the app without the playback noticing ------------------
+    // A navigation loads a new document, and a new document means a new <audio>
+    // element that a browser will not start without a click - which is how
+    // opening the queue used to stop what you were listening to. Internal links
+    // and forms are fetched and swapped into this document instead, so the
+    // element playing stays where it is.
+
+    let refreshTimer = 0;
+
+    function isInternal(url) {
+        return (
+            url.origin === location.origin &&
+            !url.pathname.startsWith("/library/") &&
+            !url.pathname.startsWith("/static/")
+        );
+    }
+
+    function refreshSeconds(document_) {
+        const meta = document_.head.querySelector('meta[http-equiv="refresh"]');
+        if (!meta) {
+            return 0;
+        }
+
+        const match = /(\d+)/.exec(meta.getAttribute("content") || "");
+        return match ? Number(match[1]) : 0;
+    }
+
+    function applyRefresh(seconds) {
+        window.clearTimeout(refreshTimer);
+
+        if (seconds > 0) {
+            // A page that refreshes itself (a check or a download running) keeps
+            // doing so - by swapping, not by loading everything again.
+            refreshTimer = window.setTimeout(
+                () => go(location.href, false),
+                seconds * 1000
+            );
+        }
+    }
+
+    function swap(html) {
+        const next = new DOMParser().parseFromString(html, "text/html");
+        const keep = document.getElementById("player-bar");
+
+        // Everything except the player bar and the scripts already running: the
+        // bar holds the audio, and the script is this one.
+        for (const node of Array.from(document.body.children)) {
+            if (node !== keep && node.tagName !== "SCRIPT") {
+                node.remove();
+            }
+        }
+
+        // The new page's content takes its place, in order, above the bar.
+        for (const node of Array.from(next.body.children)) {
+            if (node.tagName === "SCRIPT" || node.id === "player-bar") {
+                continue;
+            }
+            document.body.insertBefore(node, keep);
+        }
+
+        // The head is not swapped, so what the new page asked for is done here:
+        // its title, and its wish to refresh.
+        if (next.title) {
+            document.title = next.title;
+        }
+        applyRefresh(refreshSeconds(next));
+        window.scrollTo(0, 0);
+        pageReady();
+    }
+
+    async function go(url, push = true) {
+        try {
+            const response = await fetch(url, { credentials: "same-origin" });
+            const type = response.headers.get("content-type") || "";
+
+            if (!response.ok || !type.includes("text/html")) {
+                location.href = url;
+                return;
+            }
+
+            swap(await response.text());
+
+            if (push) {
+                history.pushState({ swap: true }, "", response.url || url);
+            }
+        } catch (error) {
+            // The network is the network: let the browser do it the old way.
+            location.href = url;
+        }
+    }
+
+    function followLink(event) {
+        if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+        ) {
+            return;
+        }
+
+        const link = event.target.closest("a[href]");
+        if (!link || link.target || link.hasAttribute("download")) {
+            return;
+        }
+
+        const url = new URL(link.href, location.href);
+        if (!isInternal(url)) {
+            return;
+        }
+
+        if (url.pathname === location.pathname && url.search === location.search) {
+            return; // a link to this very page: let it reload
+        }
+
+        event.preventDefault();
+        go(url);
+    }
+
+    function followSubmit(event, form, submitter) {
+        const url = new URL(form.getAttribute("action") || location.href, location.href);
+        if (!isInternal(url)) {
+            return;
+        }
+
+        // The fetch below stands in for the submission.
+        event.preventDefault();
+        const method = (form.getAttribute("method") || "get").toLowerCase();
+        const data = new FormData(form);
+
+        if (submitter && submitter.name) {
+            data.append(submitter.name, submitter.value);
+        }
+
+        (async () => {
+            try {
+                const response = await fetch(url, {
+                    method: method.toUpperCase(),
+                    body: method === "post" ? data : undefined,
+                    credentials: "same-origin",
+                });
+                const type = response.headers.get("content-type") || "";
+
+                if (!response.ok || !type.includes("text/html")) {
+                    form.submit();
+                    return;
+                }
+
+                swap(await response.text());
+                history.pushState({ swap: true }, "", response.url || url);
+            } catch (error) {
+                form.submit();
+            }
+        })();
+    }
+
+    // What every page needs once its markup is there - a swapped-in one included.
+    function pageReady() {
+        show();
+        renderQueue();
+    }
+
+    // A page loaded whole may itself be asking to refresh (a check or a download
+    // running); from here on that is done by swapping too, so the playback runs on.
+    const loadRefresh = refreshSeconds(document);
+    if (loadRefresh) {
+        document
+            .querySelectorAll('meta[http-equiv="refresh"]')
+            .forEach((meta) => meta.remove());
+        applyRefresh(loadRefresh);
+    }
+
+    pageReady();
 })();
