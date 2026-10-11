@@ -153,6 +153,11 @@
   yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
   green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
   stream window - the missing audio links are what tells the two apart.
+- Pressing pause in the queue and then play started the part again from the
+  beginning: the row's button called `playAt()`, which clears the saved position
+  and sets the source afresh - and a browser reloads the media when a source is
+  assigned, even the same one. The part the player is on now resumes where it
+  stopped; another part still starts from that part's own beginning.
 - Pause did nothing when pressed in the player bar - and play in the bar did
   nothing either: the library page and the queue page each carried the player
   twice (`_top.html` brings it, and both pages included it as well), so two

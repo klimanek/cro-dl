@@ -106,11 +106,20 @@
             button.textContent = at === index && !audio.paused ? "⏸" : "▶";
             button.title = "Přehrát tento díl";
             button.addEventListener("click", () => {
-                if (at === index && !audio.paused) {
-                    audio.pause();
-                } else {
-                    playAt(at, false);
+                if (at === index) {
+                    // The part the player is on: pause, or carry on where it
+                    // stopped. (playAt() would set the source again, and a browser
+                    // reloads the media then - from the top.)
+                    if (audio.paused) {
+                        audio.play().catch(() => {});
+                    } else {
+                        audio.pause();
+                    }
+                    return;
                 }
+
+                // A different part: that one starts from its own beginning.
+                playAt(at, false);
             });
 
             line.append(number, title, meta, button);
