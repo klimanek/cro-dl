@@ -3,37 +3,13 @@
 ## [Unreleased]
 
 ### Added
-- Local library persistence (`crodl/library`): a SQLModel/SQLite `Episode`
-  table, an async engine with `init_db()` and a `LibraryRepository` protocol
-  plus a SQLite implementation (with tests over an in-memory database).
-- An `on_downloaded` hook: the core reports finished files, the facade hands
-  them to the configured library, and the CLI records downloads into
-  `~/Z Rozhlasu/library.db`.
-- The web library shares that one persistence layer: `crodl/library/` gained
-  the full domain (`Station`/`Show`/`Series` + episode foreign keys), a disk
-  scan (`library/scan.py`), artwork fetching (`library/artwork.py`) and a
-  `LibraryService` used by both the hook and the CLI's `--sync` flag.
-- `crodl/server/` (FastAPI + Jinja2) serves the library from `crodl/library/`.
-- A `Collection` value object (`crodl/program/content.py`): a downloaded part now
-  carries the show/series it belongs to, so the library can link the episode and
-  store one cover for a multi-part work instead of one image per part.
-- The disk scan derives works from the download layout: each folder under
-  `~/Z Rozhlasu` becomes a `Show`/`Series` (title = folder name, a series when
-  it sits under `Seriály/`) and its files are linked to it, so `cro-dl --sync`
-  adopts a library that predates the database (existing artwork next to the
-  audio is picked up as well).
-- The web library shows a grid of works - artwork, title, kind and part count -
-  and a detail page with a work's parts, each playable, next to its cover and
-  description. `LibraryService.overview()`/`detail()` own that aggregation and
-  the Czech labels; the routes only render.
-- `crodl/server/access_log.py`: a log filter that prints request paths as text
-  instead of percent-escapes (`Seriály` instead of `Seri%C3%A1ly`).
-- An end-to-end test (`tests/test_download_end_to_end.py`): a real
-  `AudioWork.download()` for MP3, HLS and DASH with only the network and ffmpeg
-  stubbed. It checks the file the library is handed (name, container, content),
-  the order the segments were merged in and that the temporary segment folder is
-  gone - the wiring a downloader without a declared container used to slip
-  through.
+- A web library (`cro-dl server`) over the downloads: what you have, as a grid
+  and as a work's page with its parts, playable.
+- `--sync` adopts files that were already downloaded: each folder becomes a work
+  named after it (a series when it sits under `Seriály/`), its files are linked
+  to it, and artwork lying next to the audio is picked up as the cover.
+- The grid shows every work with its artwork, kind and part count; a work's page
+  shows its parts with what they are, when they aired and how long they run.
 - The library can hold more than one folder: "⚙️ Nastavení" (in the top bar) lists
   the folders it keeps, and "Importovat" takes the path of another one (a
   collection on an external disk). The files stay where they are, the works show
@@ -44,7 +20,8 @@
   address at all, so a missing cover or part shows a placeholder instead of a
   broken player.
 - A work's description is only shown when it has one (it used to print "None").
-- Editing metadata by hand: a work's title and description, and each part's  title, author and description, are editable on the detail page (a work adopted
+- Editing metadata by hand: a work's title and description, and each part's
+  title, author and description, are editable on the detail page (a work adopted
   from disk is named after its folder until then). Curation writes in place and
   only the columns a person may touch.
 - Downloading from the web library: a field on the home page takes a
@@ -95,17 +72,13 @@
   there are more than a few the rest fold into a dropdown.
 
 ### Changed
-- A work's page puts the title and its meta line above the cover, and the cover
-  floats so the description flows around it; the actions and the editing forms sit
-  under both. Description fields have a minimum height now (7em, ~108px) - they
-  were two rows tall, which their tightened editors made worse.
-- The detail page is laid out as two columns: the work - its cover, description and
-  the editing forms - takes most of the width, with the parts in a column beside
-  it (320-420px, the cover capped at 360px). A part is one line on a wide window -
-  its name, then when it aired and how long it runs, then the play icon - and on a
-  narrow one the three go under each other again, the way they used to. The play
-  control is a small plain triangle (22×20px, no box or colour around it, the
-  accent only on hover) instead of a green circle.
+- A work's page: the title and its meta line sit above the cover, the cover floats
+  so the description flows around it, and the actions and the editing forms sit
+  under both. The page is two columns - the work (cover, description, the forms)
+  with its parts beside it - and one column again on a narrow window. A part is
+  one line: its name, when it aired and how long it runs, then a small plain play
+  triangle (no circle, the accent only on hover). Description fields have a
+  sensible minimum height, which they did not before.
 - An image dropped into a work's folder (`cover.jpg`) was not picked up by the
   library: the refresh only ever asked the content API, and for a work the API
   cannot describe (a folder adopted from disk) it did not look at the disk at all
@@ -131,58 +104,17 @@
   and reloading do not lose it.
 - "Přidat do fronty" is on a work's page too, not only in the grid card menu: the
   whole work joins the queue from where its parts are listed.
-- Two layout inconsistencies in the same area: on a work's page "Aktualizovat
-  data" and "Zapsat tagy do dílů" were different heights (the emoji in the second
-  label made its line box taller), and the bars did not match between pages (the
-  library's items were inline text with " · " between them, a work's were a
-  spread-out flex, and the mode links were 0.9em inside an already 0.9em bar).
-  Buttons share one line height and padding now, both bars use the same 16px gaps
-  and the same 0.9em text (measured in the browser: every item 14.4px, both
-  buttons 31.6px), and the library header's title, bar, genres and warning are
-  rows of their own instead of flex items on one line. The button also says "do
-  dílů" like the rest of the UI, not "do částí".
-- Removed the legacy `crodl/tools/scrap.py` module (module-level global
-  `cro_session`, duplicate `get_audio_link_of_preferred_format`, unused
-  wrappers); `Series` now builds its episode list via the shared
-  `extract_episode_info()`.
-- Added direct test coverage for `CroAPIClient` in `tests/test_api_client.py`.
-- The core no longer prints: `AudioWork.info()` returns the audio variants as
-  data and the CLI renders them. A work without any audio link now reports the
-  reason and exits with status 1 instead of failing silently.
-- Constructors no longer perform network calls: `AudioWork`, `Series` and
-  `Show` expose an explicit, idempotent `load()` (awaited by the facade and by
-  `download()`), and a series fetches its episode list once instead of on
-  every property access.
-- `Series` and `Show` now share a single episode collection (`Episodes`), so
-  the episode mapping and the `"<part>-<title>"` download name live in one
-  place and a series exposes the same `episodes` attribute as a show.
-- The downloaders own the output file name: `AudioParts.extension` and
-  `AudioParts.output_path` replaced the `_merge_chunks(format)` argument.
-- Optional clean-ups: `Attributes` and `Data` are frozen value objects, the
-  three unused `type: ignore` comments are gone, and `pyright` plus `ty` now
-  both pass on the whole package.
-- The library `Episode` row now follows the content API vocabulary: it stores
-  `short_title`, `part` and `duration`, with matching `AudioWork` properties.
-  Section 7 of `WEB_LIBRARY_DESIGN.md` records which API the supplied docs
-  describe (the broadcasting one) and what still needs modelling.
-- The web library no longer mounts the download directory: media goes through
-  `GET /library/{path}`, which serves only files the library stored. CORS allows
-  just the local addresses the server runs on (`SERVER_HOST`/`SERVER_PORT` in
-  `settings.py`, which `server/run.py` binds to as well), methods `GET` only.
-- The pages share one stylesheet (`server/templates/_style.html`) instead of
-  each carrying its own copy.
-- Timestamps in the UI are written as Czech writes them ("Přidáno 8. října, 2026
-  v 15:36") rather than as ISO strings.
-
-### Removed
-- `crodl/persistence/` and `crodl/tools/sync.py`, superseded by the single
-  `crodl/library/` layer (the server, the disk scan and the curation script
-  now use it too).
-- Dead modules `crodl/tools/timer.py` and `crodl/data/streamlinks.py`, plus the
-  unused `AudioWork.links` property and a commented-out pandas block in
-  `crodl/data/attributes.py`.
-- Unused dependencies `icecream` and `yaspin`, together with their transitive
-  orphans (`asttokens`, `executing`, `termcolor`) in `uv.lock`.
+- On a work's page "Aktualizovat data" and "Zapsat tagy do dílů" were different
+  heights (the emoji in one label made it taller) and the bars did not match
+  between pages (the library's items were plain text with " · " between them, a
+  work's a spread-out flex, and the mode links smaller inside an already small
+  bar). Buttons share one height and padding now, both bars the same gaps and the
+  same text size, and the library header's title, bar, genres and warning are rows
+  of their own instead of flex items on one line.
+- The CLI says why a work cannot be downloaded (no audio link in the API) and
+  exits with status 1, instead of failing silently.
+- Czech dates: timestamps read "Přidáno 8. října, 2026 v 15:36" rather than as
+  ISO strings.
 
 ### Fixed
 - `Series.already_exists()` always returned `False`: `downloaded_parts` looked
@@ -245,12 +177,10 @@
   data" on the "Místní soubory" page gives the loose files that same work, which
   is also the way to repair a library that stored them earlier: a download that is
   already on disk is skipped, so re-downloading such a file does nothing.
-- Checking for new parts failed on any library whose database was created while
-  `updatecheck` kept one NOT NULL count without a default: every write was refused
-  ("NOT NULL constraint failed: updatecheck.missing"), so the check could never
-  record what it found. The table is rebuilt on startup without the column it no
-  longer uses (its rows are a cache that the next check recomputes), and a work
-  the database refuses is skipped with a log line instead of failing the whole
+- Checking for new parts was refused by a library whose database was created by
+  an earlier build ("NOT NULL constraint failed: updatecheck.missing"), so the
+  check could never record what it found. The database is repaired at startup,
+  and a work it refuses is skipped with a log line instead of failing the whole
   check.
 
 ## [1.5.2] - 2026-10-06
