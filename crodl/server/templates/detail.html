@@ -111,7 +111,6 @@
         <div class="episode-item">
             {% set source = media_url(ep.local_path) %}
             <div class="episode-row">
-                {% if ep.part %}<span class="episode-part">{{ ep.part }}.</span>{% endif %}
                 <span class="episode-title">{{ title_without_part(ep.title, ep.part) }}</span>
                 {% if ep.part or ep.broadcast_at or ep.duration %}
                 <span class="episode-meta">
