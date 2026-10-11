@@ -153,6 +153,14 @@
   yet a neutral "Ještě 2 díly", and only a part that can really be fetched is
   green ("Nové 2 díly"). `till` turned out to be the broadcast end, not the
   stream window - the missing audio links are what tells the two apart.
+- Pause did nothing when pressed in the player bar - and play in the bar did
+  nothing either: the library page and the queue page each carried the player
+  twice (`_top.html` brings it, and both pages included it as well), so two
+  copies of `static/player.js` wired the same buttons and one click called
+  `play()` and then `pause()`. Every page brings it exactly once now, and a test
+  counts it. The queue list is also no longer rebuilt on every position tick -
+  that replaced the row button a click was aimed at - and a row's play icon
+  follows the player when it is paused from the bar.
 - Playing something and then opening the queue from the player's title stopped
   the audio: that loaded a new document, and a browser will not start audio in a
   new one without a click. Moving around inside the library no longer loads a

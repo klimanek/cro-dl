@@ -53,9 +53,11 @@
             JSON.stringify({ index, position: audio.currentTime || position })
         );
 
-        // If this is the queue page, it mirrors what just changed (otherwise this
-        // returns at once).
-        renderQueue();
+        // If this is the queue page, its marks move with the player - but the rows
+        // are not rebuilt here. Rebuilding them every few seconds (this runs on
+        // timeupdate) replaced the button the pointer was over, so a click on a
+        // queue's pause could land on a node that was already gone.
+        markQueue();
     }
 
     // The queue page (see /fronta): the same queue, as a list you can play from.
@@ -117,6 +119,25 @@
         });
     }
 
+    // The rows are built once (renderQueue); while things play, only the marks
+    // move: which row is the current one, and whether it is playing.
+    function markQueue() {
+        const list = document.getElementById("queue-list");
+        if (!list) {
+            return;
+        }
+
+        Array.from(list.children).forEach((row, at) => {
+            const current = at === index;
+            row.classList.toggle("queue-item--current", current);
+
+            const button = row.querySelector(".play-button");
+            if (button) {
+                button.textContent = current && !audio.paused ? "⏸" : "▶";
+            }
+        });
+    }
+
     function clearQueue() {
         audio.pause();
         audio.removeAttribute("src");
@@ -125,6 +146,7 @@
         position = 0;
         save();
         show();
+        renderQueue();
     }
 
     function current() {
@@ -188,6 +210,9 @@
             show();
         }
 
+        // The queue changed shape, so the rows are drawn again; save() then only
+        // moves the marks.
+        renderQueue();
         save();
     }
 
@@ -263,10 +288,12 @@
 
     audio.addEventListener("play", () => {
         playButton.textContent = "⏸";
+        markQueue();
     });
 
     audio.addEventListener("pause", () => {
         playButton.textContent = "▶";
+        markQueue();
     });
 
     audio.addEventListener("ended", () => {
