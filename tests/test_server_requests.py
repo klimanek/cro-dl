@@ -10,7 +10,8 @@ import unittest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from crodl.server.app import check_same_origin, edit_mode_on, form_fields, local_target
+from crodl.server.app import edit_mode_on, form_fields, local_target
+from crodl.server.origin import check_same_origin
 
 
 def request_with(
@@ -129,6 +130,10 @@ class TestLocalTarget(unittest.TestCase):
         # turn into an open redirect.
         self.assertEqual(local_target("http://evil.example/"), "/")
         self.assertEqual(local_target("//evil.example/"), "/")
+        # A browser reads `/\evil.example` as a host, whatever a path parser says.
+        self.assertEqual(local_target("/\\evil.example"), "/")
+        # And no header tricks: a control character has no business in a Location.
+        self.assertEqual(local_target("/ok\r\nX-Evil: 1"), "/")
         self.assertEqual(local_target(""), "/")
 
 

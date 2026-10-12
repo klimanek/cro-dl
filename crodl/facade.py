@@ -33,8 +33,12 @@ class CroDL:
     def is_domain_supported(self, url: str) -> bool:
         """Checks whether the website with 'hidden' audio lies in a supported domain."""
         try:
-            domain = urlparse(url).netloc
-            if not domain:
+            parsed = urlparse(url)
+            domain = parsed.netloc
+
+            # Only a page over http(s): `file://www.mujrozhlas.cz/x` carries the
+            # right netloc and is still nothing to fetch.
+            if parsed.scheme not in ("http", "https") or not domain:
                 return False
             # Support both with and without 'www.'
             clean_domain = domain.replace("www.", "")

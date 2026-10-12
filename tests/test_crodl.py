@@ -27,6 +27,12 @@ class TestIsDomainSupported(unittest.TestCase):
         url = " invalid url "
         self.assertFalse(self.dl.is_domain_supported(url))
 
+    def test_only_a_page_over_http(self):
+        # The netloc is right and there is still nothing to fetch: a scheme of
+        # its own (`file:`, `ftp:`) is refused before any request is made.
+        self.assertFalse(self.dl.is_domain_supported("file://www.mujrozhlas.cz/x"))
+        self.assertFalse(self.dl.is_domain_supported("ftp://www.mujrozhlas.cz/x"))
+
 
 class TestLibraryHook(unittest.IsolatedAsyncioTestCase):
     """The facade is what connects the core to the library (no DB in the core)."""

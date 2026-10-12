@@ -1,10 +1,11 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.models import Episode
 from crodl.server.downloads import downloads
+from crodl.server.origin import check_same_origin
 
 router = APIRouter()
 
@@ -47,14 +48,19 @@ async def get_stats(repo: SqliteLibraryRepository = Depends(get_repo)):
 
 
 @router.post("/downloads", status_code=202)
-async def start_download(request: DownloadRequest):
+async def start_download(request: Request, body: DownloadRequest):
     """
     Queues a download and returns the job to watch.
 
     The download itself runs in the background; poll `/api/downloads/{id}` for
     the state and how many parts are on disk.
+
+    Guarded like every other write: a request with no content type is a simple
+    request (no preflight), and a page the user visits could otherwise start
+    downloads here.
     """
-    return downloads.start(request.url).as_dict()
+    check_same_origin(request)
+    return downloads.start(body.url).as_dict()
 
 
 @router.get("/downloads")

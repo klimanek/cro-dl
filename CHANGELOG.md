@@ -117,6 +117,21 @@
 - Czech dates: timestamps read "Přidáno 8. října, 2026 v 15:36" rather than as
   ISO strings.
 
+### Security
+- `POST /api/downloads` was the one write route without the same-origin check the
+  other twelve have: a page the user visits could start downloads here (a request
+  with no content type is a simple request, so no preflight stops it). It is
+  guarded now; a client that sends no `Origin` still works.
+- Every request, not only the writes, must have been addressed to the loopback
+  interface (a trusted-host middleware). A page could otherwise reach this server
+  through the browser by pointing a name of its own at 127.0.0.1 (DNS rebinding)
+  and read the folder listing, the JSON API - which carries absolute file paths -
+  or any library file off it.
+- The library page answers a failure with a sentence instead of a stack trace
+  (the log keeps that), a redirect target refuses `/\evil.example` and control
+  characters, and a download URL must be `http(s)` rather than merely carrying a
+  supported host.
+
 ### Fixed
 - `Series.already_exists()` always returned `False`: `downloaded_parts` looked
   for the `"3-"` prefix, but files are written as `"3 - Title.mp3"` (the

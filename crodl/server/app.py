@@ -1,15 +1,15 @@
 import asyncio
 import os
-import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -22,6 +22,7 @@ from crodl.library.database import init_db
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.library.service import LibraryService
 from crodl.library.tags import read_tags_now
+from crodl.server.origin import LOOPBACK_HOSTS, check_same_origin
 from crodl.server.queue import queue_items
 from crodl.program.content import Collection
 from crodl.server.access_log import log_readable_paths
@@ -55,6 +56,7 @@ from crodl.settings import (
     UPDATE_CHECK_HOURS,
 )
 from crodl.streams.utils import title_without_part
+from crodl.tools.logger import crologger
 
 # The addresses the server itself runs on: the only origins that may talk to it.
 LOCAL_ORIGINS = [
@@ -62,9 +64,8 @@ LOCAL_ORIGINS = [
     f"http://localhost:{SERVER_PORT}",
 ]
 
-# A request the server acts on must have been addressed to the loopback
-# interface; a form post has no CORS to stop it (see `check_same_origin`).
-LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+# The loopback host check every route relies on lives in `crodl/server/origin.py`
+# (with the write guard and the trusted-host middleware below).
 
 # Czech names of the kinds of work the library knows.
 TYPE_LABELS = {"show": "Pořad", "series": "Seriál", "orphans": "Bez metadat"}
@@ -117,7 +118,12 @@ def edit_mode_on(request: Request) -> bool:
 
 def local_target(url: str) -> str:
     """Where a redirect may lead: a page on this server, nothing else."""
-    if not url.startswith("/") or url.startswith("//"):
+    if (
+        not url.startswith("/")
+        or url.startswith("//")
+        or "\\" in url  # browsers read `/\evil.example` as a host
+        or any(character < " " for character in url)  # no header tricks either
+    ):
         return "/"
 
     return url
@@ -192,6 +198,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Every request - not only the writes - must have been addressed to the loopback
+# interface: a page the user visits could otherwise reach this server through the
+# browser by pointing a name of its own at 127.0.0.1 (DNS rebinding) and read the
+# library, the folder listing or an episode's file paths off it.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(LOOPBACK_HOSTS))
+
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
@@ -218,29 +230,6 @@ async def form_fields(request: Request) -> dict[str, str]:
     return {
         key: values[0] for key, values in parse_qs(body, keep_blank_values=True).items()
     }
-
-
-def check_same_origin(request: Request) -> None:
-    """
-    Refuse a write that did not come from a page on this very server.
-
-    Two things are checked, because either alone is too weak: the request must
-    have been addressed to the loopback interface (so a name that merely
-    resolves to 127.0.0.1 - DNS rebinding - does not pass) and, when the browser
-    sends an `Origin`, it must be this server's own origin. Comparing against
-    the request's own host rather than a configured port matters: the server can
-    perfectly well be started on another one.
-    """
-    host = request.headers.get("host", "")
-    hostname = urlsplit(f"//{host}").hostname or ""
-
-    if hostname not in LOOPBACK_HOSTS:
-        raise HTTPException(status_code=403, detail="Not a local request")
-
-    origin = request.headers.get("origin")
-
-    if origin is not None and origin != f"{request.url.scheme}://{host}":
-        raise HTTPException(status_code=403, detail="Cross-origin request refused")
 
 
 @app.get("/library/{path:path}")
@@ -287,9 +276,14 @@ async def index(request: Request):
                 "active_genre": wanted,
             },
         )
-    except Exception as e:
-        error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
-        return PlainTextResponse(error_msg, status_code=500)
+    except Exception as error:
+        # The log keeps the whole story; a page does not print a stack trace (it
+        # carries paths and frames, and the page is not the place for either).
+        crologger.exception("The library page failed: %s", error)
+        return PlainTextResponse(
+            "Něco se pokazilo. Podrobnosti jsou v logu (Nastavení ukazuje kde).",
+            status_code=500,
+        )
 
 
 @app.get("/detail/{ctype}/{content_id}", response_class=HTMLResponse)
