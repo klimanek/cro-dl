@@ -71,6 +71,10 @@ include = ["crodl", "crodl.*"]
 
 [tool.setuptools.package-data]
 crodl = ["../assets/**/*"]
+# The web library is made of these, not only of Python: its pages and the player
+# script. 2.0.0 shipped without them, so an installed cro-dl died in StaticFiles
+# with "Directory ... does not exist" before it could answer anything.
+"crodl.server" = ["static/*", "templates/*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "crodl.__version__"}
