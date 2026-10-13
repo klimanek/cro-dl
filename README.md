@@ -1,4 +1,4 @@
-# CRo-DL (Czech Radio Downloader)
+# CRo-DL
 Listen to MůjRozhlas.cz programs offline.
 
 ## Overview
@@ -55,11 +55,31 @@ Example with custom settings:
 cro-dl --title "My-Favorite-Show" --no-accents --output "./my-radio" <url>
 ```
 
+## Web library
+
+Downloaded works can be browsed in a small local web UI (FastAPI + Jinja2) backed by a SQLite
+library in `~/Z Rozhlasu/library.db`:
+
+1. Import what is already on disk (optional):
+   ```
+   cro-dl --sync
+   ```
+2. Start the server:
+   ```
+   cro-dl server
+   ```
+3. Open <http://127.0.0.1:8000>.
+
+The server listens on `127.0.0.1` only and is meant for personal, local use. It lists shows and
+series with their covers and plays the stored files. `--sync` groups the files it finds into works
+by their folder (the folder name is the work's title), so a download that predates the library shows
+up as a single entry with its parts.
+
 
 <hr />
 
 ### 🇨🇿
-# CRo-DL (Český Rozhlas Downloader)
+# CRo-DL
 Poslouchejte pořady z MůjRozhlas.cz i offline.
 
 ## Popis
@@ -132,3 +152,21 @@ Chcete-li si pořad stáhnout ve vámi preferovaném formátu, s vlastním názv
 ```
 cro-dl --title "Můj Pořad" --no-accents --output "./stazeno" https://www.mujrozhlas.cz/leonardo-plus/tuk-da-kazdy-radeji-nez-kostni-dren-endokrinolog-vyviji-novou-lecbu-diabetu-kmenovymi
 ```
+
+## Webová knihovna
+
+Stažená díla si můžete procházet v malém lokálním webovém rozhraní (FastAPI + Jinja2) nad SQLite
+databází v `~/Z Rozhlasu/library.db`:
+
+1. Naimportujte, co už na disku máte (nepovinné):
+   ```
+   cro-dl --sync
+   ```
+2. Spusťte server:
+   ```
+   cro-dl server
+   ```
+3. Otevřete <http://127.0.0.1:8000>.
+
+
+![cro-dl webapp](/assets/images/crodlweb.png)

@@ -1,0 +1,8 @@
+{# A folder the library keeps is not there right now (an unplugged disk). #}
+{% if missing_roots %}
+<div class="roots-warning">
+    ⚠️ Složka knihovny není dostupná: {{ missing_roots | join(", ") }} -
+    díla z ní teď nejdou přehrát ani stáhnout. Nastavení zůstává; jakmile se složka
+    vrátí, knihovna je zase celá.
+</div>
+{% endif %}

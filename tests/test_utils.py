@@ -17,6 +17,7 @@ from crodl.streams.utils import (
     simplify_audio_name,
     create_dir_if_does_not_exist,
     title_with_part,
+    title_without_part,
     sanitize_filename,
     slugify,
 )
@@ -242,6 +243,30 @@ class TestEpisodePartFromFilename(unittest.TestCase):
 
     def test_series_marker_file(self):
         self.assertIsNone(episode_part_from_filename(".series"))
+
+
+class TestTitleWithoutPart(unittest.TestCase):
+    """The number a download puts in front of a title, taken off again."""
+
+    def test_it_takes_the_part_number_off(self):
+        # The reported title, word for word.
+        self.assertEqual(
+            title_without_part("1-Jack Black: Nemáte šanci", 1),
+            "Jack Black: Nemáte šanci",
+        )
+        self.assertEqual(title_without_part("3 - Díl", 3), "Díl")
+
+    def test_a_number_that_is_not_the_part_stays(self):
+        # A year, not part 3.
+        self.assertEqual(
+            title_without_part("2001-A Space Odyssey", 3), "2001-A Space Odyssey"
+        )
+
+    def test_a_title_without_a_number_is_left_alone(self):
+        self.assertEqual(title_without_part("Medvěd Čokoláda", 1), "Medvěd Čokoláda")
+
+    def test_it_survives_an_empty_title(self):
+        self.assertEqual(title_without_part("", 1), "")
 
 
 if __name__ == "__main__":

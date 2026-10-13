@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 from crodl import CroDL
+from crodl.program.content import Collection
 from crodl.settings import AudioFormat
 
 
@@ -25,6 +26,12 @@ class TestIsDomainSupported(unittest.TestCase):
     def test_invalid_url(self):
         url = " invalid url "
         self.assertFalse(self.dl.is_domain_supported(url))
+
+    def test_only_a_page_over_http(self):
+        # The netloc is right and there is still nothing to fetch: a scheme of
+        # its own (`file:`, `ftp:`) is refused before any request is made.
+        self.assertFalse(self.dl.is_domain_supported("file://www.mujrozhlas.cz/x"))
+        self.assertFalse(self.dl.is_domain_supported("ftp://www.mujrozhlas.cz/x"))
 
 
 class TestLibraryHook(unittest.IsolatedAsyncioTestCase):
@@ -52,7 +59,25 @@ class TestLibraryHook(unittest.IsolatedAsyncioTestCase):
 
         await hook(work, path)
 
-        library.save_download.assert_awaited_once_with(work, path, audio_format="mp3")
+        library.save_download.assert_awaited_once_with(
+            work, path, audio_format="mp3", collection=None
+        )
+
+    async def test_the_work_a_part_belongs_to_is_handed_over(self):
+        library = mock.Mock()
+        library.save_download = mock.AsyncMock()
+        content = self._make_content()
+        collection = Collection(uuid="series-1", type="series", title="Seriál")
+
+        await self._make_dl(library).download(content, audio_format=AudioFormat.MP3)
+
+        work, path = mock.Mock(), Path("/tmp/library/3 - Díl.mp3")
+        hook = content.download.call_args.kwargs["on_downloaded"]
+        await hook(work, path, collection)
+
+        library.save_download.assert_awaited_once_with(
+            work, path, audio_format="mp3", collection=collection
+        )
 
     async def test_without_a_library_nothing_is_stored(self):
         content = self._make_content()

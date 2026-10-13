@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ content.title }} - CRo-DL</title>
+    {% include "_style.html" %}
+    {% if check.running %}
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
+</head>
+<body>
+    {% set back = "/" %}
+    {% set back_label = "← Zpět do knihovny" %}
+    {% include "_top.html" %}
+
+    {# The work on the left, its parts on the right (one column when narrow). #}
+    <div class="work-layout">
+    <header class="work">
+            <div class="work-info">
+                <h1>{{ content.title }}</h1>
+                <div class="work-meta">
+                    {{ type_labels.get(type, type) }} · {{ parts_label(episodes|length) }}
+                    {% if content.genre %} · {{ content.genre }}{% endif %}
+                    {% if source_url %}
+                    <a href="{{ source_url }}">mujrozhlas.cz</a>
+                    {% endif %}
+                    {% if content.available %}
+                    <span class="badge badge--new">{{ new_parts_label(content.available) }}</span>
+                    {% endif %}
+                    {% if content.upcoming %}
+                    <span class="badge badge--upcoming">{{ upcoming_parts_label(content.upcoming) }}</span>
+                    {% endif %}
+                    {% if content.expired %}
+                    <span class="badge badge--expired">{{ expired_parts_label(content.expired) }}</span>
+                    {% endif %}
+                </div>
+                <div class="description{% if not content.description %} description--plain{% endif %}">
+                    {% if media_url(content.image_path) %}
+                    <img src="{{ media_url(content.image_path) }}" alt="{{ content.title }}" class="work-cover">
+                    {% else %}
+                    <div class="work-cover work-cover--placeholder">🎙️</div>
+                    {% endif %}
+                    {{ content.description or '' }}
+                </div>
+                <div class="actions">
+                    <button type="button" class="queue-add" data-queue="/detail/{{ type }}/{{ content.id }}/queue">➕ Přidat do fronty</button>
+                </div>
+                {% if content.available %}
+                <div class="actions">
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/missing">
+                        <button type="submit">⬇ Stáhnout nové díly</button>
+                    </form>
+                    {% if content.checked_at %}
+                    <span class="job-url">Zkontrolováno {{ czech_datetime(content.checked_at) }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if content.expired and content.checked_at %}
+                <p class="job-url">Naposledy zkontrolováno {{ czech_datetime(content.checked_at) }}</p>
+                {% endif %}
+                {% if report %}
+                <p class="note">{{ report }}</p>
+                {% endif %}
+                {% if edit_mode %}
+                <details class="editor">
+                    <summary>🔗 Odkaz na mujrozhlas.cz</summary>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/link">
+                        <label>Odkaz na stránku díla
+                            <input type="text" name="url" value="{{ source_url or '' }}" placeholder="https://www.mujrozhlas.cz/…">
+                        </label>
+                        <button type="submit">Uložit odkaz</button>
+                    </form>
+                </details>
+                <div class="actions">
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/refresh">
+                        <button type="submit">↻ Aktualizovat data</button>
+                    </form>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/tags">
+                        <button type="submit">🏷 Zapsat tagy do dílů</button>
+                    </form>
+                    <a class="mode-link" href="/detail/{{ type }}/{{ content.id }}/delete">🗑 Smazat z knihovny</a>
+                </div>
+                <details class="editor">
+                    <summary>✏️ Upravit název, žánr a popis</summary>
+                    <form method="post" action="/detail/{{ type }}/{{ content.id }}/edit">
+                        <label>Název
+                            <input type="text" name="title" value="{{ content.title }}">
+                        </label>
+                        <label>Žánr
+                            <input type="text" name="genre" value="{{ content.genre or '' }}" list="genre-list" placeholder="Pohádka, horor, krimi…">
+                        </label>
+                        <label>Popis
+                            <textarea name="description" rows="3">{{ content.description or '' }}</textarea>
+                        </label>
+                        <datalist id="genre-list">
+                            {% for genre in genres %}
+                            <option value="{{ genre }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        <p class="job-url">Žánr se po uložení zapíše do tagů všech dílů.</p>
+                        <button type="submit">Uložit</button>
+                    </form>
+                </details>
+                {% endif %}
+            </div>
+        </header>
+
+    <div class="episode-list">
+        {% for ep in episodes %}
+        <div class="episode-item">
+            {% set source = media_url(ep.local_path) %}
+            <div class="episode-row">
+                <span class="episode-title">{{ title_without_part(ep.title, ep.part) }}</span>
+                {% if ep.part or ep.broadcast_at or ep.duration %}
+                <span class="episode-meta">
+                    {% if ep.part %}{{ ep.part }}. díl{% endif %}
+                    {% if ep.part and (ep.broadcast_at or ep.duration) %} · {% endif %}
+                    {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
+                    {% if ep.broadcast_at and ep.duration %} · {% endif %}
+                    {% if ep.duration %}{{ ep.duration // 60 }} min{% endif %}
+                </span>
+                {% endif %}
+                {% if source %}
+                <button type="button" class="play-button js-only" data-play
+                        data-src="{{ source }}"
+                        data-title="{{ title_without_part(ep.title, ep.part) }}"
+                        data-part="{{ ep.part or '' }}"
+                        data-work="{{ content.title }}"
+                        title="Přehrát" aria-label="Přehrát {{ title_without_part(ep.title, ep.part) }}">▶</button>
+                {% endif %}
+            </div>
+            {% if source %}
+            <noscript>
+                <audio controls class="episode-player" preload="none">
+                    <source src="{{ source }}" type="audio/mpeg">
+                    Tvůj prohlížeč nepodporuje přehrávání.
+                </audio>
+            </noscript>
+            {% else %}
+            <p class="job-url">Soubor teď není k dispozici (složka knihovny možná není připojená).</p>
+            {% endif %}
+            {% if edit_mode %}
+            <details class="editor">
+                <summary>✏️ Upravit údaje dílu</summary>
+                <form method="post" action="/detail/{{ type }}/{{ content.id }}/parts/{{ ep.uuid }}/edit">
+                    <label>Název
+                        <input type="text" name="title" value="{{ ep.title }}">
+                    </label>
+                    <label>Autor
+                        <input type="text" name="author" value="{{ ep.author or '' }}">
+                    </label>
+                    <label>Popis
+                        <textarea name="description" rows="2">{{ ep.description or '' }}</textarea>
+                    </label>
+                    <button type="submit">Uložit</button>
+                </form>
+            </details>
+            {% set tags = file_tags(ep.local_path) %}
+            <details class="editor">
+                <summary>🏷 Tagy v souboru</summary>
+                <p class="job-url">
+                    V souboru: {{ tags.get("title") or "—" }} · {{ tags.get("artist") or "—" }}
+                    · {{ tags.get("album") or "—" }} · {{ tags.get("genre") or "—" }}
+                    · skladba {{ tags.get("tracknumber") or "—" }}
+                </p>
+                <form method="post" action="/detail/{{ type }}/{{ content.id }}/parts/{{ ep.uuid }}/tags">
+                    <label>Název
+                        <input type="text" name="title" value="{{ tags.get('title', '') }}">
+                    </label>
+                    <label>Autor
+                        <input type="text" name="author" value="{{ tags.get('artist', '') }}">
+                    </label>
+                    <label>Album
+                        <input type="text" name="album" value="{{ tags.get('album', '') }}">
+                    </label>
+                    <label>Žánr
+                        <input type="text" name="genre" value="{{ tags.get('genre', '') }}">
+                    </label>
+                    <label>Číslo dílu
+                        <input type="text" name="track" value="{{ tags.get('tracknumber', '') }}">
+                    </label>
+                    <p class="job-url">Prázdné pole tag nezmění.</p>
+                    <button type="submit">Zapsat do souboru</button>
+                </form>
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    </div>{# /work-layout #}
+</body>
+</html>

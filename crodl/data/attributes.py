@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 from crodl.streams.utils import get_audio_link_of_preferred_format, title_with_part
 
@@ -17,6 +18,43 @@ class Data:
     show_type: str
     uuid: str
     attributes: Attributes
+
+
+def extract_asset_url(attributes: dict) -> Optional[str]:
+    """
+    URL of the artwork the API reports for an episode, series or show.
+
+    The content API nests it in an `asset` object - `{"url": ..., "width": ...,
+    "credit": {...}, "inherited": true}` - so `str()` of that value is the
+    dict's repr, not a URL. A plain URL string is accepted as well, because
+    some payloads (and old fixtures) carry one.
+    """
+    asset = attributes.get("asset")
+
+    if isinstance(asset, dict):
+        url = asset.get("url")
+        return str(url) if url else None
+
+    return str(asset) if asset else None
+
+
+def extract_genre(payload: dict) -> Optional[str]:
+    """
+    The first genre the API lists for a work, if it lists any.
+
+    Genres hang off the work, not off its parts, and arrive as a relationship
+    (`data.relationships.genres.data[].attributes.title`) - "Horor", "Komedie"
+    and the like, which is what a player wants in a tag.
+    """
+    relationships = (payload or {}).get("data", {}).get("relationships", {})
+    genres = relationships.get("genres", {}).get("data") or []
+
+    for genre in genres:
+        title = (genre.get("attributes") or {}).get("title")
+        if title:
+            return str(title)
+
+    return None
 
 
 def extract_episode_info(episode: dict) -> dict:

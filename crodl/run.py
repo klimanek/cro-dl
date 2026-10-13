@@ -1,11 +1,4 @@
-import asyncio
-
-from crodl.main import main
-
-
-def run() -> None:
-    asyncio.run(main())
-
+from crodl.main import run
 
 if __name__ == "__main__":
     run()

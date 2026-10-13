@@ -159,6 +159,26 @@ def title_with_part(title: str, part: int | str | None = None) -> str:
     return title
 
 
+def title_without_part(title: str, part: int | str | None = None) -> str:
+    """
+    The title with a leading part number taken off it, when that is what it is.
+
+    `title_with_part` - and the file names, which have to sort - put "3-" in front
+    of a title. The part has a column of its own, so a page, a tag and the queue
+    want the title alone. A leading number that is not the part given stays put
+    ("2001-A Space Odyssey" keeps its year).
+    """
+    if not title:
+        return title
+
+    match = EPISODE_PART_RE.match(title)
+    if match is None or (part is not None and match.group(1) != str(part)):
+        return title
+
+    rest = title[match.end() :].strip()
+    return rest or title
+
+
 class HMS:
     def __init__(self, secs: int):
         self.secs = secs

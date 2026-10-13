@@ -13,6 +13,15 @@ SUPPORTED_DOMAINS = ("www.mujrozhlas.cz", "mujrozhlas.cz")
 SUPPORTED_AUDIO_FORMATS = ("aac", "m4a")
 AUDIO_FORMATS = SUPPORTED_AUDIO_FORMATS + ("mp3",)
 
+# The local web library: personal use, so it listens on the loopback interface
+# only and neither the CORS policy nor the URLs ever leave the machine.
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 8000
+
+# How often a running server looks for parts the Czech Radio has released since
+# (see `crodl.library.updates`); 0 switches the watch off.
+UPDATE_CHECK_HOURS = 6
+
 
 class AudioFormat(Enum):
     """The order determines the order of the audio downloads, if available."""

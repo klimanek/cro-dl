@@ -1,0 +1,478 @@
+<style>
+    :root {
+        --bg-color: #121212;
+        --card-bg: #1e1e1e;
+        --text-primary: #ffffff;
+        --text-secondary: #b3b3b3;
+        --accent: #1db954;
+        --danger: #e05555;
+        --warning: #e08b2a;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        margin: 0;
+        padding: 20px;
+    }
+    h1 { margin: 0; color: var(--accent); font-size: 1.6em; }
+    a { color: var(--accent); }
+    .page-head {
+        margin-bottom: 40px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 20px;
+    }
+    /* The title and its bar on one line; the genres and any warning below them,
+       as rows of their own. */
+    .page-head-row {
+        align-items: baseline;
+        display: flex;
+        gap: 20px;
+        justify-content: space-between;
+    }
+    /* The bars of a page: the same layout, the same gaps and the same text size
+       everywhere, so a page whose items come from another template lines up. */
+    .stats, .bar-items {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .stats { color: var(--text-secondary); font-size: 0.9em; margin-bottom: 10px; }
+    .top-bar {
+        align-items: center;
+        display: flex;
+        font-size: 0.9em;
+        gap: 16px;
+        justify-content: space-between;
+        margin-bottom: 15px;
+    }
+    .back-link { text-decoration: none; color: var(--accent); }
+    .mode-link { text-decoration: none; }
+    .mode-link:hover { text-decoration: underline; }
+    .note {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        color: var(--text-secondary);
+        font-size: 0.9em;
+        margin-bottom: 25px;
+        padding: 12px 15px;
+    }
+    .danger { background-color: var(--danger); color: #fff; }
+    .badge {
+        border-radius: 10px;
+        font-size: 0.75em;
+        font-weight: bold;
+        padding: 2px 8px;
+    }
+    .badge--new { background-color: var(--accent); color: #06210f; }
+    .badge--upcoming { background-color: #3a3a3a; color: var(--text-secondary); }
+    .badge--expired { background-color: var(--warning); color: #241300; }
+    /* A folder of the library that is not there right now (an unplugged disk). */
+    .roots-warning {
+        background-color: #3a2410;
+        border: 1px solid var(--warning);
+        border-radius: 6px;
+        color: #ffd9a8;
+        margin: 12px 0;
+        padding: 10px 14px;
+    }
+    .folders { border-collapse: collapse; margin: 8px 0 18px; width: 100%; }
+    .folders td { border-bottom: 1px solid #262626; padding: 6px 8px; vertical-align: middle; }
+    .folder-path { font-family: monospace; word-break: break-all; }
+    /* The folder browser on the settings page: only folders, one level at a time. */
+    .browser {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        margin: 12px 0 18px;
+        padding: 12px 15px;
+    }
+    .browser-path {
+        color: var(--text-secondary);
+        font-size: 0.85em;
+        margin-bottom: 10px;
+        word-break: break-all;
+    }
+    .browser-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .browser-items a { text-decoration: none; }
+    .browser-items a:hover { text-decoration: underline; }
+    /* The genres of the library, in the top bar (a few links, the rest folded). */
+    .genres {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    .genres-label { color: var(--text-secondary); font-size: 0.85em; }
+    .genre {
+        background-color: #242424;
+        border-radius: 10px;
+        color: inherit;
+        font-size: 0.85em;
+        padding: 2px 8px;
+        text-decoration: none;
+    }
+    .genre:hover { background-color: #333; }
+    .genre--active {
+        background-color: var(--accent);
+        color: #06210f;
+        font-weight: bold;
+    }
+    .genre--clear { color: var(--text-secondary); }
+    .genre-more { position: relative; }
+    .genre-more summary { cursor: pointer; font-size: 0.85em; }
+    .genre-more-items {
+        background-color: #1c1c1c;
+        border: 1px solid #2c2c2c;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px;
+        position: absolute;
+        z-index: 30;
+    }
+    /* The play buttons only mean something once the player script is there. */
+    .js-only { display: none; }
+    html.js .js-only { display: inline-flex; }
+    .play-button {
+        align-items: center;
+        background: none;
+        border: 0;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        justify-content: center;
+        /* A small, plain triangle (the way an icon font draws play), with no box
+           or colour around it until it is pointed at. */
+        line-height: 1;
+        padding: 2px 4px;
+    }
+    .play-button:hover { color: var(--accent); }
+    .queue-add {
+        background: none;
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        padding: 4px 8px;
+        text-align: left;
+        width: 100%;
+    }
+    .queue-add:hover { color: var(--accent); }
+    /* On a work's page it stands in a row of actions: link-like, not the
+       full-width target a card's menu wants. */
+    .work-info .queue-add { text-decoration: underline; width: auto; }
+    /* The player stays at the bottom of every page (see static/player.js). */
+    body { padding-bottom: 72px; }
+    .player-bar {
+        align-items: center;
+        background-color: #161616;
+        border-top: 1px solid #2c2c2c;
+        bottom: 0;
+        display: flex;
+        gap: 10px;
+        left: 0;
+        padding: 8px 14px;
+        position: fixed;
+        right: 0;
+        z-index: 20;
+    }
+    .player-bar[hidden] { display: none; }
+    .player-button {
+        background: none;
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+        font-size: 1em;
+        padding: 4px 6px 4px 11px;
+    }
+    #player-next {
+        padding: 4px 11px 4px 6px !important;
+    }
+    .player-button--main {
+        background-color: var(--accent);
+        border-radius: 50%;
+        color: #06210f;
+        height: 34px;
+        width: 34px;
+    }
+    .player-text { flex: 1; min-width: 0; }
+    .player-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .player-work {
+        color: var(--text-secondary);
+        font-size: 0.75em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .player-seek { accent-color: var(--accent); flex: 2; min-width: 90px; }
+    .player-count { color: var(--text-secondary); font-size: 0.8em; }
+    /* The player's title is the way into the queue page (see /fronta). */
+    a.player-title { color: inherit; display: block; text-decoration: none; }
+    a.player-title:hover { text-decoration: underline; }
+    /* The part the player is on, in the queue. */
+    .queue-item--current { border: 1px solid var(--accent); }
+    /* The queue's own count: the only number a row shows, and it stays quiet. */
+    .queue-number {
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+        min-width: 1.6em;
+    }
+    .inline-form { display: inline; }
+    .check-link {
+        background: none;
+        border: 0;
+        color: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        padding: 0;
+    }
+    .check-link:hover { text-decoration: underline; }
+    .check-link--failed { color: var(--danger); }
+    /* Same size as "Stahování" and "Režim úprav" beside it. */
+    .check-state { color: var(--text-secondary); }
+    .spinner {
+        animation: spin 0.8s linear infinite;
+        border: 2px solid #444;
+        border-radius: 50%;
+        border-top-color: var(--accent);
+        display: inline-block;
+        height: 12px;
+        width: 12px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 25px;
+    }
+    .card {
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    .card:hover { transform: scale(1.03); }
+    .card-link { text-decoration: none; color: inherit; display: block; }
+    /* The actions stay out of sight until the pointer is on the card. */
+    .card-menu {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        visibility: hidden;
+    }
+    .card:hover .card-menu, .card-menu[open] { visibility: visible; }
+    .card-menu summary {
+        background-color: rgba(0, 0, 0, 0.65);
+        border-radius: 50%;
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 1.1em;
+        line-height: 1;
+        list-style: none;
+        padding: 6px 10px;
+    }
+    .card-menu summary::-webkit-details-marker { display: none; }
+    .card-menu-items {
+        background-color: var(--card-bg);
+        border: 1px solid #333;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        margin-top: 6px;
+        max-width: 260px;
+        padding: 6px;
+    }
+    .card-menu-items a,
+    .card-menu-items button {
+        background: none;
+        border: 0;
+        color: var(--accent);
+        cursor: pointer;
+        display: block;
+        font: inherit;
+        font-size: 0.85em;
+        padding: 8px;
+        text-align: left;
+        text-decoration: none;
+        white-space: nowrap;
+        width: 100%;
+    }
+    .card-menu-items a:hover,
+    .card-menu-items button:hover { background-color: #2a2a2a; border-radius: 4px; }
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 15px;
+    }
+    .card-img {
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        background-color: #333;
+    }
+    .card-img--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3em;
+    }
+    .card-content { padding: 15px; }
+    .card-title { font-weight: bold; margin-bottom: 5px; }
+    .card-meta { font-size: 0.8em; color: var(--text-secondary); }
+    /* The detail page: the work - its cover, description and the editing forms -
+       takes most of the page, with the parts in a column of their own beside it;
+       one column again when the window is narrow. */
+    .work-layout {
+        align-items: start;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1fr) minmax(460px, 560px);
+    }
+    @media (max-width: 820px) {
+        .work-layout { grid-template-columns: 1fr; }
+        /* Narrow: the name, then when it aired and how long it runs, then the
+           play icon - under each other, the way this page used to stack them. */
+        .episode-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 6px;
+        }
+    }
+    .work {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    /* The cover floats so the description flows around it; the actions and the
+       editors below start under the whole block (flow-root keeps the float in). */
+    .work-cover {
+        float: left;
+        margin: 0 20px 12px 0;
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        border-radius: 8px;
+        background-color: #333;
+    }
+    /* A work with no description has no text to flow: the cover is a block. */
+    .description--plain .work-cover { float: none; margin: 0 0 12px; }
+    .work-cover--placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4em;
+    }
+    .work-info { flex: 1; min-width: 260px; }
+    .work-meta { color: var(--text-secondary); font-size: 0.85em; margin-top: 10px; margin-bottom: 15px; }
+    .description {
+        display: flow-root;
+        font-size: 0.9em;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        max-width: 800px;
+        margin-bottom: 15px;
+    }
+    .episode-list, .jobs {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    .episode-item, .job {
+        background-color: var(--card-bg);
+        padding: 5px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    /* One part: its name, when it aired and how long it runs, and the play icon -
+       in one line, or wrapped under each other on a narrow window. */
+    .episode-row {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+    }
+    .episode-title { flex: 1; min-width: 0; }
+    .episode-meta {
+        color: var(--text-secondary);
+        font-size: 0.8em;
+        white-space: nowrap;
+    }
+    .episode-player { width: 100%; margin-top: 5px; }
+    .job-title { font-weight: bold; }
+    .job-url {
+        color: var(--text-secondary);
+        font-size: 0.8em;
+        word-break: break-all;
+    }
+    .job-state { font-size: 0.85em; }
+    .job-state--failed { color: var(--danger); }
+    .job-state--done { color: var(--accent); }
+    progress {
+        width: 100%;
+        height: 12px;
+        accent-color: var(--accent);
+    }
+    .add-form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+    input[type="text"], input[type="url"], textarea {
+        background-color: var(--bg-color);
+        border: 1px solid #333;
+        border-radius: 6px;
+        color: var(--text-primary);
+        font: inherit;
+        padding: 8px;
+    }
+    .add-form input { flex: 1; min-width: 260px; }
+    /* A description is a paragraph, not a line: give the fields room to be read
+       and written (they were two rows tall). */
+    textarea { min-height: 7em; resize: vertical; }
+    button {
+        align-items: center;
+        background-color: var(--accent);
+        border: 0;
+        border-radius: 6px;
+        color: #06210f;
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        font-weight: bold;
+        /* One tight line, so an emoji in the label cannot make a button taller
+           than the one beside it ("Aktualizovat data" vs "Zapsat tagy do dílů"). */
+        line-height: 1.1;
+        padding: 7px 14px;
+    }
+    .editor {
+        margin-top: 2px;
+        background-color: var(--card-bg);
+        border-radius: 8px;
+        padding: 2px 2px;
+    }
+    .editor summary { cursor: pointer; color: var(--accent); font-size: 0.85em; }
+    .editor form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+    }
+    .editor label {
+        font-size: 0.8em;
+        color: var(--text-secondary);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .editor button { align-self: flex-start; }
+</style>

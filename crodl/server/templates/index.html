@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRo-DL Library</title>
+    {% include "_style.html" %}
+    {% if check.running %}
+    <!-- The check runs in the background; keep the spinner honest. -->
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
+</head>
+<body>
+    <header class="page-head">
+        <div class="page-head-row">
+            <h1>📻 Moje Rádio</h1>
+            <div class="stats">
+                {% if collections %}
+                <span>{{ works }} děl, {{ parts_label(parts) }}</span>
+                {% endif %}
+                <a href="/downloads">Stahování</a>
+                {% include "_check.html" %}
+                <a href="/settings">⚙️ Nastavení</a>
+                {% if edit_mode %}
+                <a href="/edit-mode?on=0&amp;next={{ request.url.path }}">✓ Hotovo</a>
+                {% else %}
+                <a href="/edit-mode?on=1&amp;next={{ request.url.path }}">✏️ Režim úprav</a>
+                {% endif %}
+            </div>
+        </div>
+        {% include "_genres.html" %}
+        {% include "_roots_warning.html" %}
+    </header>
+
+    <form class="add-form" method="post" action="/downloads">
+        <input type="text" name="url" placeholder="https://www.mujrozhlas.cz/…" aria-label="Odkaz na dílo">
+        <button type="submit">Stáhnout</button>
+    </form>
+
+    {% if check.state == "done" %}
+    <p class="note">{{ check_report(check.found | string) }}</p>
+    {% elif check.state == "failed" %}
+    <p class="note">Kontrola nových dílů selhala: {{ check.message }}</p>
+    {% endif %}
+
+    {% if deleted %}
+    <p class="note">Smazáno z knihovny: {{ records_label(deleted) }}. Soubory na disku zůstaly.</p>
+    {% endif %}
+
+    <div class="grid">
+        {% for coll in collections %}
+        <div class="card">
+            <a href="/detail/{{ coll.type }}/{{ coll.id }}" class="card-link">
+                {% if media_url(coll.image_path) %}
+                    <img src="{{ media_url(coll.image_path) }}" alt="{{ coll.title }}" class="card-img">
+                {% else %}
+                    <div class="card-img card-img--placeholder">🎙️</div>
+                {% endif %}
+                <div class="card-content">
+                    <div class="card-title">{{ coll.title }}</div>
+                    <div class="card-meta">
+                        {{ type_labels.get(coll.type, coll.type) }} · {{ parts_label(coll.count) }}
+                        {% if coll.available %}
+                        <span class="badge badge--new">{{ new_parts_label(coll.available) }}</span>
+                        {% endif %}
+                        {% if coll.upcoming %}
+                        <span class="badge badge--upcoming">{{ upcoming_parts_label(coll.upcoming) }}</span>
+                        {% endif %}
+                        {% if coll.expired %}
+                        <span class="badge badge--expired">{{ expired_parts_label(coll.expired) }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            <details class="card-menu">
+                <summary title="Akce s dílem">⋯</summary>
+                <div class="card-menu-items">
+                    <button type="button" class="queue-add" data-queue="/detail/{{ coll.type }}/{{ coll.id }}/queue">➕ Přidat do fronty</button>
+                    {% if coll.available %}
+                    <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/missing">
+                        <button type="submit">⬇ Stáhnout nové díly</button>
+                    </form>
+                    {% endif %}
+                    {% if coll.from_api %}
+                    <form method="post" action="/detail/{{ coll.type }}/{{ coll.id }}/refresh">
+                        <button type="submit">↻ Aktualizovat data</button>
+                    </form>
+                    {% endif %}
+                    <a href="/detail/{{ coll.type }}/{{ coll.id }}/delete">🗑 Smazat z knihovny</a>
+                </div>
+            </details>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not collections %}
+    <p style="text-align:center; color: var(--text-secondary);">Knihovna je zatím prázdná.</p>
+    {% endif %}
+
+    {# This page has a header of its own, so it brings the player with it. #}
+{% include "_player.html" %}
+</body>
+</html>
