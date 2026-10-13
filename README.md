@@ -66,7 +66,7 @@ library in `~/Z Rozhlasu/library.db`:
    ```
 2. Start the server:
    ```
-   uv run cro-dl server
+   cro-dl server
    ```
 3. Open <http://127.0.0.1:8000>.
 
@@ -164,7 +164,7 @@ databází v `~/Z Rozhlasu/library.db`:
    ```
 2. Spusťte server:
    ```
-   uv run cro-dl server
+   cro-dl server
    ```
 3. Otevřete <http://127.0.0.1:8000>.
 
