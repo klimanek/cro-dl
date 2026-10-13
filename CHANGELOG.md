@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1] - 2026-10-13
+
+### Fixed
+- An installed cro-dl could not start the server at all: the wheel carried the
+  Python code but neither the pages nor the player script, so uvicorn died in
+  `StaticFiles` with "Directory ... does not exist". Both directories are
+  declared as package data now, and a test holds them there.
+
 ## [2.0.0] - 2026-10-13
 
 A web library over your downloads: cro-dl now serves what you have, and plays it.
