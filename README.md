@@ -167,3 +167,6 @@ databází v `~/Z Rozhlasu/library.db`:
    uv run cro-dl server
    ```
 3. Otevřete <http://127.0.0.1:8000>.
+
+
+![cro-dl webapp](/assets/images/crodlweb.png)
