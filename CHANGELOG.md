@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.2] - 2026-10-16
+
+### Fixed
+- The server refused to start on Windows after a fresh install: SQLModel 0.0.4x
+  rejects a naive `datetime` for a plain `datetime` column, and the library's own
+  stamps (when a folder was added, a check ran, a file was downloaded) are naive.
+  They are declared as `NaiveDatetime` now, so the stored values are exactly what
+  they were and an existing database needs no change. The repo's lock no longer
+  pins the old SQLModel, which is what hid this until it met a pip install.
+
 ## [2.0.1] - 2026-10-13
 
 ### Fixed
