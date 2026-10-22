@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3] - 2026-10-22
+
+### Fixed
+- The web's progress bar barely moved: it counted whole parts, so a single-work
+  download had one step and showed no bar at all, and a part was one jump. It
+  reads the segment counters the CLI's bar draws - 370 of them for one half-hour
+  reading - and the page polls them twice a second instead of reloading itself.
+
 ## [2.0.2] - 2026-10-16
 
 ### Fixed

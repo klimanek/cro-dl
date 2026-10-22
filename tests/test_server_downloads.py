@@ -4,9 +4,11 @@ import asyncio
 import unittest
 from pathlib import Path
 
+from rich.progress import Progress
+
 from crodl.library.updates import NewPart
 from crodl.program.content import Collection
-from crodl.server.downloads import DownloadManager
+from crodl.server.downloads import DownloadJob, DownloadManager
 
 URL = "https://www.mujrozhlas.cz/cetba-na-pokracovani/bohumil-hrabal"
 
@@ -97,16 +99,17 @@ class TestDownloadManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(finished["done"], 2)
         self.assertIsNotNone(finished["finished_at"])
 
-    async def test_the_cli_progress_display_is_kept_quiet(self):
-        # The web reads the work's own counters; a live `rich` display would just
-        # scribble over the server's console.
+    async def test_the_progress_display_is_kept_quiet(self):
+        # The CLI's display prints; the web wants the same numbers without the
+        # scribbling, so the display is handed over but never started.
         facade = FakeFacade(FakeSeries(parts=1))
         manager = manager_for(facade)
 
         job = manager.start(URL)
         await facade.started.wait()
 
-        self.assertTrue(facade.progress.disable)
+        self.assertIs(facade.progress, job.progress)
+        self.assertFalse(facade.progress.live.is_started)
         facade.finish.set()
         await job.task
 
@@ -221,6 +224,26 @@ class TestNewPartJobs(unittest.IsolatedAsyncioTestCase):
         state = job.as_dict()
         self.assertEqual(state["state"], "failed")
         self.assertIn("the stream is gone", state["message"])
+
+
+class TestSegmentProgress(unittest.IsolatedAsyncioTestCase):
+    """What a page draws a bar from: segments, not whole parts."""
+
+    def test_the_steps_come_from_the_rich_tasks(self):
+        job = DownloadJob(id="job-1", url="https://example.com/x")
+        job.progress = Progress()
+        task = job.progress.add_task("díl", total=10)
+        job.progress.update(task, advance=4)
+
+        reported = job.as_dict()
+
+        self.assertEqual((reported["steps_done"], reported["steps_total"]), (4, 10))
+        self.assertEqual(reported["steps_percent"], 40)
+
+    def test_a_job_without_a_display_reports_none(self):
+        reported = DownloadJob(id="job-2", url="").as_dict()
+
+        self.assertEqual((reported["steps_done"], reported["steps_total"]), (0, 0))
 
 
 if __name__ == "__main__":

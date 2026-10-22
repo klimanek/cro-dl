@@ -3,10 +3,11 @@
 A download takes minutes, so it runs as a background task and the UI watches a
 job: the pages refresh themselves and the JSON API answers the same thing.
 
-Progress is read from the work itself (`downloaded_parts` against the number of
-parts the API reported) rather than pushed out of the core by a callback: the
-core knows about files, not about HTTP, and the CLI's progress display (`rich`)
-is exactly that - the CLI's.
+Progress is read out of the `rich` display the core reports into - one task per
+part, `advance=1` per segment, the very numbers the CLI's bar draws - so a page
+moves smoothly through a single part instead of jumping a part at a time. The
+work's own counters (`downloaded_parts` against the parts the API reported) stay
+as the coarser "3 / 7 dílů" beside it.
 """
 
 import asyncio
@@ -63,10 +64,13 @@ class DownloadJob:
     #: The work being downloaded, and the handle on the running task.
     content: Any = field(default=None, repr=False)
     task: Optional[asyncio.Task] = field(default=None, repr=False)
+    #: The `rich` display the core reports into; its tasks carry the progress.
+    progress: Optional[Progress] = field(default=None, repr=False)
 
     def as_dict(self) -> dict[str, Any]:
         """The job as the pages and the JSON API report it."""
         done, total = self._progress()
+        steps_done, steps_total = self._units()
 
         return {
             "id": self.id,
@@ -77,6 +81,13 @@ class DownloadJob:
             "done": done,
             "total": total,
             "percent": round(done / total * 100) if total else 0,
+            # Segments fetched against segments known: what a bar should draw,
+            # because there are hundreds of them per part and not one.
+            "steps_done": steps_done,
+            "steps_total": steps_total,
+            "steps_percent": (
+                round(steps_done / steps_total * 100) if steps_total else 0
+            ),
             "started_at": self.started_at.isoformat(timespec="seconds"),
             "finished_at": (
                 self.finished_at.isoformat(timespec="seconds")
@@ -84,6 +95,18 @@ class DownloadJob:
                 else None
             ),
         }
+
+    def _units(self) -> tuple[int, int]:
+        """Segments done against segments known, read out of the `rich` tasks."""
+        if self.progress is None:
+            return 0, 0
+
+        tasks = self.progress.tasks
+
+        return (
+            int(sum(task.completed for task in tasks)),
+            int(sum(task.total or 0 for task in tasks)),
+        )
 
     def _progress(self) -> tuple[int, int]:
         """Parts on disk against parts expected, read from the work on demand."""
@@ -155,9 +178,11 @@ class DownloadManager:
             job.title = content.title
             job.content = content
 
-            # `rich` is the CLI's display; the web reads the work's counters, so
-            # a disabled one only keeps progress bars out of the server console.
-            await facade.download(content, progress=Progress(disable=True))
+            # A `rich` display the web can *read*: it is never started, so nothing
+            # is printed, but every task the core creates keeps its counters - the
+            # numbers the CLI's bar draws, and a page wants them just as much.
+            job.progress = Progress()
+            await facade.download(content, progress=job.progress)
 
             job.state = "done"
             crologger.info("Web download finished: %s", job.title)
@@ -179,6 +204,9 @@ class DownloadManager:
         facade = self._facade_factory()
 
         try:
+            # One display for the whole job, as in `_run`.
+            job.progress = Progress()
+
             for part in parts:
                 await facade.download_part(
                     part.uuid,
@@ -186,8 +214,7 @@ class DownloadManager:
                     part=part.part,
                     directory=directory,
                     collection=collection,
-                    # `rich` is the CLI's display (see `_run`).
-                    progress=Progress(disable=True),
+                    progress=job.progress,
                 )
                 job.done += 1
 

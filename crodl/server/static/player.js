@@ -494,10 +494,77 @@
         })();
     }
 
+    // --- downloads that move while you watch ---------------------------------
+    // The download pages used to refresh themselves whole every few seconds, so a
+    // bar jumped from part to part - and a single part had one step to show. The
+    // job's JSON carries the segment counters the CLI's bar draws, so reading
+    // them twice a second moves the bar smoothly; the page is loaded again once,
+    // when the job is over.
+    function watchDownloads() {
+        const bars = document.querySelectorAll("progress[data-job]");
+        if (!bars.length) {
+            return;
+        }
+
+        window.clearTimeout(refreshTimer); // the bars are live now
+
+        let finished = false;
+
+        const tick = async () => {
+            let running = false;
+
+            try {
+                const response = await fetch("/api/downloads", {
+                    credentials: "same-origin",
+                });
+                const jobs = await response.json();
+
+                for (const bar of document.querySelectorAll("progress[data-job]")) {
+                    const job = jobs.find((entry) => entry.id === bar.dataset.job);
+                    if (!job) {
+                        continue;
+                    }
+
+                    if (job.steps_total) {
+                        bar.max = job.steps_total;
+                        bar.value = job.steps_done;
+                    } else {
+                        bar.max = job.total || 1;
+                        bar.value = job.done;
+                    }
+
+                    const count = bar.parentElement.querySelector("[data-job-count]");
+                    if (count) {
+                        count.textContent = `${job.done} / ${job.total} dílů`;
+                    }
+
+                    if (job.state === "running") {
+                        running = true;
+                    }
+                }
+            } catch (error) {
+                running = true; // the network is the network: keep trying
+            }
+
+            if (running) {
+                window.setTimeout(tick, 500);
+                return;
+            }
+
+            if (!finished) {
+                finished = true;
+                go(location.href, false); // and the page says what came of it
+            }
+        };
+
+        tick();
+    }
+
     // What every page needs once its markup is there - a swapped-in one included.
     function pageReady() {
         show();
         renderQueue();
+        watchDownloads();
     }
 
     // A page loaded whole may itself be asking to refresh (a check or a download
