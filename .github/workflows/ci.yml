@@ -23,9 +23,13 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install cro-dl the way a user does
         # `[test]` is what a bare `pip install .` lacks: pytest and PyYAML, which
-        # tests/test_ci.py reads the workflow with.
+        # tests/test_ci.py reads the workflow with. The system libraries are for
+        # a dependency that has to be built from source on a fresh Python - lxml
+        # needs them when its wheel for the runner's version is not out yet.
         run: |
           python -m pip install --upgrade pip
+          sudo apt-get update
+          sudo apt-get install -y libxml2-dev libxslt1-dev
           python -m pip install ".[test]"
       - name: Tests
         run: python -m pytest tests/ -q
