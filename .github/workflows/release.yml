@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: Build the wheel and check it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: The tag has to be the version the package declares
+        # A release and a version that disagree is how 2.0.0 went out untagged.
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared=$(grep -o '__version__ = "[^"]*"' crodl/__init__.py | cut -d'"' -f2)
+          echo "tag: $tag, declared: $declared"
+          test "$tag" = "$declared"
+      - run: uv build --wheel
+      - name: The wheel has to carry the pages and the player script
+        # 2.0.0 shipped without them and died in StaticFiles for everyone who
+        # installed it; this step is what stops that from happening twice.
+        run: |
+          unzip -l dist/*.whl | grep -q "crodl/server/static/player.js"
+          unzip -l dist/*.whl | grep -q "crodl/server/templates/index.html"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/*.whl
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Trusted publishing: PyPI trusts this workflow through OIDC, so there is no
+    # token to keep anywhere. The environment name is the one to register there.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  notes:
+    name: GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

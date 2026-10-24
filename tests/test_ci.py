@@ -48,6 +48,19 @@ class TestThePythonFloorIsTested(unittest.TestCase):
         )
         self.assertEqual(matrix[0], declared_floor(), f"the workflow tries {matrix}")
 
+    def test_every_workflow_and_the_dependabot_config_parse(self):
+        # A typo in a workflow only shows up when it runs - and the release one
+        # only runs on a tag, which is the worst possible moment to find out.
+        files = sorted((ROOT / ".github").rglob("*.yml"))
+
+        self.assertTrue(files, "no workflow files found")
+
+        for path in files:
+            with self.subTest(file=str(path.relative_to(ROOT))):
+                self.assertIsInstance(
+                    yaml.safe_load(path.read_text(encoding="utf-8")), dict
+                )
+
     def test_the_readme_repeats_the_same_floor(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         floor = declared_floor()

@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # A new SQLModel broke 2.0.2 - it refused the naive datetime columns the old one
+  # accepted - and nothing noticed until a user installed it. A weekly pull
+  # request puts that in front of the CI instead, before a release.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

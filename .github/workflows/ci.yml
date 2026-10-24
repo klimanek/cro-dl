@@ -45,3 +45,26 @@ jobs:
       - run: uv run ruff check crodl/ tests/
       - run: uv run ty check crodl/
       - run: uv run pyright crodl/
+
+  platforms:
+    name: ${{ matrix.os }} / Python 3.13
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # One Python on each OS rather than the whole matrix: two of the bugs this
+        # project has shipped were platform-only - a naive datetime column that
+        # only Windows refused, and a wheel without the pages - and no Linux
+        # runner can see either of them.
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install cro-dl the way a user does
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
+      - name: Tests
+        run: python -m pytest tests/ -q
