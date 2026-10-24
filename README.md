@@ -75,6 +75,11 @@ series with their covers and plays the stored files. `--sync` groups the files i
 by their folder (the folder name is the work's title), so a download that predates the library shows
 up as a single entry with its parts.
 
+## Contributing
+
+Development setup, the checks CI runs, the minimum Python and the release
+process (tag, version, PyPI) are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 
 <hr />
 
@@ -170,3 +175,8 @@ databází v `~/Z Rozhlasu/library.db`:
 
 
 ![cro-dl webapp](/assets/images/crodlweb.png)
+
+## Vývoj a vydávání
+
+Nastavení vývoje, kontroly které pouští CI, minimální Python a postup vydání
+(tag, verze, PyPI) jsou v [CONTRIBUTING.md](CONTRIBUTING.md).
