@@ -3,6 +3,11 @@
 ## [2.0.3] - 2026-10-22
 
 ### Fixed
+- cro-dl would not start on Python 3.12: 2.0.2 declared the library's naive
+  timestamps as `NaiveDatetime`, and the older SQLModel that a 3.12 install
+  resolves cannot map that to a column ("has no matching SQLAlchemy type"). The
+  columns name their storage with `sa_type` now, which every version understands,
+  so cro-dl still runs on the Pythons it always promised - not only on 3.13.
 - The web's progress bar barely moved: it counted whole parts, so a single-work
   download had one step and showed no bar at all, and a part was one jump. It
   reads the segment counters the CLI's bar draws - 370 of them for one half-hour
