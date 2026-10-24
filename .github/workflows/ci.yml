@@ -17,14 +17,16 @@ jobs:
         # raise the floor in pyproject.toml, the README and this list together.
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Install cro-dl the way a user does
+        # `[test]` is what a bare `pip install .` lacks: pytest and PyYAML, which
+        # tests/test_ci.py reads the workflow with.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install . pytest
+          python -m pip install ".[test]"
       - name: Tests
         run: python -m pytest tests/ -q
 
@@ -32,8 +34,8 @@ jobs:
     name: Lint and types
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync
       - run: uv run ruff format --check crodl/ tests/
       - run: uv run ruff check crodl/ tests/

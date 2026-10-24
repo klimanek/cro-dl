@@ -427,6 +427,12 @@ dependencies = [
     { name = "uvicorn" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pyyaml" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
@@ -452,11 +458,14 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "lxml", specifier = ">=5.3.0,<6.0.0" },
     { name = "mutagen", specifier = ">=1.48.1" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3,<9.0.0" },
+    { name = "pyyaml", marker = "extra == 'test'", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31.0,<3.0.0" },
     { name = "rich", specifier = ">=13.8.1,<14.0.0" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
     { name = "uvicorn", specifier = ">=0.46.0" },
 ]
+provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [

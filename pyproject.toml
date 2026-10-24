@@ -45,9 +45,13 @@ Issues = "https://github.com/klimanek/cro-dl/issues"
 [project.scripts]
 cro-dl = "crodl.run:run"
 
+[project.optional-dependencies]
+# Running the tests from an installed copy, the way the CI does it:
+#   pip install "cro-dl[test]"
+test = ["pytest<9.0.0,>=8.3.3", "pyyaml>=6.0"]
+
 [dependency-groups]
-dev = [
-    "pre-commit>=4.1.0",
+dev = [    "pre-commit>=4.1.0",
     "pyright>=1.1.394",
     "pytest<9.0.0,>=8.3.3",
     "ruff>=0.9.3",
