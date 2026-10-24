@@ -31,9 +31,6 @@ dependencies = [
     "uvicorn>=0.46.0",
     "jinja2>=3.1.6",
     "mutagen>=1.48.1",
-    # Imported directly for NaiveDatetime: the library's own timestamps are
-    # stored without a timezone, and SQLModel 0.0.4x wants that said out loud.
-    "pydantic>=2.13.3",
 ]
 
 name = "cro-dl"
@@ -47,6 +44,11 @@ Issues = "https://github.com/klimanek/cro-dl/issues"
 
 [project.scripts]
 cro-dl = "crodl.run:run"
+
+[project.optional-dependencies]
+# Running the tests from an installed copy, the way the CI does it:
+#   pip install "cro-dl[test]"
+test = ["pytest<9.0.0,>=8.3.3", "pyyaml>=6.0"]
 
 [dependency-groups]
 dev = [

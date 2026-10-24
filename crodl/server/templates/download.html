@@ -27,11 +27,11 @@
         <div class="job-url">{{ job.url }}</div>
         <div class="job-state job-state--{{ job.state }}">
             {{ state_labels.get(job.state, job.state) }}
-            {% if job.state == "running" %} · {{ job.done }} / {{ job.total }} dílů{% endif %}
+            {% if job.state == "running" %} · <span data-job-count>{{ job.done }} / {{ job.total }} dílů</span>{% endif %}
             {% if job.message %} · {{ job.message }}{% endif %}
         </div>
         {% if job.state == "running" %}
-        <progress value="{{ job.done }}" max="{{ job.total or 1 }}"></progress>
+        <progress data-job="{{ job.id }}" value="{{ job.done }}" max="{{ job.total or 1 }}"></progress>
         {% endif %}
         <div class="job-url">{{ added_line(job) }}</div>
     </div>

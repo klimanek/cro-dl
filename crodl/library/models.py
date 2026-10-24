@@ -9,8 +9,7 @@ against the API and what still needs modelling.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import NaiveDatetime
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -60,7 +59,9 @@ class LibraryRoot(SQLModel, table=True):
     """
 
     path: str = Field(primary_key=True)
-    added_at: NaiveDatetime = Field(default_factory=datetime.now)
+    # `sa_type` says the storage out loud: naive timestamps, as an older SQLModel
+    # (the one a Python 3.12 install resolves) cannot map `NaiveDatetime` at all.
+    added_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
 
 
 class UpdateCheck(SQLModel, table=True):
@@ -76,7 +77,7 @@ class UpdateCheck(SQLModel, table=True):
     # The work in the content API: a series' or a show's uuid.
     collection_id: str = Field(primary_key=True)
     collection_type: str
-    checked_at: NaiveDatetime = Field(default_factory=datetime.now)
+    checked_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
     #: Parts that aired and are still streamable - worth fetching now.
     available: int = 0
     #: Parts the API announces but has not aired yet.
@@ -100,7 +101,7 @@ class WorkLink(SQLModel, table=True):
     source_url: str
     #: The uuid the page resolved to, remembered so it is looked up once.
     resolved_uuid: Optional[str] = None
-    added_at: NaiveDatetime = Field(default_factory=datetime.now)
+    added_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
 
 
 class Episode(SQLModel, table=True):
@@ -114,11 +115,11 @@ class Episode(SQLModel, table=True):
     author: Optional[str] = None
     description: Optional[str] = None
     duration: Optional[int] = None
-    broadcast_at: Optional[NaiveDatetime] = None
+    broadcast_at: Optional[datetime] = Field(default=None, sa_type=DateTime)
     local_path: str
     image_path: Optional[str] = None
     audio_format: Optional[str] = None
-    downloaded_at: NaiveDatetime = Field(default_factory=datetime.now)
+    downloaded_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
     # Set for files that were imported from disk rather than downloaded.
     is_manual: bool = False
     source_url: Optional[str] = None
