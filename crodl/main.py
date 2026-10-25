@@ -87,6 +87,11 @@ def print_audiowork_info(audio_work: AudioWork) -> None:
     is_flag=True,
     help="Odstraní diakritiku z názvů souborů a složek.",
 )
+@click.option(
+    "--reload",
+    is_flag=True,
+    help="Pro vývoj: `cro-dl --reload server` restartuje server při změně souborů.",
+)
 @click.version_option(__version__)
 async def main(
     recording_url: Optional[str],
@@ -95,6 +100,7 @@ async def main(
     title: Optional[str],
     output: Optional[Path],
     no_accents: bool,
+    reload: bool,
 ) -> None:
     """
     Hlavní vstupní bod pro CLI aplikaci cro-dl.
@@ -108,7 +114,7 @@ async def main(
         # `cro-dl <url>` as a command name, and that is the everyday use.
         from crodl.server.run import start
 
-        start()
+        start(reload=reload)
         return
 
     if sync:

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.4] - 2026-10-25
+
+### Fixed
+- The server ate half a CPU core while doing nothing: `cro-dl server` started
+  uvicorn with `reload=True`, and without `watchfiles` uvicorn's reloader walks
+  the *working directory* four times a second - started from a project with
+  `node_modules`, that alone is 46-50 % in idle. Reload is off by default now;
+  for development it is `cro-dl --reload server`.
+
 ## [2.0.3] - 2026-10-22
 
 ### Fixed
