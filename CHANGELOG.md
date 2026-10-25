@@ -3,6 +3,10 @@
 ## [2.0.4] - 2026-10-25
 
 ### Fixed
+- On Windows the "this part is not out yet" line raised instead of showing: there
+  is no system time zone database there, so `ZoneInfo("Europe/Prague")` failed.
+  `tzdata` is a runtime dependency now. (The new Windows job is what caught it -
+  the Linux runs never could.)
 - The server ate half a CPU core while doing nothing: `cro-dl server` started
   uvicorn with `reload=True`, and without `watchfiles` uvicorn's reloader walks
   the *working directory* four times a second - started from a project with

@@ -140,7 +140,7 @@ class TestSqliteLibraryRepository(InMemoryLibraryTestCase):
         downloads = await repo.get_all_downloads()
         self.assertEqual(len(downloads), 1)
         self.assertEqual(downloads[0].title, "Nový název")
-        self.assertEqual(downloads[0].local_path, "/tmp/b.mp3")
+        self.assertEqual(downloads[0].local_path, str(Path("/tmp/b.mp3")))
 
     async def test_work_without_uuid_is_not_stored(self):
         repo = await make_repo()
@@ -668,7 +668,7 @@ class TestLibraryOverview(InMemoryLibraryTestCase):
         self.assertEqual((series.type, series.id), ("series", "series-1"))
         self.assertEqual(series.description, "Popis")
         self.assertEqual(series.count, 2)
-        self.assertEqual(series.image_path, "/tmp/Seriál/cover.jpg")
+        self.assertEqual(series.image_path, str(Path("/tmp/Seriál/cover.jpg")))
         # Files without a work are listed separately, and last.
         self.assertEqual((orphans.type, orphans.id), ("orphans", "orphans"))
         self.assertEqual(orphans.count, 1)
@@ -906,7 +906,7 @@ class TestCuration(InMemoryLibraryTestCase):
         await service.curate_part("part-1", {"title": "Díl první"})
 
         row = await repo.get_episode("part-1")
-        self.assertEqual(row.local_path, "/tmp/Seriály/Složka/1 - Díl.mp3")  # type: ignore[union-attr]
+        self.assertEqual(row.local_path, str(Path("/tmp/Seriály/Složka/1 - Díl.mp3")))  # type: ignore[union-attr]
         self.assertEqual(row.series_id, "series-1")  # type: ignore[union-attr]
         self.assertEqual(row.meta["variants"], ["mp3", "hls"])  # type: ignore[union-attr]
 

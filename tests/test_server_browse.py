@@ -46,8 +46,9 @@ class TestFolderBrowser(unittest.TestCase):
             seen = listing(str(Path(tmp)))
 
             # The breadcrumb reads from the filesystem root inwards; walking up is
-            # how the browser gets from $HOME to /Volumes.
-            self.assertEqual(seen.parents[0], Path("/"))
+            # how the browser gets from $HOME to /Volumes. The root is "/" on
+            # POSIX and "C:\" on Windows, so ask the path rather than assume.
+            self.assertEqual(seen.parents[0], Path(seen.folder.anchor))
             self.assertEqual(seen.parents[-1], Path(tmp).resolve().parent)
 
     def test_an_empty_folder_is_still_a_folder(self):
