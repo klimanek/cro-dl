@@ -48,7 +48,7 @@ class TestThePythonFloorIsTested(unittest.TestCase):
         )
         self.assertEqual(matrix[0], declared_floor(), f"the workflow tries {matrix}")
 
-    def test_every_workflow_and_the_dependabot_config_parse(self):
+    def test_every_workflow_parses(self):
         # A typo in a workflow only shows up when it runs - and the release one
         # only runs on a tag, which is the worst possible moment to find out.
         files = sorted((ROOT / ".github").rglob("*.yml"))

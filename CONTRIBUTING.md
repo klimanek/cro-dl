@@ -52,10 +52,12 @@ in CI, either fix it or raise the floor everywhere at once.
 
 ## Dependencies
 
-Dependabot opens a pull request every week for `pip` (which covers `uv.lock`) and
-for the GitHub Actions. A new SQLModel broke a release once — it refused the
-naive datetime columns the older one accepted — so let CI have the last word on a
-bump rather than whichever machine happens to have it installed.
+There is no update bot: `uv lock --upgrade` (or `uv add`) is a deliberate act,
+and the checks above are what says whether a bump is safe. A new SQLModel broke a
+release once — it refused the naive datetime columns the older one accepted — so
+let CI have the last word on a bump rather than whichever machine happens to have
+it installed. Pin what a release depends on (`lxml<6.0.0`, `pytest<9`, …) and
+change the pin on purpose.
 
 ## Releasing
 
