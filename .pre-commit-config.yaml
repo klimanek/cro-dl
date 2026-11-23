@@ -17,9 +17,13 @@ repos:
       - id: pyright
         name: pyright
         language: system
-        entry: pyright
+        # The gate is `pyright crodl/` (see CONTRIBUTING.md). With filenames
+        # passed, the hook also checked tests/, whose fakes (FakeApi, a refusing
+        # save_update_check) are deliberately not real clients or a repository -
+        # and failed on them, a check CI never ran.
+        entry: uv run pyright crodl/
         types: [python]
-        pass_filenames: true
+        pass_filenames: false
 
   - repo: local
     hooks:
