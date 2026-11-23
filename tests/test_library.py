@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
 from crodl.library.artwork import artwork_path
-from crodl.library.models import Episode, Series, Show, Station
+from crodl.library.models import Episode, Series, Show, Station, UpdateCheck
 from crodl.library.repository import (
     LibraryRepository,
     SqliteLibraryRepository,
@@ -34,6 +34,7 @@ from crodl.library.updates import (
     UPCOMING,
     LibraryUpdates,
     part_state,
+    worth_checking,
 )
 from crodl.program.content import Collection
 from mutagen.easyid3 import EasyID3
@@ -1232,6 +1233,19 @@ class TestNewParts(InMemoryLibraryTestCase):
             collection=Collection(uuid=self.uuid, type="series", title="Složka"),
         )
 
+    async def _store_parts(self, repo: SqliteLibraryRepository, parts: int) -> None:
+        """The whole series on disk, numbered the way the API numbers it."""
+        for number in range(1, parts + 1):
+            await repo.save_download(
+                FakeWork(
+                    uuid=f"aaaa{number:04d}-1111-2222-3333-444455556666",
+                    title=f"Díl {number}",
+                    part=number,
+                ),
+                Path(f"/tmp/Seriály/Složka/{number} - Díl.mp3"),
+                collection=Collection(uuid=self.uuid, type="series", title="Složka"),
+            )
+
     async def test_it_finds_the_parts_the_library_does_not_have(self):
         repo = await make_repo()
         await self._store_one_part(repo)
@@ -1297,6 +1311,66 @@ class TestNewParts(InMemoryLibraryTestCase):
         watched = [item for item in await service.overview() if item.id == self.uuid][0]
         self.assertEqual(watched.available, 0)
 
+    async def test_a_complete_work_is_not_asked_again(self):
+        repo = await make_repo()
+        await self._store_parts(repo, 3)
+        api = self._api(parts=3)
+        service = await self._library(repo, api)
+
+        self.assertEqual(await service.check_for_new_parts(), 0)
+        self.assertEqual(len(api.calls), 1)  # nothing is known yet: one look
+
+        self.assertEqual(await service.check_for_new_parts(), 0)
+        self.assertEqual(len(api.calls), 1)  # 3 of 3: complete, so not asked again
+
+    async def test_the_manual_check_asks_about_a_complete_work(self):
+        repo = await make_repo()
+        await self._store_parts(repo, 2)
+        api = self._api(parts=2)
+        service = await self._library(repo, api)
+
+        await service.check_for_new_parts()
+        await service.check_for_new_parts(include_complete=True)
+
+        self.assertEqual(len(api.calls), 2)  # the button looked again
+
+    async def test_a_partially_downloaded_series_is_still_checked(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        api = self._api(parts=3)
+        service = await self._library(repo, api)
+
+        await service.check_for_new_parts()
+        await service.check_for_new_parts()
+
+        # One part of three is not a one-off: two are still missing.
+        self.assertEqual(len(api.calls), 2)
+
+    async def test_a_work_waiting_for_a_part_stays_watched(self):
+        repo = await make_repo()
+        await self._store_one_part(repo)
+        api = self._api(parts=3, state=UPCOMING)
+        service = await self._library(repo, api)
+
+        await service.check_for_new_parts()
+        await service.check_for_new_parts()
+
+        self.assertEqual(len(api.calls), 2)  # the next parts are announced
+
+    async def test_a_one_off_episode_is_not_asked_about(self):
+        repo = await make_repo()
+        uuid = "aaaa0001-1111-2222-3333-444455556666"
+        await repo.save_download(
+            FakeWork(uuid=uuid),
+            Path("/tmp/Jednorázovka/1 - Díl.mp3"),
+            collection=Collection(uuid=uuid, type="show", title="Díl"),
+        )
+        api = FakeApi()
+        service = await self._library(repo, api)
+
+        self.assertEqual(await service.check_for_new_parts(), 0)
+        self.assertEqual(api.calls, [])  # there is no show behind it to ask about
+
     async def test_an_api_that_is_away_is_reported_as_nothing_new(self):
         repo = await make_repo()
         await self._store_one_part(repo)
@@ -1306,6 +1380,47 @@ class TestNewParts(InMemoryLibraryTestCase):
 
         self.assertIsNone(await service.missing_parts("series", self.uuid))
         self.assertEqual(await service.check_for_new_parts(), 0)
+
+
+class TestWorthChecking(unittest.TestCase):
+    """Which works the periodic check leaves alone (the request it saves)."""
+
+    def check(self, available=0, upcoming=0, expired=0) -> UpdateCheck:
+        return UpdateCheck(
+            collection_id="x",
+            collection_type="show",
+            available=available,
+            upcoming=upcoming,
+            expired=expired,
+        )
+
+    def test_a_work_nobody_has_looked_at_is_checked_once(self):
+        self.assertTrue(worth_checking(1, None))
+
+    def test_a_one_off_episode_is_left_alone(self):
+        self.assertFalse(worth_checking(1, None, one_off=True))
+
+    def test_a_complete_work_is_left_alone(self):
+        self.assertFalse(worth_checking(9, self.check()))
+
+    def test_a_work_with_a_single_part_is_left_alone(self):
+        self.assertFalse(worth_checking(1, self.check()))
+
+    def test_a_work_missing_a_part_is_checked(self):
+        self.assertTrue(worth_checking(1, self.check(available=2)))
+
+    def test_a_work_waiting_for_a_part_is_checked(self):
+        self.assertTrue(worth_checking(1, self.check(upcoming=1)))
+
+    def test_the_last_known_total_counts_the_missing_parts(self):
+        # One part on disk plus two the API had: a series of three, not a one-off.
+        self.assertTrue(worth_checking(1, self.check(expired=2)))
+
+    def test_the_manual_check_includes_complete_works(self):
+        self.assertTrue(worth_checking(9, self.check(), include_complete=True))
+
+    def test_even_the_manual_check_leaves_a_single_part_alone(self):
+        self.assertFalse(worth_checking(1, self.check(), include_complete=True))
 
 
 class TestPartState(unittest.TestCase):

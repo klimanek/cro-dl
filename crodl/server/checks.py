@@ -46,23 +46,25 @@ class UpdateChecker:
         self.state = CheckState()
         self._task: Optional[asyncio.Task] = None
 
-    def start(self) -> CheckState:
+    def start(self, include_complete: bool = False) -> CheckState:
         """Starts a check, unless one is running already."""
         if self.state.running:
             return self.state
 
         self.state = CheckState(state=RUNNING)
         # Keep the handle: a task nobody refers to may be collected mid-flight.
-        self._task = asyncio.create_task(self.run())
+        self._task = asyncio.create_task(self.run(include_complete))
 
         return self.state
 
-    async def run(self) -> CheckState:
+    async def run(self, include_complete: bool = False) -> CheckState:
         """Runs the check in the caller's task and remembers the outcome."""
         self.state = CheckState(state=RUNNING)
 
         try:
-            found = await self._service_factory().check_for_new_parts()
+            found = await self._service_factory().check_for_new_parts(
+                include_complete=include_complete
+            )
         except Exception as error:  # the page has to show that it went wrong
             crologger.error("The new-parts check failed: %s", error)
             self.state = CheckState(

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.5] - 2026-11-23
+
+### Fixed
+- The periodic look for new parts no longer asks the content API about works
+  that cannot have anything new: a one-off episode (stored as a work of its own)
+  and a work whose last check found nothing missing. A series with 9 parts and 9
+  downloaded is no longer re-checked every six hours, and one-off episodes no
+  longer produce a failed request on every run. "Zkontrolovat nové díly" still
+  asks about complete works, so a new episode of a finished series is still
+  found; a partially downloaded series keeps being watched.
+
 ## [2.0.4] - 2026-10-25
 
 ### Fixed

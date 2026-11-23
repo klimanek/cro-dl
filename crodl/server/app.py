@@ -335,11 +335,13 @@ async def check_new_parts(request: Request):
     """
     Look for parts the Czech Radio released since.
 
-    The check runs in the background and the library shows a spinner until it is
+    The manual check deliberately includes works that were complete at the last
+    look - that is how a new episode of a finished series is discovered. The
+    check runs in the background and the library shows a spinner until it is
     done (a tick or a cross afterwards); the timer in the app uses the same one.
     """
     check_same_origin(request)
-    checker.start()
+    checker.start(include_complete=True)
 
     return RedirectResponse("/", status_code=303)
 

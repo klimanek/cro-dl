@@ -415,14 +415,16 @@ class LibraryService:
             path, title=title, author=author, album=album, genre=genre, track=track
         )
 
-    async def check_for_new_parts(self) -> int:
+    async def check_for_new_parts(self, include_complete: bool = False) -> int:
         """
         Looks for parts the Czech Radio has released since; returns how many works gained one.
 
         The answer is remembered, so the grid can show a badge until the parts
-        are fetched (or the work is looked at again).
+        are fetched (or the work is looked at again). `include_complete` also
+        asks about works that were complete at the last check - the manual
+        "Zkontrolovat nové díly".
         """
-        return await self.updates.check_all()
+        return await self.updates.check_all(include_complete=include_complete)
 
     async def check_work(self, ctype: str, cid: str) -> Optional[UpdateCheck]:
         """Looks at one work and remembers what it is missing (None if unknown)."""

@@ -3,7 +3,9 @@
 A series publishes an episode a day or a week, so what is on disk is a snapshot:
 this asks the content API what a work has now and compares it with the parts the
 library holds. The answer is remembered (`UpdateCheck`) so a badge survives the
-next page - the check itself is one request per work.
+next page - the check itself is one request per work, so works that cannot have
+anything new (a one-off episode, a work whose parts are all here) are left out
+(`worth_checking`).
 """
 
 import asyncio
@@ -84,6 +86,42 @@ def count_states(parts: list[NewPart]) -> Counter:
     return Counter(part.state for part in parts)
 
 
+def worth_checking(
+    parts: int,
+    check: Optional[UpdateCheck],
+    *,
+    one_off: bool = False,
+    include_complete: bool = False,
+) -> bool:
+    """
+    Whether asking the API about a work can still tell the library anything.
+
+    A one-off episode is stored as a show of its own - its uuid *is* the
+    episode's (`LibraryService._own_collection`) - so it has exactly one part,
+    can never gain another, and has no show behind it for the API to answer
+    about. A work whose last check found nothing missing is complete, and a work
+    with one part in total has nothing to compare.
+
+    `parts` is what the library holds; the last check's missing counts are added,
+    so the number is the last known total and a series with one part downloaded
+    of three is still checked. `include_complete` is the manual "Zkontrolovat
+    nové díly": it deliberately asks about complete works too, which is how a new
+    episode of a finished series is discovered.
+    """
+    if check is None:
+        # Nothing is known about this work yet: ask once, unless it is a one-off.
+        return not one_off
+
+    total = parts + check.available + check.upcoming + check.expired
+    if total <= 1:
+        return False
+
+    if include_complete:
+        return True
+
+    return bool(check.available or check.upcoming or check.expired)
+
+
 def episodes_url(ctype: str, cid: str) -> Optional[str]:
     """Where the API lists the parts of a work."""
     if ctype == "series":
@@ -105,18 +143,38 @@ class LibraryUpdates:
         self.repository = repository or SqliteLibraryRepository()
         self.client = client or CroAPIClient()
 
-    async def check_all(self) -> int:
+    async def check_all(self, include_complete: bool = False) -> int:
         """
-        Looks at every work the library holds; returns how many gained a part.
+        Looks at the works the library holds; returns how many gained a part.
 
         One request per work, so a library of a few dozen works is a few dozen
         requests - the price of noticing a new episode without the user asking.
+        A work that cannot have anything new is left out (`worth_checking`), so
+        finished works are not asked about every cycle. `include_complete` is the
+        manual check, which does ask about them.
+
         Only parts that can still be fetched count as news here; what expired or
         has not aired yet lives in the badges, not in "nové díly".
         """
+        checks = {
+            check.collection_id: check
+            for check in await self.repository.get_update_checks()
+        }
+        stored = await self._stored_parts()
         checked = 0
+        skipped = 0
 
         for ctype, cid in await self._works():
+            parts = stored.get((ctype, cid), [])
+            if not worth_checking(
+                len(parts),
+                checks.get(cid),
+                one_off=ctype == "show" and parts == [cid],
+                include_complete=include_complete,
+            ):
+                skipped += 1
+                continue
+
             try:
                 check = await self.check_work(ctype, cid)
             except Exception as error:
@@ -128,7 +186,11 @@ class LibraryUpdates:
             if check is not None and check.available:
                 checked += 1
 
-        crologger.info("New-part check: %s works have new parts", checked)
+        crologger.info(
+            "New-part check: %s works have new parts, %s works skipped",
+            checked,
+            skipped,
+        )
         return checked
 
     async def check_work(self, ctype: str, cid: str) -> Optional[UpdateCheck]:
@@ -222,3 +284,19 @@ class LibraryUpdates:
         return [("series", row.uuid) for row in series] + [
             ("show", row.uuid) for row in shows
         ]
+
+    async def _stored_parts(self) -> dict[tuple[str, str], list[str]]:
+        """The uuids of the parts the library holds, grouped by their work."""
+        grouped: dict[tuple[str, str], list[str]] = {}
+
+        for episode in await self.repository.get_all_episodes():
+            if episode.series_id:
+                key = ("series", episode.series_id)
+            elif episode.show_id:
+                key = ("show", episode.show_id)
+            else:
+                continue
+
+            grouped.setdefault(key, []).append(episode.uuid)
+
+        return grouped
