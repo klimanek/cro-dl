@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.1] - 2026-11-24
+
+### Fixed
+- `cro-dl server` died on Linux and Windows with "Runner.run() cannot be called
+  from a running event loop": the CLI is already inside asyncclick's loop, and
+  uvicorn was asked to start another one. The server now serves on the loop that
+  is there; `cro-dl --reload server` runs uvicorn's reload supervisor as a child
+  process, where a loop of its own is allowed.
+
 ## [2.1.0] - 2026-11-23
 
 A maintenance release: less work behind the scenes, and no surprises on a

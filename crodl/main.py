@@ -114,7 +114,7 @@ async def main(
         # `cro-dl <url>` as a command name, and that is the everyday use.
         from crodl.server.run import start
 
-        start(reload=reload)
+        await start(reload=reload)
         return
 
     if sync:
