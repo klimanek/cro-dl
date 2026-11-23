@@ -3,6 +3,10 @@
 ## [2.0.5] - 2026-11-23
 
 ### Fixed
+- cro-dl could not be installed on Python 3.14: `lxml` was capped below 6,
+  while the 5.x line stops at 3.13 wheels, so pip built it from source and that
+  build no longer compiles against current libxml2. The cap is 7 now and the
+  lock resolves lxml 6.1.3, which ships a wheel for 3.14.
 - The periodic look for new parts no longer asks the content API about works
   that cannot have anything new: a one-off episode (stored as a work of its own)
   and a work whose last check found nothing missing. A series with 9 parts and 9
