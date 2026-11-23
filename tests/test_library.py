@@ -328,6 +328,28 @@ class TestLibraryScan(InMemoryLibraryTestCase):
         self.assertTrue(rows["Název dílu"].is_manual)
         self.assertIsNone(rows["Samostatné dílo"].part)
 
+    async def test_a_folder_whose_name_contains_dot_chunks_is_scanned(self):
+        # The segment folders are `.chunks-<title>`; a work called "Staré
+        # .chunks nahrávky" is not one of them.
+        repo = await make_repo()
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            work = folder / "Staré .chunks nahrávky"
+            work.mkdir()
+            (work / "Díl.mp3").write_bytes(b"x")
+            chunks = folder / ".chunks-Díl"
+            chunks.mkdir()
+            (chunks / "segment.mp3").write_bytes(b"x")
+
+            results = await LibraryScan(
+                repository=repo, download_path=folder
+            ).sync_all()
+
+        self.assertEqual(results, {"success": 1, "failed": 0})
+        self.assertEqual(
+            [episode.title for episode in await repo.get_all_episodes()], ["Díl"]
+        )
+
     async def test_rescanning_updates_instead_of_duplicating(self):
         repo = await make_repo()
         with tempfile.TemporaryDirectory() as tmp:
@@ -1037,6 +1059,9 @@ class FakeApi:
         self.genres = genres or []
         self.episode_relationships = episode_relationships or {}
         self.calls: list[tuple[str, str]] = []
+
+    def forget_page(self) -> None:
+        """The fake keeps no page cache - the real client does."""
 
     def _record(self) -> dict:
         """A work record: its attributes, plus the genres beside them."""

@@ -70,10 +70,32 @@ library in `~/Z Rozhlasu/library.db`:
    ```
 3. Open <http://127.0.0.1:8000>.
 
-The server listens on `127.0.0.1` only and is meant for personal, local use. It lists shows and
-series with their covers and plays the stored files. `--sync` groups the files it finds into works
-by their folder (the folder name is the work's title), so a download that predates the library shows
-up as a single entry with its parts.
+The server listens on `127.0.0.1` only and is meant for personal, local use. It shows the library
+as a grid of works with their covers; a work's page has its description and parts, each with a play
+button. A player at the foot of every page keeps playing while you browse, and its queue
+(`/fronta`) survives a reload. Works can be filtered by genre.
+
+There is more than browsing:
+
+* **Downloading** - paste a mujrozhlas.cz link on the library page (or `/downloads`) and watch it
+  there; the same is available as JSON under `/api`.
+* **New parts** - "Zkontrolovat nové díly" asks the content API for parts released since. A work
+  with something new is marked in the grid and can fetch exactly those parts; parts whose streams
+  are gone or that have not aired yet get their own badge. The server checks on its own shortly
+  after start and then every six hours.
+* **Tags** - title, author, genre, album and track number are written into the audio files
+  (MP3/ID3 and M4A/AAC) as they are downloaded, and again on demand.
+* **Editing** - "Režim úprav" (edit mode) fixes a work's title, genre and description and a part's
+  title, author and description, and writes those tags into the files. A work adopted from disk can
+  be given the mujrozhlas.cz page it came from, which makes it refreshable.
+* **Folders** - "⚙️ Nastavení" lists the folders that make up the library and imports another one
+  (a collection on an external disk). A folder that is not there right now (an unplugged disk) is
+  named in a banner.
+
+`--sync` groups the files it finds into works by their folder (the folder name is the work's title),
+so a download that predates the library shows up as a single entry with its parts. Starting the
+server for development? Use `cro-dl --reload server`; reload is off by default because uvicorn's
+reloader walks the whole working directory.
 
 ## Contributing
 
@@ -172,6 +194,33 @@ databází v `~/Z Rozhlasu/library.db`:
    cro-dl server
    ```
 3. Otevřete <http://127.0.0.1:8000>.
+
+Server poslouchá jen na `127.0.0.1` a je určený pro osobní, lokální použití. Knihovnu ukazuje jako
+mřížku děl s obaly; stránka díla má popis a díly s tlačítkem přehrání. Přehrávač v zápatí hraje
+dál, i když procházíte knihovnu, a jeho fronta (`/fronta`) vydrží i obnovení stránky. Díla lze
+filtrovat podle žánru.
+
+Kromě procházení umí:
+
+* **Stahování** - vložte odkaz z mujrozhlas.cz přímo na stránce knihovny (nebo v `/downloads`) a
+  sledujte průběh; totéž je k dispozici jako JSON pod `/api`.
+* **Nové díly** - „Zkontrolovat nové díly“ se zeptá obsahového API na díly vydané od poslední
+  kontroly. Dílo s novinkou je v mřížce označené a umí stáhnout právě ty chybějící díly; díly,
+  jejichž stream už skončil, nebo které ještě nebyly odvysílány, mají vlastní označení. Server
+  kontroluje sám chvíli po startu a pak každých šest hodin.
+* **Tagy** - název, autor, žánr, album a číslo skladby se zapisují do audio souborů (MP3/ID3 a
+  M4A/AAC) při stahování a na vyžádání znovu.
+* **Úpravy** - „Režim úprav“ umožní opravit název, žánr a popis díla i název, autora a popis
+  jednotlivého dílu a zapsat tyto hodnoty do tagů. Dílu převzatému z disku lze přiřadit stránku
+  na mujrozhlas.cz, ze které pochází - tím se dá aktualizovat.
+* **Složky** - „⚙️ Nastavení“ vypisuje složky, ze kterých se knihovna skládá, a umožňuje přidat
+  další (sbírku na externím disku). Složka, která právě není dostupná (odpojený disk), je
+  připomenutá v pruhu nad obsahem.
+
+`--sync` seskupí nalezené soubory do děl podle složek (název složky je název díla), takže i
+stažení starší než knihovna se objeví jako jeden záznam se svými díly. Pro vývoj lze server
+spustit s `cro-dl --reload server`; reload je ve výchozím stavu vypnutý, protože uvicorní
+reloader prochází celý pracovní adresář.
 
 
 ![cro-dl webapp](/assets/images/crodlweb.png)

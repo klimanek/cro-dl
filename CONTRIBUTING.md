@@ -12,9 +12,10 @@ Run the tests the way CI does:
 uv run python -m pytest tests/ -q
 ```
 
-If the suite fails on the logger, your `$HOME` is not writable for it: cro-dl
-opens `~/Z Rozhlasu/logs/crodl.log` and keeps the database next to it. Point
-`HOME` somewhere disposable (`HOME=/tmp/crodl-home`) or let it use the real one.
+If the suite fails on the logger, check that the message is not the read-only
+`$HOME` one: the log file is opened on the first record, so cro-dl says so on
+stderr and carries on. The library itself lives in `~/Z Rozhlasu`; tests use
+in-memory databases and temporary folders.
 
 ## The gate
 
@@ -38,7 +39,7 @@ node --check crodl/server/static/player.js   # the player loads on every page
   has shipped were platform-only: a naive datetime column that only the newer
   SQLModel refused, and a wheel that went out without the pages. No Linux runner
   can see either of them.
-- **lint** — the gate above, minus pytest and the JS check.
+- **lint** — the gate above, minus pytest (the JS check is included).
 
 ## The minimum Python
 
@@ -56,7 +57,7 @@ There is no update bot: `uv lock --upgrade` (or `uv add`) is a deliberate act,
 and the checks above are what says whether a bump is safe. A new SQLModel broke a
 release once — it refused the naive datetime columns the older one accepted — so
 let CI have the last word on a bump rather than whichever machine happens to have
-it installed. Pin what a release depends on (`lxml<6.0.0`, `pytest<9`, …) and
+it installed. Pin what a release depends on (`lxml<7.0.0`, `pytest<9`, …) and
 change the pin on purpose.
 
 ## Releasing

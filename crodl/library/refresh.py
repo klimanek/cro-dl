@@ -167,6 +167,10 @@ class LibraryRefresh:
 
     async def _resolve(self, ctype: str, url: str) -> Optional[str]:
         """The uuid behind a mujrozhlas.cz page, scraped off the page itself."""
+        # A resolution reads the page for both scrapers; start from a fresh copy
+        # so a long-lived client never works from an earlier visit.
+        self.client.forget_page()
+
         # The work's own kind first: a page answers several of these scrapers,
         # and the one that matches tells us which entity the uuid belongs to.
         fetches = (

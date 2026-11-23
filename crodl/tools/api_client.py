@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 
 import cloudscraper
 from bs4 import BeautifulSoup, Tag
-from requests import Session
+from requests import Response, Session
 
 from crodl.exceptions import (
     AudioUUIDDoesNotExist,
@@ -25,11 +25,28 @@ class CroAPIClient:
 
     def __init__(self, session: Optional[Session] = None):
         self.session = session or cloudscraper.create_scraper()
+        # The page just read: a resolution reads it up to three times (bundle,
+        # then the uuid), and each read used to be its own request.
+        self._page_url: Optional[str] = None
+        self._page_response: Optional[Response] = None
+
+    def _page(self, site_url: str) -> Response:
+        """The page at `site_url`, fetched once until `forget_page()`."""
+        if self._page_response is None or self._page_url != site_url:
+            self._page_url = site_url
+            self._page_response = self.session.get(site_url, timeout=TIMEOUT)
+
+        return self._page_response
+
+    def forget_page(self) -> None:
+        """Drops the cached page, so the next resolution reads the site again."""
+        self._page_url = None
+        self._page_response = None
 
     def get_audio_uuid(self, site_url: str) -> str:
         """Return the audio UUID from the site URL."""
         crologger.info("Opening URL: %s", site_url)
-        response = self.session.get(site_url, timeout=TIMEOUT)
+        response = self._page(site_url)
 
         if response.status_code == 404:
             crologger.error("The page %s does not exist.", site_url)
@@ -71,7 +88,7 @@ class CroAPIClient:
     def get_show_uuid(self, site_url: str) -> str:
         """Return the show's UUID from the site URL."""
         crologger.info("Opening URL: %s", site_url)
-        response = self.session.get(site_url, timeout=TIMEOUT)
+        response = self._page(site_url)
 
         if response.status_code == 404:
             crologger.error("%s does not exist.", site_url)
@@ -110,7 +127,7 @@ class CroAPIClient:
 
     def get_js_value_from_url(self, site_url: str, jsvar: str) -> Optional[str]:
         """Returns the value of a JavaScript variable from the given URL."""
-        response = self.session.get(site_url, timeout=TIMEOUT)
+        response = self._page(site_url)
         err_msg = f"Variable {jsvar} was not found."
 
         if response.status_code == 200:

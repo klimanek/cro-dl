@@ -1,9 +1,15 @@
+import io
 import logging
+import tempfile
 import unittest
+from contextlib import redirect_stderr
+from pathlib import Path
+from unittest import mock
 
 from uvicorn.logging import AccessFormatter
 
 from crodl.server.access_log import PercentDecodedAccessLog, log_readable_paths
+from crodl.tools.logger import LazyFileHandler
 
 
 def access_record(path: str, status: int = 200) -> logging.LogRecord:
@@ -78,13 +84,53 @@ class TestPercentDecodedAccessLogFilter(unittest.TestCase):
         self.assertIsInstance(logger.filters[0], PercentDecodedAccessLog)
 
 
-class TestLogFileEncoding(unittest.TestCase):
-    def test_the_log_file_is_written_as_utf8(self):
-        # Czech titles go into this file; the locale codec (cp1250 on Windows)
-        # would mangle them.
-        from crodl.tools.logger import logfile
+class TestLazyLogFile(unittest.TestCase):
+    """The log file is opened on use, not when crodl is imported."""
 
-        self.assertEqual(logfile.encoding, "utf-8")
+    def _handler(self, path: Path) -> LazyFileHandler:
+        handler = LazyFileHandler(path)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+
+        return handler
+
+    def _record(self, message: str) -> logging.LogRecord:
+        return logging.LogRecord(
+            "crodl.test", logging.INFO, __file__, 1, message, None, None
+        )
+
+    def test_creating_the_handler_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "logs" / "crodl.log"
+
+            self._handler(path)
+
+            self.assertFalse(path.parent.exists())
+
+    def test_the_file_is_created_on_the_first_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "logs" / "crodl.log"
+            handler = self._handler(path)
+
+            handler.handle(self._record("Příliš žluťoučký kůň"))
+            handler.close()
+
+            # Czech titles go into this file; the locale codec (cp1250 on
+            # Windows) would mangle them.
+            self.assertEqual(path.read_text(encoding="utf-8"), "Příliš žluťoučký kůň\n")
+
+    def test_a_log_that_cannot_be_opened_says_so_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            handler = self._handler(Path(tmp) / "logs" / "crodl.log")
+            stderr = io.StringIO()
+
+            with (
+                mock.patch.object(Path, "mkdir", side_effect=OSError("read-only")),
+                redirect_stderr(stderr),
+            ):
+                handler.handle(self._record("first"))
+                handler.handle(self._record("second"))
+
+            self.assertEqual(stderr.getvalue().count("continuing without it"), 1)
 
 
 if __name__ == "__main__":

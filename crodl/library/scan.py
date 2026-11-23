@@ -10,7 +10,12 @@ from crodl.library.artwork import stored_artwork
 from crodl.library.models import Episode
 from crodl.library.repository import SqliteLibraryRepository
 from crodl.program.content import Collection
-from crodl.settings import AUDIO_FORMATS, DOWNLOAD_PATH, SERIES_DOWNLOAD_DIR
+from crodl.settings import (
+    AUDIO_FORMATS,
+    DOWNLOAD_PATH,
+    SEGMENTS_SUBDIR,
+    SERIES_DOWNLOAD_DIR,
+)
 from crodl.streams.utils import episode_part_from_filename
 from crodl.tools.logger import crologger
 
@@ -99,7 +104,9 @@ class LibraryScan:
         """Every downloaded audio file; chunk directories are skipped."""
         files = []
         for root, _, names in os.walk(self.download_path):
-            if ".chunks" in root:
+            # Segment folders are named `.chunks-<title>`; a folder that merely
+            # mentions that in its name is somebody's work and is scanned.
+            if any(part.startswith(SEGMENTS_SUBDIR) for part in Path(root).parts):
                 continue
             for name in names:
                 if name.lower().endswith(AUDIO_FORMATS):

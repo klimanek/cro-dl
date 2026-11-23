@@ -210,9 +210,19 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(LOOPBACK_HOSTS))
 app.include_router(api_router, prefix="/api")
 
 
+#: The routes share one service: constructing it builds a repository and the
+#: API clients, and a work's page used to build three of them.
+_service: Optional[LibraryService] = None
+
+
 def library_service() -> LibraryService:
     """The one place the routes reach the library through."""
-    return LibraryService(repository=SqliteLibraryRepository())
+    global _service
+
+    if _service is None:
+        _service = LibraryService(repository=SqliteLibraryRepository())
+
+    return _service
 
 
 async def form_fields(request: Request) -> dict[str, str]:

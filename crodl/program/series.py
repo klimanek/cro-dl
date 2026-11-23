@@ -22,7 +22,6 @@ from crodl.settings import (
     AudioFormat,
 )
 from crodl.streams.utils import (
-    create_a_file_if_does_not_exist,
     create_dir_if_does_not_exist,
     episode_part_from_filename,
     process_audiowork_title,
@@ -279,7 +278,6 @@ class Series(Content):
             raise ValueError("Download dir is not set!")
 
         create_dir_if_does_not_exist(self.download_dir)
-        create_a_file_if_does_not_exist(self.download_dir / ".series")
 
         # The library needs the series itself, not just the single episode.
         collection = collection or self.collection

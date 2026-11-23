@@ -205,6 +205,37 @@ class TestGetJsValueFromUrl(unittest.TestCase):
         mock_get.assert_called_once_with("http://example.com", timeout=TIMEOUT)
 
     @patch.object(Session, "get")
+    def test_a_resolution_reads_the_page_once(self, mock_get):
+        # is_show, is_series and get_series_id used to be three requests for the
+        # same page.
+        response = Mock()
+        response.status_code = 200
+        response.text = (
+            '<script>var dl = {"siteEntityBundle":"serial", "contentId":"1234"};'
+            "</script>"
+        )
+        mock_get.return_value = response
+
+        self.assertFalse(self.client.is_show("http://example.com/x"))
+        self.assertTrue(self.client.is_series("http://example.com/x"))
+        self.assertEqual(self.client.get_series_id("http://example.com/x"), "1234")
+
+        mock_get.assert_called_once_with("http://example.com/x", timeout=TIMEOUT)
+
+    @patch.object(Session, "get")
+    def test_a_later_resolution_reads_the_page_again(self, mock_get):
+        response = Mock()
+        response.status_code = 200
+        response.text = '<script>var dl = {"contentId":"1234"};</script>'
+        mock_get.return_value = response
+
+        self.client.get_js_value_from_url("http://example.com/x", "contentId")
+        self.client.forget_page()
+        self.client.get_js_value_from_url("http://example.com/x", "contentId")
+
+        self.assertEqual(mock_get.call_count, 2)
+
+    @patch.object(Session, "get")
     def test_get_js_value_from_url_failure(self, mock_get):
         response = Mock()
         response.status_code = 404

@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.1.0] - 2026-11-23
+
+A maintenance release: less work behind the scenes, and no surprises on a
+read-only home.
+
+### Changed
+- The web library builds one service for all requests instead of one per
+  request (a work's page used to build three, each with its own HTTP client),
+  and a mujrozhlas.cz page is read once per resolution instead of up to three
+  times.
+- `--sync` skips only the temporary `.chunks-<title>` folders now; a work whose
+  folder name merely contains ".chunks" is imported.
+- The `.series` marker files are no longer written - nothing read them.
+
+### Fixed
+- `cro-dl --version`, `--help` and every library import failed where `$HOME`
+  was not writable, because the log file was opened at import time. It is
+  opened on the first record now; if it cannot be written, cro-dl says so once
+  on stderr and carries on.
+
+### Removed
+- The unused `manual_import.py` script and a few unused helpers.
+
+### Docs and CI
+- The README describes the 2.x web library (player and queue, new-part check,
+  tags, edit mode, more folders), and CONTRIBUTING's dependency example matches
+  the lxml cap. CI installs without the libxml2/libxslt development packages and
+  checks `player.js` with `node --check`.
+
 ## [2.0.6] - 2026-11-23
 
 ### Fixed

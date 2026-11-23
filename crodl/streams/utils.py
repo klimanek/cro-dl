@@ -5,10 +5,10 @@ import itertools
 import unicodedata
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from crodl.settings import AudioFormat, DOWNLOAD_PATH, PREFERRED_AUDIO_FORMAT
+from crodl.settings import AudioFormat, PREFERRED_AUDIO_FORMAT
 from crodl.tools.logger import crologger
 
 if TYPE_CHECKING:
@@ -212,18 +212,6 @@ def parse_date_from_json(json_time: str) -> tuple[str, str] | None:
     return (dt.strftime("%d.%m.%Y"), dt.strftime("%H:%M")) if dt else None
 
 
-def create_a_file_if_does_not_exist(path: Path, msg: Optional[str] = "") -> None:
-    if not os.path.exists(path):
-        crologger.info("Creating %s", path)
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                if msg:
-                    f.write(msg)
-        except IOError as err:
-            crologger.error(err)
-            raise err
-
-
 def not_available_yet(audiowork: "AudioWork") -> str:
     msg = "Datum a čas dostupnosti díla nebyl nalezen."
     err_msg = "Cannot find the release date and time. Data missing."
@@ -246,25 +234,10 @@ def not_available_yet(audiowork: "AudioWork") -> str:
     return msg
 
 
-def unfinished_series() -> list[str]:
-    series = []
-    for root, _, files in os.walk(DOWNLOAD_PATH):
-        if ".series" in files:
-            series.append(root)
-    return series
-
-
 def shorten_title(title: str, length_limit: int) -> str:
     if len(title) > length_limit:
         return title[: length_limit - 3] + "..."
     return title
-
-
-def get_audioformat_enum_by_value(val: str) -> AudioFormat | None:
-    for key in AudioFormat:
-        if key.value == val:
-            return key
-    return None
 
 
 def remove_html_tags(text: str | None) -> str | None:

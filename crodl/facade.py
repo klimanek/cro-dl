@@ -63,6 +63,11 @@ class CroDL:
 
         crologger.info("Resolving content for URL: %s", url)
 
+        # A resolution reads the same page several times; start from a fresh
+        # copy, because the web library keeps one client around and must not
+        # resolve a page it already saw on an earlier visit.
+        self.client.forget_page()
+
         # The order of checks matters
         if self.client.is_show(url):
             crologger.info("URL resolved as Show")

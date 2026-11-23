@@ -10,7 +10,7 @@ import unittest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from crodl.server.app import edit_mode_on, form_fields, local_target
+from crodl.server.app import edit_mode_on, form_fields, library_service, local_target
 from crodl.server.origin import check_same_origin
 
 
@@ -56,6 +56,13 @@ def request_with(
         return {"type": "http.request", "body": body, "more_body": False}
 
     return Request(scope, receive)
+
+
+class TestOneLibraryService(unittest.TestCase):
+    """Building the service is not free: the routes should share it."""
+
+    def test_the_routes_share_one_service(self):
+        self.assertIs(library_service(), library_service())
 
 
 class TestFormFields(unittest.IsolatedAsyncioTestCase):
