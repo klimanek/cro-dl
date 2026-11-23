@@ -549,6 +549,14 @@ class SqliteLibraryRepository:
                 if row is not None:
                     await session.delete(row)
 
+                # The work's own side records go with it, so a work that comes
+                # back to the library does not inherit a stale badge or link.
+                for model in (UpdateCheck, WorkLink):
+                    side: Any = await session.get(model, cid)
+
+                    if side is not None:
+                        await session.delete(side)
+
                 await session.commit()
 
         deleted = len(episodes) + (1 if row is not None else 0)

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.6] - 2026-11-23
+
+### Fixed
+- A part that aired after midnight showed the previous day's date: the library
+  stores broadcast times in UTC and the page printed the stored value as if it
+  were Prague time. The date is converted to Europe/Prague now.
+- Scraping a mujrozhlas.cz page had no timeout, unlike every API call, so a page
+  that stopped answering could hang the CLI - or a library refresh - forever.
+- Forgetting a work left its last new-part check and its source page behind, so
+  a work that came back to the library could inherit a stale badge or link.
+
 ## [2.0.5] - 2026-11-23
 
 ### Fixed

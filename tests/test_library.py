@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
 from crodl.library.artwork import artwork_path
-from crodl.library.models import Episode, Series, Show, Station, UpdateCheck
+from crodl.library.models import Episode, Series, Show, Station, UpdateCheck, WorkLink
 from crodl.library.repository import (
     LibraryRepository,
     SqliteLibraryRepository,
@@ -964,6 +964,25 @@ class TestForgetting(InMemoryLibraryTestCase):
         self.assertEqual(
             [e.uuid for e in await repo.get_episodes_by_series("series-2")], ["other"]
         )
+
+    async def test_the_works_check_and_link_go_with_it(self):
+        repo = await make_repo()
+        await self._seed(repo)
+        await repo.save_update_check(
+            UpdateCheck(collection_id="series-1", collection_type="series", available=2)
+        )
+        await repo.save_work_link(
+            WorkLink(
+                collection_id="series-1",
+                collection_type="series",
+                source_url="https://www.mujrozhlas.cz/serial",
+            )
+        )
+
+        await LibraryService(repository=repo).forget("series", "series-1")
+
+        self.assertIsNone(await repo.get_work_link("series-1"))
+        self.assertEqual(await repo.get_update_checks(), [])
 
     async def test_the_files_on_disk_are_not_touched(self):
         repo = await make_repo()

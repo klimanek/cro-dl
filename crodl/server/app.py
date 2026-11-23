@@ -33,6 +33,7 @@ from crodl.server.downloads import downloads
 from crodl.server.format import (  # noqa: I001
     GENRES_SHOWN,
     added_line,
+    broadcast_date,
     changed_line,
     check_report,
     curated_report,
@@ -93,6 +94,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "expired_parts_label": expired_parts_label,
         "type_labels": TYPE_LABELS,
         "czech_datetime": czech_datetime,
+        "broadcast_date": broadcast_date,
         "czech_count": czech_count,
         "added_line": added_line,
         "changed_line": changed_line,

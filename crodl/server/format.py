@@ -1,9 +1,10 @@
 """Turning the library's data into what the pages show."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from crodl.library import roots
 
@@ -115,6 +116,23 @@ def czech_datetime(value: str | datetime) -> str:
     moment = value if isinstance(value, datetime) else datetime.fromisoformat(value)
 
     return f"{moment.day}. {MONTHS[moment.month - 1]}, {moment.year} v {moment:%H:%M}"
+
+
+#: The time zone a person reading the library lives in.
+PRAGUE = ZoneInfo("Europe/Prague")
+
+
+def broadcast_date(value: datetime) -> str:
+    """
+    The date a part aired, in Prague time.
+
+    `broadcast_at` is stored as naive UTC (SQLite keeps no offset), so printing
+    the stored value as it stands showed the previous day for a part that aired
+    after midnight: 00:30 on the 15th is 22:30 on the 14th in UTC.
+    """
+    moment = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    return moment.astimezone(PRAGUE).strftime("%d. %m. %Y")
 
 
 def added_line(job: Mapping[str, Any]) -> str:

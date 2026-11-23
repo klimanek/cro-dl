@@ -3,11 +3,13 @@
 import shutil
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from crodl.library import roots
 from crodl.server.format import (
     added_line,
+    broadcast_date,
     changed_line,
     check_report,
     curated_report,
@@ -24,6 +26,20 @@ from crodl.server.format import (
     upcoming_parts_label,
 )
 from crodl.settings import DOWNLOAD_PATH
+
+
+class TestBroadcastDate(unittest.TestCase):
+    """The date a part aired, read in Prague time (the DB stores naive UTC)."""
+
+    def test_after_midnight_in_prague_is_the_next_day(self):
+        # 00:30 on the 15th in Prague is 22:30 on the 14th in UTC.
+        self.assertEqual(broadcast_date(datetime(2024, 8, 14, 22, 30)), "15. 08. 2024")
+
+    def test_winter_time_is_an_hour_ahead_of_utc(self):
+        self.assertEqual(broadcast_date(datetime(2024, 1, 14, 23, 30)), "15. 01. 2024")
+
+    def test_a_daytime_instant_keeps_its_date(self):
+        self.assertEqual(broadcast_date(datetime(2024, 8, 14, 16, 5)), "14. 08. 2024")
 
 
 class TestCzechDatetime(unittest.TestCase):

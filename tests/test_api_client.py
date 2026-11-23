@@ -9,7 +9,7 @@ from crodl.exceptions import (
     PlayerWrapperDoesNotExist,
     ShowUUIDDoesNotExist,
 )
-from crodl.settings import API_SERVER
+from crodl.settings import API_SERVER, TIMEOUT
 from crodl.tools.api_client import CroAPIClient
 
 
@@ -194,6 +194,15 @@ class TestGetJsValueFromUrl(unittest.TestCase):
 
         result = self.client.get_js_value_from_url("http://example.com", "contentId")
         self.assertEqual(result, "1234")
+
+    @patch.object(Session, "get")
+    def test_the_page_is_fetched_with_a_timeout(self, mock_get):
+        # Every other call to the API has one; a page that stops answering must
+        # not hang the CLI or a library refresh.
+        mock_get.return_value = Mock(status_code=404)
+        self.client.get_js_value_from_url("http://example.com", "contentId")
+
+        mock_get.assert_called_once_with("http://example.com", timeout=TIMEOUT)
 
     @patch.object(Session, "get")
     def test_get_js_value_from_url_failure(self, mock_get):

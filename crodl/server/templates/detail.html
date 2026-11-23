@@ -116,7 +116,7 @@
                 <span class="episode-meta">
                     {% if ep.part %}{{ ep.part }}. díl{% endif %}
                     {% if ep.part and (ep.broadcast_at or ep.duration) %} · {% endif %}
-                    {{ ep.broadcast_at.strftime('%d. %m. %Y') if ep.broadcast_at else '' }}
+                    {{ broadcast_date(ep.broadcast_at) if ep.broadcast_at else '' }}
                     {% if ep.broadcast_at and ep.duration %} · {% endif %}
                     {% if ep.duration %}{{ ep.duration // 60 }} min{% endif %}
                 </span>

@@ -110,7 +110,7 @@ class CroAPIClient:
 
     def get_js_value_from_url(self, site_url: str, jsvar: str) -> Optional[str]:
         """Returns the value of a JavaScript variable from the given URL."""
-        response = self.session.get(site_url)
+        response = self.session.get(site_url, timeout=TIMEOUT)
         err_msg = f"Variable {jsvar} was not found."
 
         if response.status_code == 200:
