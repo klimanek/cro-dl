@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from crodl.settings import AudioFormat
 from crodl.streams.utils import (
-    day_month_year,
     episode_part_from_filename,
     get_audio_link_of_preferred_format,
     get_m4a_url,
@@ -19,7 +18,6 @@ from crodl.streams.utils import (
     title_with_part,
     title_without_part,
     sanitize_filename,
-    slugify,
 )
 
 
@@ -123,14 +121,6 @@ class TestProcessAudioworkTitle(unittest.TestCase):
         self.assertEqual(processed, "Hra s cestinou")
 
 
-class TestSlugify(unittest.TestCase):
-    def test_basic_slug(self):
-        self.assertEqual(slugify("Hello World!"), "hello-world")
-
-    def test_czech_slug(self):
-        self.assertEqual(slugify("Příliš žluťoučký kůň"), "prilis-zlutoucky-kun")
-
-
 class TestAudioSegmentSort(unittest.TestCase):
     def test_numeric_filename(self):
         result = audio_segment_sort("audio123.mp3")
@@ -168,13 +158,6 @@ class TestCreateDirIfDoesNotExist(unittest.TestCase):
             os.makedirs(dir_path)
             create_dir_if_does_not_exist(dir_path)
             self.assertTrue(os.path.exists(dir_path))
-
-
-class TestDayMonthYear(unittest.TestCase):
-    def test_valid_date_string(self):
-        json_time = "2022-07-25T14:30:00+0200"
-        expected_output = "25-07-2022"
-        self.assertEqual(day_month_year(json_time), expected_output)
 
 
 class TestTitleWithPart(unittest.TestCase):

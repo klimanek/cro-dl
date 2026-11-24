@@ -142,11 +142,6 @@ def create_dir_if_does_not_exist(path: Path) -> None:
         os.makedirs(path, exist_ok=True)
 
 
-def day_month_year(json_time: str) -> str:
-    date_obj = datetime.datetime.strptime(json_time, "%Y-%m-%dT%H:%M:%S%z")
-    return date_obj.strftime("%d-%m-%Y")
-
-
 def title_with_part(title: str, part: int | str | None = None) -> str:
     if not title:
         raise ValueError("Title cannot be empty.")
@@ -247,13 +242,3 @@ def remove_html_tags(text: str | None) -> str | None:
         clean_text = clean_text.replace("&nbsp;", " ")
         return clean_text
     return None
-
-
-def slugify(value: str) -> str:
-    """Converts a string to a URL slug."""
-    value = str(value)
-    value = (
-        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    )
-    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
-    return re.sub(r"[-\s]+", "-", value)

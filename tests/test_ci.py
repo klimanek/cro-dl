@@ -85,7 +85,7 @@ class TestTheReleaseNotes(unittest.TestCase):
     def test_the_notes_come_from_the_changelog(self):
         notes = self.runs("notes")
 
-        self.assertIn("CHANGELOG.md", notes)
+        self.assertIn("scripts/release_notes.py", notes)
         self.assertIn("--notes-file", notes)
         self.assertNotIn("--generate-notes", notes)
 

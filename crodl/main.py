@@ -1,12 +1,11 @@
 import sys
 import subprocess
-import importlib.metadata
 from pathlib import Path
 from typing import Optional
 import asyncclick as click
 from rich import print
 
-from crodl import CroDL
+from crodl import CroDL, __version__
 from crodl.library.database import init_db
 from crodl.library.scan import LibraryScan
 from crodl.library.service import LibraryService
@@ -22,8 +21,6 @@ FORMAT_OPTIONS = {
     "hls": AudioFormat.HLS,
     "dash": AudioFormat.DASH,
 }
-
-__version__ = importlib.metadata.version("cro-dl")
 
 
 def check_ffmpeg() -> bool:
@@ -206,6 +203,6 @@ async def download_logic(
 
 
 def run():
-    import asyncio
-
-    asyncio.run(main())
+    # asyncclick's Command runs the async callback in its own event loop;
+    # wrapping it in asyncio.run() only nested a second loop around it.
+    main()
