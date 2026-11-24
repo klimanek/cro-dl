@@ -18,6 +18,10 @@ jobs:
           declared=$(grep -o '__version__ = "[^"]*"' crodl/__init__.py | cut -d'"' -f2)
           echo "tag: $tag, declared: $declared"
           test "$tag" = "$declared"
+      - name: The changelog has a section for this tag
+        # The release description is that section (see the notes job); failing
+        # here keeps a wheel from reaching PyPI without release notes.
+        run: grep -q "^## \[${GITHUB_REF_NAME#v}\]" CHANGELOG.md
       - run: uv build --wheel
       - name: The wheel has to carry the pages and the player script
         # 2.0.0 shipped without them and died in StaticFiles for everyone who
@@ -54,6 +58,35 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+      - name: Take the release notes from CHANGELOG.md
+        # Our readers want to know what changed, not which commits were made:
+        # the release body is the changelog section for this tag.
+        run: |
+          python3 - "$GITHUB_REF_NAME" "$RUNNER_TEMP/notes.md" <<'PY'
+          import pathlib
+          import sys
+
+          tag, target = sys.argv[1], sys.argv[2]
+          version = tag.removeprefix("v")
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = f"## [{version}]"
+
+          start = text.find(heading)
+          if start < 0:
+              sys.exit(f"CHANGELOG.md has no {heading} section")
+
+          body = text[start + len(heading) :]
+          body = body.split("\n", 1)[1]  # drop the rest of the heading line
+          end = body.find("\n## [")
+          if end >= 0:
+              body = body[:end]
+
+          notes = body.strip()
+          if not notes:
+              sys.exit(f"The {heading} section is empty")
+
+          pathlib.Path(target).write_text(notes + "\n", encoding="utf-8")
+          PY
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file "$RUNNER_TEMP/notes.md"
         env:
           GH_TOKEN: ${{ github.token }}

@@ -69,5 +69,29 @@ class TestThePythonFloorIsTested(unittest.TestCase):
         self.assertIn(f"alespoň {floor}", readme)
 
 
+class TestTheReleaseNotes(unittest.TestCase):
+    """The release describes what changed, not which commits were made."""
+
+    def setUp(self):
+        self.workflow = yaml.safe_load(
+            (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        )
+
+    def runs(self, job: str) -> str:
+        return "\n".join(
+            step.get("run", "") for step in self.workflow["jobs"][job]["steps"]
+        )
+
+    def test_the_notes_come_from_the_changelog(self):
+        notes = self.runs("notes")
+
+        self.assertIn("CHANGELOG.md", notes)
+        self.assertIn("--notes-file", notes)
+        self.assertNotIn("--generate-notes", notes)
+
+    def test_the_section_is_checked_before_publishing(self):
+        self.assertIn("CHANGELOG.md", self.runs("build"))
+
+
 if __name__ == "__main__":
     unittest.main()
