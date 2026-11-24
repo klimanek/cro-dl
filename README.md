@@ -103,8 +103,8 @@ reloader walks the whole working directory.
 
 ## Contributing
 
-Development setup, the checks CI runs, the minimum Python and the release
-process (tag, version, PyPI) are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Development setup, the checks CI runs and the minimum Python are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 
 <hr />
@@ -226,6 +226,6 @@ stažení starší než knihovna se objeví jako jeden záznam se svými díly. 
 spustit s `cro-dl --reload server`; reload je ve výchozím stavu vypnutý, protože uvicorní
 reloader prochází celý pracovní adresář.
 
-## Vývoj a vydávání
+## Vývoj
 
 Nastavení vývoje i CI pipeline jsou v [CONTRIBUTING.md](CONTRIBUTING.md).

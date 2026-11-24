@@ -1,4 +1,4 @@
-# Contributing and releasing
+# Contributing
 
 ## Setting up
 
