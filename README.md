@@ -1,6 +1,10 @@
 # CRo-DL
 Listen to MůjRozhlas.cz programs offline.
 
+
+![cro-dl webapp](/assets/images/crodlweb.png)
+
+
 ## Overview
 CRo-DL is a Python-based tool that allows Czech Radio license payers to download and store radio programs locally for offline listening. It supports individual broadcasts, full series, and entire program schedules. Series are saved with episode numbers and user-friendly titles.
 
@@ -222,10 +226,6 @@ stažení starší než knihovna se objeví jako jeden záznam se svými díly. 
 spustit s `cro-dl --reload server`; reload je ve výchozím stavu vypnutý, protože uvicorní
 reloader prochází celý pracovní adresář.
 
-
-![cro-dl webapp](/assets/images/crodlweb.png)
-
 ## Vývoj a vydávání
 
-Nastavení vývoje, kontroly které pouští CI, minimální Python a postup vydání
-(tag, verze, PyPI) jsou v [CONTRIBUTING.md](CONTRIBUTING.md).
+Nastavení vývoje i CI pipeline jsou v [CONTRIBUTING.md](CONTRIBUTING.md).
