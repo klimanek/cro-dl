@@ -11,8 +11,6 @@
 - The library page no longer repeats how many works and parts it holds - the
   grid itself shows them.
 
-## [2.1.2] - 2026-11-24
-
 ### Fixed
 - An error while rendering a work's page printed the exception text - and with
   it local file paths - on the page. It is logged now, and the page says the
