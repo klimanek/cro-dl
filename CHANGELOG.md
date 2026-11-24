@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2] - 2026-11-24
+
+### Fixed
+- An error while rendering a work's page printed the exception text - and with
+  it local file paths - on the page. It is logged now, and the page says the
+  same generic message as the library page.
+
 ## [2.1.1] - 2026-11-24
 
 ### Fixed

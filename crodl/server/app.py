@@ -71,6 +71,9 @@ LOCAL_ORIGINS = [
 # Czech names of the kinds of work the library knows.
 TYPE_LABELS = {"show": "Pořad", "series": "Seriál", "orphans": "Bez metadat"}
 
+#: What a page says when something went wrong; the log holds the details.
+PAGE_ERROR = "Něco se pokazilo. Podrobnosti jsou v logu (Nastavení ukazuje kde)."
+
 # The cookie that remembers whether the edit controls are shown.
 EDIT_COOKIE = "edit"
 
@@ -292,10 +295,7 @@ async def index(request: Request):
         # The log keeps the whole story; a page does not print a stack trace (it
         # carries paths and frames, and the page is not the place for either).
         crologger.exception("The library page failed: %s", error)
-        return PlainTextResponse(
-            "Něco se pokazilo. Podrobnosti jsou v logu (Nastavení ukazuje kde).",
-            status_code=500,
-        )
+        return PlainTextResponse(PAGE_ERROR, status_code=500)
 
 
 @app.get("/detail/{ctype}/{content_id}", response_class=HTMLResponse)
@@ -322,8 +322,10 @@ async def detail(request: Request, ctype: str, content_id: str):
                 "genres": await library_service().genres(),
             },
         )
-    except Exception as e:
-        return PlainTextResponse(str(e), status_code=500)
+    except Exception as error:
+        # The exception may carry a path or a frame; the page gets neither.
+        crologger.exception("The work page failed: %s", error)
+        return PlainTextResponse(PAGE_ERROR, status_code=500)
 
 
 @app.get("/edit-mode")

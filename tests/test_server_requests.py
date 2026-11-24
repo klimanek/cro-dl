@@ -6,11 +6,18 @@ worth pinning down on their own.
 """
 
 import unittest
+from unittest import mock
 
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from crodl.server.app import edit_mode_on, form_fields, library_service, local_target
+from crodl.server.app import (
+    detail,
+    edit_mode_on,
+    form_fields,
+    library_service,
+    local_target,
+)
 from crodl.server.origin import check_same_origin
 
 
@@ -56,6 +63,29 @@ def request_with(
         return {"type": "http.request", "body": body, "more_body": False}
 
     return Request(scope, receive)
+
+
+class TestTheWorkPageOnError(unittest.IsolatedAsyncioTestCase):
+    """A broken work page must not print the exception (and its paths)."""
+
+    async def test_it_logs_the_error_and_shows_the_generic_message(self):
+        service = mock.Mock()
+        service.detail = mock.AsyncMock(
+            side_effect=OSError("/home/me/Z Rozhlasu/library.db")
+        )
+
+        with (
+            mock.patch("crodl.server.app.library_service", return_value=service),
+            mock.patch("crodl.server.app.crologger") as logger,
+        ):
+            response = await detail(mock.Mock(), "show", "missing")
+
+        body = response.body.decode("utf-8")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Něco se pokazilo", body)
+        self.assertNotIn("/home/me", body)
+        logger.exception.assert_called_once()
 
 
 class TestOneLibraryService(unittest.TestCase):
