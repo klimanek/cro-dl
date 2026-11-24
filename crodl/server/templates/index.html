@@ -15,9 +15,7 @@
         <div class="page-head-row">
             <h1>📻 Moje Rádio</h1>
             <div class="stats">
-                {% if collections %}
-                <span>{{ works }} děl, {{ parts_label(parts) }}</span>
-                {% endif %}
+                {% include "_update.html" %}
                 <a href="/downloads">Stahování</a>
                 {% include "_check.html" %}
                 <a href="/settings">⚙️ Nastavení</a>

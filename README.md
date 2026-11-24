@@ -101,6 +101,13 @@ so a download that predates the library shows up as a single entry with its part
 server for development? Use `cro-dl --reload server`; reload is off by default because uvicorn's
 reloader walks the whole working directory.
 
+## Version check
+
+cro-dl asks PyPI once a day whether a newer release exists and says so in the
+CLI and in the top bar of the web library. The installed version is in the
+notice's tooltip; `pip install --upgrade cro-dl` updates it. Without a network
+the check is skipped silently.
+
 ## Contributing
 
 Development setup, the checks CI runs and the minimum Python are in
@@ -225,6 +232,13 @@ Kromě procházení umí:
 stažení starší než knihovna se objeví jako jeden záznam se svými díly. Pro vývoj lze server
 spustit s `cro-dl --reload server`; reload je ve výchozím stavu vypnutý, protože uvicorní
 reloader prochází celý pracovní adresář.
+
+## Kontrola verze
+
+Cro-dl se jednou denně dotáže PyPI, zda nevyšla novější verze, a upozorní na
+ni v CLI i v horní liště webové knihovny. Nainstalovaná verze je v tooltipu;
+aktualizujete pomocí `pip install --upgrade cro-dl`. Bez připojení se kontrola
+tiše přeskočí.
 
 ## Vývoj
 

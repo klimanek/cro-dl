@@ -1,6 +1,7 @@
 <div class="top-bar">
     <a href="{{ back }}" class="back-link">{{ back_label }}</a>
     <div class="bar-items">
+        {% include "_update.html" %}
         {% include "_check.html" %}
         <a href="/settings" class="mode-link" title="Nastavení">⚙️ Nastavení</a>
         {% if edit_mode %}

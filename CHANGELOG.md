@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0] - 2026-11-24
+
+### Added
+- cro-dl checks PyPI once a day for a newer release and says so in the CLI and
+  in the top bar of the web library; the notice links to the release and shows
+  the installed version in its tooltip.
+
+### Changed
+- The library page no longer repeats how many works and parts it holds - the
+  grid itself shows them.
+
 ## [2.1.2] - 2026-11-24
 
 ### Fixed

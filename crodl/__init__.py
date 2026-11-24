@@ -1,3 +1,3 @@
 from .facade import CroDL as CroDL
 
-__version__ = "2.1.2"
+__version__ = "2.2.0"

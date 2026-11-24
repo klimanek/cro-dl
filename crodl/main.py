@@ -14,6 +14,7 @@ from crodl.program.series import Series
 from crodl.program.show import Show
 from crodl.settings import AudioFormat
 from crodl.streams.utils import HMS, file_size
+from crodl.tools import version_check
 
 
 FORMAT_OPTIONS = {
@@ -52,6 +53,23 @@ def print_audiowork_info(audio_work: AudioWork) -> None:
         )
 
     print(f"\n[blue]{audio_work.description}[/blue]\n")
+
+
+async def announce_update() -> None:
+    """Tells the user when PyPI has a newer cro-dl (checked at most daily)."""
+    info = await version_check.refresh()
+
+    if info is None:
+        return
+
+    print(
+        f"[yellow]Nová verze cro-dl {info.latest} je k dispozici "
+        f"(nainstalováno {info.current}).[/yellow]"
+    )
+    print(
+        "[yellow]Aktualizujte pomocí "
+        "[bold]pip install --upgrade cro-dl[/bold].[/yellow]"
+    )
 
 
 @click.command()
@@ -111,16 +129,20 @@ async def main(
         # `cro-dl <url>` as a command name, and that is the everyday use.
         from crodl.server.run import start
 
+        await announce_update()
         await start(reload=reload)
         return
 
     if sync:
+        await announce_update()
         await sync_library()
         return
 
     if not recording_url:
         print("[red]Chyba: zadejte URL pořadu, nebo použijte --sync.[/red]")
         sys.exit(1)
+
+    await announce_update()
 
     # Check for ffmpeg at startup
     if not check_ffmpeg():

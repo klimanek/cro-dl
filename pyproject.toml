@@ -34,6 +34,8 @@ dependencies = [
     # Windows has no system tz database: without this, ZoneInfo("Europe/Prague")
     # raises and every "not available yet" line dies there.
     "tzdata",
+    # The PyPI version check compares release versions with ours.
+    "packaging>=24.0",
 ]
 
 name = "cro-dl"

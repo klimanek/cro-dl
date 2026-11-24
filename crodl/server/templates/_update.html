@@ -1,0 +1,6 @@
+{# A newer cro-dl on PyPI, looked up once a day (see crodl/tools/version_check.py). #}
+{% if new_version %}
+<a class="update-link" href="https://pypi.org/project/cro-dl/{{ new_version.latest }}/"
+   target="_blank" rel="noopener"
+   title="Nainstalováno {{ new_version.current }}, na PyPI {{ new_version.latest }}">⬆ Nová verze {{ new_version.latest }}</a>
+{% endif %}

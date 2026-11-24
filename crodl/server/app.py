@@ -57,6 +57,7 @@ from crodl.settings import (
     UPDATE_CHECK_HOURS,
 )
 from crodl.streams.utils import title_without_part
+from crodl.tools import version_check
 from crodl.tools.logger import crologger
 
 # The addresses the server itself runs on: the only origins that may talk to it.
@@ -108,6 +109,7 @@ def template_helpers(request: Request) -> dict[str, Any]:
         "missing_roots": [str(path) for path in roots.missing()],
         "edit_mode": edit_mode_on(request),
         "check": checker.state,
+        "new_version": version_check.known(),
     }
 
 
@@ -172,11 +174,13 @@ async def lifespan(app: FastAPI):
     # added by hand), so the pages know what may be served.
     await library_service().load_roots()
     watcher = asyncio.create_task(watch_for_new_parts())
+    updater = asyncio.create_task(version_check.watch())
 
     try:
         yield
     finally:
         watcher.cancel()
+        updater.cancel()
 
 
 app = FastAPI(
@@ -284,8 +288,6 @@ async def index(request: Request):
             name="index.html",
             context={
                 "collections": collections,
-                "works": len(collections),
-                "parts": sum(item.count for item in collections),
                 "deleted": int(deleted) if deleted.isdigit() else 0,
                 "genres": genres,
                 "active_genre": wanted,
